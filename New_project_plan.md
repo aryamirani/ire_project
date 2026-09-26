@@ -31,7 +31,7 @@ Key papers to reference:
 
 ```
                     ┌──────────────────────────────────────┐
-                    │  NQ corpus (~200k) + poisoned passages│
+                    │  NQ corpus (~2.7M) + poisoned passages│
                     │  (every passage has a trust tier)     │
                     └──────────────────┬───────────────────┘
                                        │
@@ -76,8 +76,9 @@ Key papers to reference:
 * **Why NQ:** real user questions, labels for which passages are relevant (for nDCG), and short gold answers (for RAGAS answer correctness and ASR). It is the corpus PoisonedRAG attacks, so our baseline attack numbers can be compared with theirs as a sanity check.
 * **Where from:** Hugging Face `BeIR/nq` + `BeIR/nq-qrels`, or `nq.zip` from the BEIR server.
 * **Questions:** **~200 target questions** (attacked) and **~200 clean questions** (never attacked; used to check that filters don't hurt normal queries). Start from PoisonedRAG's 100 NQ target questions (correct answer + attacker's wrong answer), and add more with gold answers from `google-research-datasets/nq_open`, matched by question text and spot-checked.
-* **Corpus size:** the full corpus has ~2.7M passages, which is too slow to index with dense and SPLADE models on our hardware. We keep **every passage relevant to our questions + a random sample of the rest, ~200k passages total**, with a fixed seed. This keeps retrieval hard while making indexing feasible; we report it as a limitation.
-* **Why not MS MARCO or MIND:** MS MARCO (8.8M passages) is too big and doesn't come with PoisonedRAG's ready-made targets. MIND is a news-recommendation dataset with no search queries, no search relevance labels and no question–answer pairs.
+* **Corpus size:** final experiments use the **full corpus (~2.7M passages)**, indexed on the **Ada** cluster. This makes our clean nDCG and attack numbers directly comparable to the published BEIR and PoisonedRAG results, and poisoned passages have to beat the whole corpus, as they would in a real system.
+* **Development sample:** for writing and debugging code we use a small sample (every passage relevant to our questions + a random sample of the rest, ~200k passages, fixed seed). No reported numbers come from the sample.
+* **Why not MS MARCO or MIND:** MS MARCO (8.8M passages) is over 3× larger and our other choices don't need it; NQ already has PoisonedRAG's ready-made targets. MIND is a news-recommendation dataset with no search queries, no search relevance labels and no question–answer pairs.
 
 ### Attacks
 For each target question, we generate passages written to rank highly for that question (e.g. starting with the question text), carrying one of these payloads:
@@ -99,7 +100,7 @@ For each target question, we generate passages written to rank highly for that q
 * Vector storage: FAISS. NQ is already split into passages, so no chunking is needed.
 
 ### Generator
-A single fixed open instruction model around 7–8B (Llama or Qwen instruct), via Ollama or vLLM / HF on Colab. Temperature 0, one fixed prompt template, top-5 passages as context. Keeping it fixed means differences come only from retrieval and filtering.
+A single fixed open instruction model around 7–8B (Llama or Qwen instruct), served with vLLM on Ada GPUs. Temperature 0, one fixed prompt template, top-5 passages as context. Keeping it fixed means differences come only from retrieval and filtering.
 
 ### Metrics
 * **Retrieval quality:** nDCG@5 (what the LLM actually sees), nDCG@10, Recall@k.
@@ -191,7 +192,7 @@ Agreed in Week 0 so the three of us can work in parallel.
   * Caches top-50 for every configuration; latency and memory benchmarks.
   * Implements **Filter 1 (provenance-weighted scoring)**.
 * **Person 2: Data, poisoning, generation & outlier filter**
-  * Downloads NQ, builds the ~200k corpus and question sets, assigns trust tiers.
+  * Downloads NQ, builds the question sets and the ~200k development sample, assigns trust tiers.
   * Poisoning scripts for each attack type and poisoning rate.
   * Generation harness (fixed model, prompt, caching).
   * Implements **Filter 2 (outlier / anomaly filtering)**.
@@ -205,12 +206,12 @@ Agreed in Week 0 so the three of us can work in parallel.
 
 ## 8. Timeline (26 Sep – 1 Nov 2026)
 
-**Scope to fit 5 weeks:** ~200 + ~200 questions, ~200k passages, top-5 to the LLM, two main attack types (malicious URL optional), no second corpus unless we are ahead after 18 Oct. The three roles work **in parallel from day one**, using small dummy inputs until the real ones are ready.
+**Scope to fit 5 weeks:** ~200 + ~200 questions, full corpus (sample only for development), top-5 to the LLM, two main attack types (malicious URL optional), no second corpus unless we are ahead after 18 Oct. The three roles work **in parallel from day one**, using small dummy inputs until the real ones are ready.
 
 | Week | Dates | Focus | Milestone |
 |---|---|---|---|
 | 0 | Sat 26 – Sun 27 Sep | Setup + downloads | Repo layout, environment, data downloaded, JSON formats agreed |
-| 1 | 28 Sep – 4 Oct | Data, retrievers, poisoning | ~200k corpus; 4 retrievers with clean nDCG; poisoned passages |
+| 1 | 28 Sep – 4 Oct | Data, retrievers, poisoning | Full-corpus indexes on Ada; 4 retrievers with clean nDCG; poisoned passages |
 | 2 | 5 – 11 Oct | End-to-end + baseline | **Checkpoint Wed 8 Oct:** full pipeline on 20 questions. Baseline done by Sun |
 | 3 | 12 – 18 Oct | Filters + labelling | Both filters working; 150 answers double-labelled |
 | 4 | 19 – 25 Oct | Sweeps, calibration, plots | **Results frozen Sun 25 Oct** |
@@ -218,23 +219,24 @@ Agreed in Week 0 so the three of us can work in parallel.
 | Buffer | 2 – 5 Nov | Fixes only | Submit before 6 Nov |
 
 ### Week 0 (Sat 26 – Sun 27 Sep): Setup
-- [ ] **All:** agree on Python version and `requirements.txt`; shared Google Drive for data, indexes, embeddings (gitignored); fix the random seed (42).
+- [ ] **All:** agree on Python version and `requirements.txt`; fix the random seed (42).
+- [ ] **All:** check everyone has an **Ada** account; set up a shared environment (conda) there; decide where data, embeddings and indexes live (~20–30 GB; check home vs. scratch quotas and whether scratch is wiped after jobs). These stay out of git.
 - [ ] **All:** agree on the JSON records in Section 6 and the repo layout in Section 9.
 - [ ] **All:** create `AI_USAGE.txt` and add to it as you go.
 - [ ] **P2:** download BEIR NQ; clone PoisonedRAG and locate its NQ targets.
 
 ### Week 1 (28 Sep – 4 Oct): Data, Retrievers, Poisoning
-- [ ] **P2 (by Tue 29 Sep):** choose target + clean questions; gold answers (spot-check 20); build the ~200k corpus and share the passage ID list.
+- [ ] **P2 (by Tue 29 Sep):** choose target + clean questions; gold answers (spot-check 20); build the ~200k development sample and share the passage ID list.
 - [ ] **P2 (Wed–Sun):** poison generators (fact distortion, instruction hijack), 5 per target question; trust tiers per Section 4.
-- [ ] **P1:** BM25, dense, SPLADE, RRF. Develop on a 10k sample Mon–Tue, switch to the real corpus Wed. Encode dense embeddings once on Colab and save to Drive.
+- [ ] **P1:** BM25, dense, SPLADE, RRF. Develop on the sample Mon–Tue. **From Wed, submit full-corpus indexing jobs on Ada** (BM25: minutes on CPU; dense `-base`: ~1–2 GPU-hours; SPLADE: ~2–3 GPU-hours). Encode in chunks that save progress, so a time limit or failure doesn't lose work. Encode once and share the indexes with the team.
 - [ ] **P3:** nDCG@5/@10, Recall@k, poison-in-top-k; RAGAS set up and tested on dummy answers.
-- [ ] **Milestone:** clean nDCG@10 for all 4 retrievers. Sanity check: BM25 near the published BEIR NQ number (~0.3), dense higher.
+- [ ] **Milestone:** clean nDCG@10 for all 4 retrievers on the full corpus. Sanity check: BM25 near the published BEIR NQ number (~0.3), dense higher.
 
 ### Week 2 (5 – 11 Oct): End-to-End + Baseline
 - [ ] **P1:** add poisoned passages to all indexes; cache top-50 for every question × retriever × rate × attack; record latency and memory.
 - [ ] **P2:** fix the generator model and prompt; generation script with caching.
 - [ ] **P3:** ASR (string match for fact distortion / URL, judge for hijack); RAGAS wired in; start the labelling guide.
-- [ ] **Checkpoint Wed 8 Oct:** one command runs retrieve → generate → evaluate on 20 target questions for all 4 retrievers.
+- [ ] **Checkpoint Wed 8 Oct:** one command runs retrieve → generate → evaluate on 20 target questions for all 4 retrievers, on the full corpus.
 - [ ] **All (Thu–Sun):** full baseline, no filters: 4 retrievers × 3 rates × 2 attacks × (target + clean). Read 10–20 outputs by hand to confirm the metrics make sense.
 
 ### Week 3 (12 – 18 Oct): Filters + Labelling
@@ -254,7 +256,7 @@ Agreed in Week 0 so the three of us can work in parallel.
 - [ ] **Freeze results Sun 25 Oct.** No new experiments after this.
 
 ### Week 5 (26 Oct – 1 Nov): Write-Up
-- [ ] **Report (Mon–Thu, split by section; one person edits Fri):** introduction, related work, setup, filters, calibration, results, discussion and limitations (subsampled corpus, simulated trust tiers, one generator, one corpus, centroid-distance breakdown).
+- [ ] **Report (Mon–Thu, split by section; one person edits Fri):** introduction, related work, setup, filters, calibration, results, discussion and limitations (simulated trust tiers, one generator, one corpus, centroid-distance breakdown).
 - [ ] **Repo:** README with setup and how to reproduce each figure; remove dead code; finalise `AI_USAGE.txt`.
 - [ ] **Slides (Fri–Sat, if required):** ~10 slides using the architecture diagram and the trade-off curves.
 - [ ] **Done Sun 1 Nov.**
@@ -270,7 +272,7 @@ Fixes only. Submit before 6 Nov.
 data/            # gitignored: raw + processed datasets
 indexes/         # gitignored: BM25 / FAISS / SPLADE indexes
 src/
-  data/          # download, subsample, trust tiers, poison
+  data/          # download, dev sample, trust tiers, poison
   retrieval/     # bm25, dense, splade, rrf
   generation/    # LLM prompting
   defenses/      # provenance, outlier
@@ -288,8 +290,8 @@ submissions/     # submitted documents
 
 | Risk | Mitigation |
 |---|---|
-| Dense/SPLADE indexing too slow | Use `-base` models; shrink the corpus to ~150k; encode once and save to Drive. |
-| Colab session limits / disconnects | Save progress in chunks; cache embeddings, top-50 lists and generations. |
+| Full-corpus indexing slow or queued on Ada | Submit indexing jobs early (Wed of Week 1); split encoding across GPUs; keep developing on the sample meanwhile. Fall back to the ~200k sample only if Ada is unavailable, and report it. |
+| Ada job time limits / failures / storage quotas | Save progress in chunks; cache embeddings, top-50 lists and generations; check quotas in Week 0. |
 | Generation too slow for sweeps | Cached top-50 means only generation re-runs; reduce settings or questions. |
 | Attacks barely succeed (low ASR) | Follow PoisonedRAG's recipe, known to work on NQ; raise the poisoning rate. |
 | Provenance filter trivially perfect | Realistic trust setup in Section 4. |
@@ -301,4 +303,4 @@ submissions/     # submitted documents
 
 ## 11. Resources & Feasibility
 
-We have all the skills and hardware we need. We only use pretrained retrievers and a fixed LLM, and both filters are lightweight re-ranking and filtering steps with no training, so everything runs on local hardware (like an M1 Mac) or on free Colab instances. To keep costs down, we subsample the corpus, evaluate on ~400 questions, and cache the top-50 so that filter sweeps don't re-run search.
+We have all the skills and hardware we need. We only use pretrained retrievers and a fixed LLM, and both filters are lightweight re-ranking and filtering steps with no training, and the heavy steps run on IIIT's **Ada** GPU cluster. Full-corpus indexing is a one-time cost of roughly half a day of GPU time. LLM generation (served with vLLM on Ada) is the main cost and doesn't depend on corpus size. To keep it manageable, we evaluate on ~400 questions and cache the top-50 so that filter sweeps don't re-run search. Code is developed locally on a small sample before running on Ada.
