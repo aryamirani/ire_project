@@ -355,9 +355,10 @@ Agreed in Week 0 so the three of us can work in parallel.
 ### Week 0 (Sat 26 – Sun 27 Sep): Setup
 - [ ] **All:** agree on Python version and `requirements.txt`; fix the random seed (42).
 - [ ] **All:** check everyone has an **Ada** account; one shared conda environment; find out which GPUs are available and how much storage each of us has (see Section 10).
-- [ ] **All:** agree on the JSON records in Section 7 and the repo layout in Section 11.
+- [ ] **All:** agree on the JSON records in Section 7 and the repo layout in Section 12.
 - [ ] **All:** create `AI_USAGE.txt` and add to it as you go.
-- [ ] **P2:** download BEIR NQ; clone PoisonedRAG and locate its NQ targets.
+- [ ] **All:** install Git LFS and set up tracking (Section 11); check the account's LFS storage and download quota.
+- [ ] **P2:** download BEIR NQ with a script that records the source and checksums; clone PoisonedRAG and locate its NQ targets.
 
 ### Week 1 (28 Sep – 4 Oct): Data, Retrievers, Poisoning
 - [ ] **P2 (by Tue 29 Sep):** choose target + clean questions; gold answers (spot-check 20); build the ~200k development sample and share the passage ID list.
@@ -434,11 +435,54 @@ A 7–8B unquantised model adds another ~8 GB, so it only makes sense with the f
 
 ---
 
-## 11. Repo Layout
+## 11. Shared Data in the Repo (Git LFS)
+
+This is a 3-person project, so **everyone must work from exactly the same data**. The datasets and all data we generate are **pushed to this GitHub repo with Git LFS**, so any of us can clone the repo and get the identical, correct files. Nobody works from a private copy on their own laptop or Ada folder.
+
+**Setup (once per person, Week 0):**
+```bash
+git lfs install
+git lfs track "data/**" "results/**/*.jsonl" "labels/**" "*.parquet" "*.npy"
+git add .gitattributes
+```
+Then `git clone` / `git pull` downloads the LFS files automatically. Use `git lfs pull` if a file shows up as a small text pointer.
+
+**What goes into the repo via LFS:**
+
+| File(s) | Why | Approx. size |
+|---|---|---|
+| Question sets (target + clean) with gold answers and attacker target answers | Everyone evaluates the same questions | < 1 MB |
+| Passage ID lists: development sample, and the ~500k fallback corpus if used | Defines the exact corpus; everyone indexes the same passages | ~5–30 MB |
+| Development sample text (~200k passages) | Lets everyone develop without downloading the full corpus | ~120 MB |
+| All poisoned passages (`passages` records incl. attack, target string) | The attacks must be identical for everyone | ~2 MB |
+| Trust tiers for every passage | Provenance results depend on them | ~30 MB |
+| Injection-phrase list, hijack templates | Filter 2 and attacks must match | < 1 MB |
+| Cached top-150 retrieval lists | Filters and sweeps run on the same candidates without re-running search | ~10–20 MB |
+| Generation cache, `eval.jsonl` results | Everyone plots from the same results | ~10–100 MB |
+| Human labels (calibration) | Calibration must use the final agreed labels | < 1 MB |
+
+**What doesn't fit in LFS, and how we keep it identical anyway:**
+* **Full raw NQ corpus (~2 GB)** and the **indexes and dense embeddings (~10–20 GB, single files of several GB)** are too large for GitHub LFS: storage and download quotas are limited (check the current quota for the account), GitHub rejects individual LFS files over 2 GB, and every clone by each of us counts against the download quota.
+* For these, the repo contains instead:
+  * a **download script** with the exact source (Hugging Face dataset name and revision, or the BEIR zip URL),
+  * **SHA-256 checksums** of the raw files, checked by the script after download,
+  * **build scripts** for every index, with fixed model names, seeds and settings,
+  * the location of the **one shared copy on Ada** that everyone reads from.
+* Anyone can therefore rebuild them byte-for-byte, or just use the shared Ada copy.
+
+**Rules:**
+* Data files are only changed by their owner (e.g. P2 for question sets, poison and trust tiers), in a commit that says what changed. Everyone pulls before running experiments.
+* Once results are frozen (Sun 25 Oct), the data in the repo is the version used for the report.
+* NQ is released under CC BY-SA 3.0; the README credits NQ, BEIR and PoisonedRAG as the data sources.
+
+---
+
+## 12. Repo Layout
 
 ```
-data/            # gitignored: raw + processed datasets
-indexes/         # gitignored: BM25 / FAISS / SPLADE indexes, dense embeddings
+data/            # Git LFS: question sets, passage ID lists, dev sample, poison, trust tiers
+  raw/           # gitignored: full NQ download (rebuilt by script, checked by checksum)
+indexes/         # gitignored: BM25 / FAISS / SPLADE indexes, dense embeddings (build scripts in src/, shared copy on Ada)
 src/
   data/          # download, samples, trust tiers, poison
   retrieval/     # bm25, dense, splade, rrf, get_doc_vector
@@ -446,15 +490,15 @@ src/
   defenses/      # provenance, outlier, cascade
   eval/          # metrics, judge, calibration
 configs/         # experiment configs
-results/         # small result files (CSV/JSON), committed
+results/         # Git LFS: top-150 caches, generation cache, eval results
 notebooks/       # exploration and plots
-labels/          # human labels for judge calibration
+labels/          # Git LFS: human labels for judge calibration
 submissions/     # submitted documents
 ```
 
 ---
 
-## 12. Risks & Mitigations
+## 13. Risks & Mitigations
 
 | Risk | Mitigation |
 |---|---|
@@ -467,6 +511,8 @@ submissions/     # submitted documents
 | Filter 2 looks perfect on hijack only because we wrote both the attack and the phrase list | Fix the phrase list before writing attacks; 10+ phrasings; report with and without the phrase rule. |
 | Generator prompt acts as a hidden defence | Neutral prompt with no safety instructions (Section 3). |
 | Masking changes ranks, esp. for RRF | Re-rank after masking; fuse RRF only after masking each component list (Section 3). |
+| Team members end up with different data | All shared data pushed to the repo with Git LFS; large files rebuilt from scripts with checksums (Section 11). |
+| Git LFS quota exceeded | Only small/medium files in LFS; raw corpus, indexes and embeddings stay out and are rebuilt from scripts or read from the shared Ada copy. |
 | Fallback corpus makes search too easy | Keep gold passages + hard negatives, not a purely random sample. |
 | Provenance filter trivially perfect | Realistic trust setup in Section 4. |
 | Inflated BM25/SPLADE scores distort Filter 1 | Rank-based normalisation. |
@@ -476,6 +522,6 @@ submissions/     # submitted documents
 
 ---
 
-## 13. Resources & Feasibility
+## 14. Resources & Feasibility
 
 We have all the skills and hardware we need. We only use pretrained retrievers and a fixed LLM, and the filters are lightweight re-ranking and filtering steps with no training. The heavy steps (indexing and generation) run on IIIT's **Ada** GPU cluster with a simple setup: the full corpus if it fits, otherwise ~500k passages, and a ~3–4B generator unless a larger one runs directly. Indexing is a one-time cost. LLM generation is the main cost, kept manageable by the tiered sweeps, the generation cache and cheap string-match metrics. Code is developed locally on a small sample before running on Ada.

@@ -1,0 +1,13 @@
+# Large files rebuilt from scripts (see New_project_plan.md, Section 11)
+data/raw/
+indexes/
+
+# Python / environments
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
