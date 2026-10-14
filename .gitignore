@@ -1,0 +1,61 @@
+# Secrets and local config
+.env
+.env.*
+!.env.example
+
+# Big data and model files (live in IRE_DATA_DIR, not in git)
+data/
+ire_data_dir/
+indexes/
+caches/
+vectors/
+hf_cache/
+*.faiss
+*.npy
+*.npz
+*.safetensors
+*.bin
+*.pt
+*.gguf
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs and run outputs
+logs/
+*.log
+wandb/
+outputs/
+runs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environments
+.venv/
+venv/
+env/
+.conda/
+
+# Notebooks and editors
+.ipynb_checkpoints/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# LaTeX build files (keep the .tex and final PDF only)
+*.aux
+*.toc
+*.out
+*.synctex.gz
