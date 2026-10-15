@@ -1,0 +1,27 @@
+# Local profile (Samarth's machine: Windows, RTX 3050 6 GB, 16 GB RAM).
+# Selected with IRE_ENV=local. Local numbers are for correctness only, never for results.
+# Every report produced under this profile is labelled env=local.
+name: local
+
+seed: 13
+
+corpus:
+  mode: subset             # local always uses a tiny subset
+  n_passages: 5000         # all gold passages of the dev questions + random others (seed 13)
+n_dev_questions: 100
+
+models:
+  dense: intfloat/e5-small-v2                       # small stand-in from the E5 family
+  splade: naver/splade-cocondenser-ensembledistil
+  llm: Qwen/Qwen2.5-1.5B-Instruct                   # stand-in behind the same generate() interface
+  perplexity: openai-community/gpt2                 # GPT-2 small
+
+bm25:
+  library: bm25s           # no Java needed
+
+compute:
+  device: cuda             # falls back to cpu if CUDA is unavailable
+  fp16: true
+  encode_batch_size: 64
+  generate_batch_size: 4
+  dense_index: flat        # FAISS IndexFlatIP on the tiny corpus

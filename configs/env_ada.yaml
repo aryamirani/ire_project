@@ -1,0 +1,29 @@
+# Ada profile (run by Arya and Vansh). Selected with IRE_ENV=ada.
+# Real models and the full or ~500k corpus, as in docs/IRE_Final_Project_Plan.pdf.
+name: ada
+
+seed: 13
+
+corpus:
+  mode: full               # full (~2.7M BEIR NQ) | subset (~500k: all gold + hard negatives); decided after the pilot
+  n_passages: null         # null = all passages for mode=full
+dev_subset:                # the larger "dev subset" used on Ada (IMPLEMENTATION_PLAN.md section 0)
+  n_questions: 1000
+  n_passages: 50000
+n_dev_questions: 1000
+
+models:
+  dense: intfloat/e5-base-v2                        # E5 family; confirm before job A3
+  splade: naver/splade-cocondenser-ensembledistil
+  llm: Qwen/Qwen2.5-3B-Instruct                     # fixed 3-4B instruct model; confirm before job A7
+  perplexity: openai-community/gpt2                 # GPT-2 small
+
+bm25:
+  library: bm25s
+
+compute:
+  device: cuda
+  fp16: true
+  encode_batch_size: 512
+  generate_batch_size: 32
+  dense_index: hnsw        # HNSW or IVF-flat on the full corpus; parameters set in step 4

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ire"
+version = "0.1.0"
+description = "Measuring RAG Safety Against Bad Data (IRE course project) -- retrieval, generation and filters"
+requires-python = ">=3.11"
+# Dependencies are pinned in requirements.txt (torch needs a CUDA-specific index URL).
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"

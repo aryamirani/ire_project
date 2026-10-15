@@ -19,6 +19,37 @@ Claude Code appends a section below for every job as its step is finished. Check
 ## Job list
 (Claude Code: add one block per job using the request template in IMPLEMENTATION_PLAN.md section 5. Keep the table in sync with HANDOFF.md.)
 
+| Job | Script | Status | Owner |
+|---|---|---|---|
+| A0 setup | `ada/setup_env.sh` | REQUESTED | whoever starts first (Arya or Vansh) |
+
+### A0 setup
+```
+ADA REQUEST A0
+Owner: whoever starts first (Arya or Vansh)          Needs: nothing
+Run:   git pull && bash ada/setup_env.sh                    (on the LOGIN node: it needs internet)
+       then, inside a GPU session:  bash ada/setup_env.sh --check-only
+Time:  10-30 min (estimate)      Disk: ~15 GB under $IRE_DATA_DIR (estimate: environment ~6 GB + models ~8 GB)
+Success looks like: the check_env output ends with a RESULT line saying OK and lists a GPU, and the script prints "SUMMARY A0: OK".
+Send back: $IRE_DATA_DIR/reports/A0.json (paste it in the team chat or commit it to reports/)
+If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A0_setup.log and the report file if one exists.
+```
+Details for a non-expert:
+1. Before the first run: `cp .env.example .env`, then edit `.env`: `IRE_ENV=ada`, `IRE_DATA_DIR=<your big folder>`,
+   `HF_HOME=<your big folder>/hf_cache`. `HF_TOKEN` can stay empty (the models are not gated); a token only avoids rate limits.
+   Never commit `.env`.
+2. If the script stops with "need conda or python3.13", load a module first (e.g. `module load conda`) and run it again.
+3. What it does: creates the environment at `$IRE_DATA_DIR/envs/ire` (conda if available, else a `python3.13` venv);
+   installs torch 2.6.0 (CUDA 12.4 build) and the pinned `requirements.txt`; downloads the models listed in
+   `configs/env_ada.yaml` (`intfloat/e5-base-v2`, `naver/splade-cocondenser-ensembledistil`, `Qwen/Qwen2.5-3B-Instruct`,
+   `openai-community/gpt2`) into `HF_HOME`; runs `python scripts/check_env.py --report A0`.
+4. The login node has no GPU, so the first run's report shows "GPU: NONE AVAILABLE". That is expected. Run the
+   `--check-only` command inside a GPU session (srun/sbatch, settings at the top of `ada/common.sh`) to get the report
+   with the GPU, and send that one.
+5. It is safe to run again: the environment is reused and downloads resume.
+6. Please also fill in the SLURM values at the top of `ada/common.sh` (partition, account, time) and commit them,
+   so later jobs can use them.
+
 ## Division of labour (suggested; adjust freely)
 - Arya: data (A1), BM25 (A2), poison ingestion (A6). She already owns the poison shards.
 - Vansh: dense (A3), SPLADE (A4), caches (A5), LLM benchmark (A7), perplexity scores (A8). He already runs the sweeps and needs these outputs.

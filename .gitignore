@@ -59,3 +59,15 @@ Thumbs.db
 *.toc
 *.out
 *.synctex.gz
+
+# Added in step 0: more large/derived artefacts (all live under IRE_DATA_DIR) and local tool state
+models/
+envs/
+*.memmap
+*.mmap
+*.pkl
+*.json.tmp
+.claude/settings.local.json
+# The patterns data/ and vectors/ above are for big-data folders; keep the source packages tracked
+!src/ire/data/
+!src/ire/vectors/
