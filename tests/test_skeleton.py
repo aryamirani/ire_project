@@ -17,7 +17,7 @@ def test_package_imports() -> None:
 def test_env_profiles_load(name: str) -> None:
     profile = load_env_profile(name)
     assert profile["name"] == name
-    assert profile["seed"] == 13
+    assert "seed" not in profile  # single source: configs/experiment.yaml
     assert set(profile["models"]) == {"dense", "splade", "llm", "perplexity"}
     assert profile["models"]["dense"].startswith("intfloat/e5-")
 

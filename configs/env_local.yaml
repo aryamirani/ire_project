@@ -2,8 +2,7 @@
 # Selected with IRE_ENV=local. Local numbers are for correctness only, never for results.
 # Every report produced under this profile is labelled env=local.
 name: local
-
-seed: 13
+# seed and other shared settings: configs/experiment.yaml. This file holds only what differs per machine.
 
 corpus:
   mode: subset             # local always uses a tiny subset

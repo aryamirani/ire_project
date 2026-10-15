@@ -12,7 +12,8 @@ Samarth has NO Ada access. You work on his machine with the **local profile** (`
 ## Rules
 - Work on ONE step of IMPLEMENTATION_PLAN.md at a time, in order. Start the next step when the previous one is DONE-LOCAL. Do not wait for Ada.
 - You may set a step to DONE-LOCAL (tests + local checks pass). Only mark it DONE after a returned Ada report passes `scripts/check_ada_report.py`. Never invent or estimate Ada results.
-- After each step: run that step's "Verify" checks, fix failures, then update HANDOFF.md (status, what was built, files, how to run, check results, open issues). Then commit with the message `step N: <title>`.
+- After each step: run that step's "Verify" checks, fix failures, then update HANDOFF.md (status, what was built, files, how to run, check results, open issues). Do not commit; leave changes uncommitted and tell the user which files changed and a suggested commit message.
+- Never run `git add`, `git commit`, `git push`, `git commit --amend` or any command that changes git history or the index; the user commits and pushes. Read-only git commands (`git status`, `git diff`, `git log`) are fine. Never add Co-Authored-By lines or any Claude/Anthropic attribution anywhere in the repo.
 - If a verify check fails and you cannot fix it in a reasonable attempt, mark the step BLOCKED in HANDOFF.md with the exact error and stop. Do not mark a step DONE on a failed or skipped check, and never fake output or numbers.
 - My lane only: indexes, retrievers, top-150 cache, `get_doc_vector`, generation harness + cache, cluster filter, perplexity filter + score cache, held-out phrasings tool. Do NOT implement poisoning, query-and-phrase filter, candidate_pool masking, metrics, controls or stats (Arya and Vansh own them). Where you need them, use the stubs/contracts in IMPLEMENTATION_PLAN.md section 2.
 - Never change the data formats in section 2 without recording it in HANDOFF.md under "Interface changes".

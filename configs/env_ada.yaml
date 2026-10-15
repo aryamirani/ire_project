@@ -1,8 +1,7 @@
 # Ada profile (run by Arya and Vansh). Selected with IRE_ENV=ada.
 # Real models and the full or ~500k corpus, as in docs/IRE_Final_Project_Plan.pdf.
 name: ada
-
-seed: 13
+# seed and other shared settings: configs/experiment.yaml. This file holds only what differs per machine.
 
 corpus:
   mode: full               # full (~2.7M BEIR NQ) | subset (~500k: all gold + hard negatives); decided after the pilot

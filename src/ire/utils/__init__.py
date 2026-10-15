@@ -1,1 +1,1 @@
-"""Shared helpers (logging is added in Step 1)."""
+"""Shared helpers: logging (`ire.utils.log`)."""

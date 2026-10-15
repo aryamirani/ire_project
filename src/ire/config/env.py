@@ -1,7 +1,7 @@
-"""Environment selection: reads `.env`, picks the `IRE_ENV` profile, resolves `IRE_DATA_DIR`.
+"""Environment selection: loads `.env` on import, picks the `IRE_ENV` profile, resolves `IRE_DATA_DIR`.
 
-This is the minimal loader needed by Step 0. Step 1 adds `configs/paths.yaml` and
-`configs/experiment.yaml` on top of it.
+The full merged configuration (with `configs/paths.yaml` and `configs/experiment.yaml`)
+is built by `ire.config.loader.load_config`.
 """
 
 from __future__ import annotations
@@ -54,10 +54,10 @@ def get_data_dir() -> Path:
     return path
 
 
-def load_env_profile(name: str | None = None) -> dict[str, Any]:
-    """Load `configs/env_<name>.yaml` (default: the active `IRE_ENV`) as a dict."""
+def load_env_profile(name: str | None = None, config_dir: Path | None = None) -> dict[str, Any]:
+    """Load `<config_dir>/env_<name>.yaml` (defaults: the active `IRE_ENV`, `configs/`) as a dict."""
     name = name or get_env_name()
-    path = CONFIG_DIR / f"env_{name}.yaml"
+    path = (config_dir or CONFIG_DIR) / f"env_{name}.yaml"
     if not path.is_file():
         raise FileNotFoundError(f"Missing environment profile: {path}")
     with path.open("r", encoding="utf-8") as fh:
@@ -65,3 +65,8 @@ def load_env_profile(name: str | None = None) -> dict[str, Any]:
     if profile.get("name") != name:
         raise ValueError(f"{path} has name={profile.get('name')!r}, expected {name!r}")
     return profile
+
+
+# Load .env as soon as ire.config is imported, so IRE_ENV / IRE_DATA_DIR / HF_HOME are set without
+# exporting them by hand (PowerShell included) and before any Hugging Face library reads HF_HOME.
+load_dotenv_file()

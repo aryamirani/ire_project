@@ -11,7 +11,7 @@ For every step:
 4. If a check fails: fix and re-run. If stuck after a reasonable attempt: mark BLOCKED with the exact error and stop.
 5. Add or update a test in `tests/` for the step (pytest). `pytest -q` must pass before marking DONE.
 6. Set the step to DONE-LOCAL (never DONE; see section 0.5), raise the Ada request if the step has one (section 5), and update `HANDOFF.md`: status board row, "What teammates can use right now", step log, open issues.
-7. `git add -A && git commit -m "step N: <title>"`. Then start the next step.
+7. Do not commit; leave changes uncommitted and tell the user which files changed and a suggested commit message (`step N: <title>`). The user commits and pushes. Then start the next step.
 
 Rules: no fake data in verify checks (small real subsets are fine; label them as subsets). Develop and test on the **local profile** (section 0.5) first. The 'dev subset' mentioned in step texts means the local profile on Samarth's machine, and a larger sample (1,000 questions + 50,000 passages) on Ada. Anything large is an **[ADA]** job run by a teammate (section 5), never run locally.
 
