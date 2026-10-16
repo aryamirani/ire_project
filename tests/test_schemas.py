@@ -10,6 +10,7 @@ from ire.schemas import (
     FilterContext,
     FilterResult,
     PoisonRecord,
+    QuestionAllRecord,
     QuestionRecord,
     RetrievalCacheRecord,
     SchemaError,
@@ -30,6 +31,8 @@ VALID = {
                      "gold_doc_ids": ["doc0"], "role": "target", "fold": "A"},
     RetrievalCacheRecord: {"qid": "q123", "retriever": "dense",
                            "top150": [["doc0", 0.83], ["poison_q123_fact_1", 0.81], ["doc7", 0.5]]},
+    QuestionAllRecord: {"qid": "test0", "question": "who wrote hamlet", "answers": ["William Shakespeare"],
+                        "gold_doc_ids": ["doc0", "doc1"]},
 }
 
 # A value of the wrong type for every field (bool vs int/float is deliberately strict).
@@ -40,6 +43,7 @@ WRONG_TYPE = {
     QuestionRecord: {"qid": 123, "question": None, "answers": "William Shakespeare", "gold_doc_ids": [0],
                      "role": True, "fold": 1},
     RetrievalCacheRecord: {"qid": 1, "retriever": None, "top150": {"doc0": 0.83}},
+    QuestionAllRecord: {"qid": None, "question": 7, "answers": [None], "gold_doc_ids": "doc0"},
 }
 
 CASES = [(cls, f) for cls in VALID for f in VALID[cls]]
@@ -91,6 +95,9 @@ def test_unknown_field_raises(cls) -> None:
     (QuestionRecord, "fold", "C"),
     (QuestionRecord, "answers", ["ok", 3]),
     (QuestionRecord, "question", ""),
+    (QuestionAllRecord, "answers", []),             # must have an answer
+    (QuestionAllRecord, "gold_doc_ids", []),        # must have a gold passage
+    (QuestionAllRecord, "qid", ""),
     (RetrievalCacheRecord, "retriever", "colbert"),
     (RetrievalCacheRecord, "top150", [["doc0", 0.1], ["doc1", 0.9]]),          # not sorted descending
     (RetrievalCacheRecord, "top150", [["doc0", 0.9], ["doc0", 0.8]]),          # duplicate doc_id

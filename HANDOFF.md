@@ -1,13 +1,13 @@
 # HANDOFF -- Samarth's lane (indexes, retrievers, cache, generation, cluster + perplexity filters)
 
-Last updated: 2026-10-15 (after step 1)
+Last updated: 2026-10-16 (after step 2)
 
 ## Status board
 | Step | Title | Status | Date | Suggested message |
 |---|---|---|---|---|
 | 0 | Repo skeleton and environment | DONE-LOCAL | 2026-10-15 | `step 0: repo skeleton and environment` (committed) |
-| 1 | Config, paths, logging, data-contract schemas | DONE-LOCAL | 2026-10-15 | `step 1: config, paths, logging, contract schemas` |
-| 2 | Load NQ corpus and questions | TODO | | |
+| 1 | Config, paths, logging, data-contract schemas | DONE-LOCAL | 2026-10-15 | `step 1: config, paths, logging, contract schemas` (committed) |
+| 2 | Load NQ corpus and questions | DONE-LOCAL | 2026-10-16 | `step 2: load NQ corpus and questions` |
 | 3 | BM25 index and retriever | TODO | | |
 | 4 | Dense index and retriever (+ get_doc_vector) | TODO | | |
 | 5 | SPLADE index and retriever | TODO | | |
@@ -26,7 +26,7 @@ Status values: TODO, IN PROGRESS, DONE-LOCAL (passes on tiny local profile), DON
 | Job | After step | Owner | Command | Status (REQUESTED / RUNNING / PASSED / FAILED) | Report |
 |---|---|---|---|---|---|
 | A0 setup | 0 | Arya or Vansh (whoever starts first) | `bash ada/setup_env.sh` (login node), then `bash ada/setup_env.sh --check-only` (GPU session) | REQUESTED | `$IRE_DATA_DIR/reports/A0.json` |
-| A1 data | 2 | Arya | | not yet requested | |
+| A1 data | 2 | Arya | `bash ada/run_prepare_data.sh` (login node) | REQUESTED | `$IRE_DATA_DIR/reports/A1.json` + `reports/data_card_ada.json` |
 | A2 bm25 | 3 | Arya | | not yet requested | |
 | A3 dense | 4 | Vansh | | not yet requested | |
 | A4 splade | 5 | Vansh | | not yet requested | |
@@ -49,6 +49,19 @@ Send back: $IRE_DATA_DIR/reports/A0.json (paste it in the team chat or commit it
 If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A0_setup.log and the report file if one exists.
 ```
 
+```
+ADA REQUEST A1
+Owner: Arya          Needs: A0 done (environment exists)
+Run:   git pull && bash ada/run_prepare_data.sh               (on the LOGIN node: it downloads ~735 MB)
+Time:  10-30 min (estimate: download at a few MB/s + two passes over 2.68M passages)
+Disk:  ~3 GB under $IRE_DATA_DIR (estimate: raw parquet 0.75 GB + corpus.jsonl ~1.5-2 GB)
+Success looks like: the output ends with "RESULT: OK" and "SUMMARY A1: OK", with corpus passages ~2.68M,
+       200 target + 200 clean (100 per role and fold) and every check PASS.
+Send back: $IRE_DATA_DIR/reports/A1.json (paste it in the team chat or commit it to reports/)
+           and commit reports/data_card_ada.json (counts, sizes, sources; no absolute paths in it).
+If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A1_prepare_data.log and the report file if one exists.
+```
+
 ## What teammates can use right now
 - `python scripts/check_env.py [--report JOB]` -- prints Python/torch/CUDA/GPU, free disk under `$IRE_DATA_DIR`, library
   versions, Java, and whether the profile's models are cached; `--report JOB` also writes `$IRE_DATA_DIR/reports/JOB.json`.
@@ -66,8 +79,18 @@ If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A0_setup.log and the r
   Arya/Vansh: validate your files with e.g. `read_jsonl("poison_fact.jsonl", PoisonRecord)`; errors name the line.
 - `ire.utils.log.get_logger(name)` -- console + `$IRE_DATA_DIR/logs/<name>.log`, every line tagged `env=<IRE_ENV>`.
 - `python scripts/check_ada_report.py <A0..A9> [--file PATH] [--allow-local]` -- checks a returned Ada report
-  (looks in `reports/<job>.json`, then `$IRE_DATA_DIR/reports/<job>.json`). Exit 0 = PASS. Rules exist for A0;
-  A1-A9 print NOT_IMPLEMENTED until their step adds the rules.
+  (looks in `reports/<job>.json`, then `$IRE_DATA_DIR/reports/<job>.json`). Exit 0 = PASS. Rules exist for A0 and
+  A1; A2-A9 print NOT_IMPLEMENTED until their step adds the rules.
+- `python scripts/prepare_data.py [--corpus-mode full|random] [--dev-subset] [--source hf|ukp] [--force]` -- builds
+  `$IRE_DATA_DIR/data/{corpus,questions_all,questions}.jsonl` (step 2; details in the step log). Local files exist now:
+  5,000 passages, 2,255 pool questions, 400 placeholder questions.
+- `ire.data.nq`: `BeirParquet` / `BeirZip` readers (`iter_beir_corpus` streams the corpus), `load_beir_queries`,
+  `load_beir_qrels`, `load_nq_open`, `normalize_question` (the join key), `select_placeholder(pool, 200, 200, seed=13)`.
+- `ire.schemas.QuestionAllRecord` for `questions_all.jsonl`.
+- **Arya**: `questions.jsonl` is a PLACEHOLDER (200 target + 200 clean, seed 13, folds A/B 100 each). Your final
+  set replaces it; same `QuestionRecord` format. Pick from `questions_all.jsonl` (every question there has a gold
+  passage and an nq_open answer). After replacing it, re-run step 2 in random mode locally so the local corpus
+  contains the new gold passages (tell Samarth).
 
 ## Interface changes
 (Anything that differs from the contracts in IMPLEMENTATION_PLAN.md section 2. Empty = none.)
@@ -86,9 +109,77 @@ None to the data contracts. Layout notes (not contract changes):
   doc_ids, sorted by score descending (ties allowed), and finite numeric scores.
 - (Step 1) `FilterContext` fields: `texts` (doc_id -> text), `vectors` (a `VectorAPI` or None), `config`
   (an `ire.config.Config`), `thresholds` (fold-specific, default `{}`).
+- (Step 2) **New record `QuestionAllRecord`** for `questions_all.jsonl`: `{"qid": str, "question": str,
+  "answers": [str], "gold_doc_ids": [str]}` (no role/fold). `answers` and `gold_doc_ids` must be non-empty: the file
+  only holds questions with >= 1 gold passage in the full corpus and >= 1 nq_open answer.
+- (Step 2) In the **local** profile `questions_all.jsonl` lists all 2,255 eligible questions, but the 5,000-passage
+  local corpus only contains the gold passages of the 400 `questions.jsonl` questions (2,304 pool gold ids are not
+  in it). In `full` mode and with `--dev-subset` every `questions_all` gold id is in the corpus (checked).
+- (Step 2) Config: corpus modes are now `full` | `random` (gold + seeded random fill) | `subset` (~500k hard
+  negatives, TODO after step 5). `env_local.yaml` changed `corpus.mode: subset` -> `random` and
+  `n_dev_questions: 100` -> `400` (the local profile now uses the 400 placeholder questions). The `dev_subset`
+  sizes moved to `experiment.yaml`; new path key `dev_data_dir`.
+- (Step 2) BEIR NQ is downloaded from the pinned Hugging Face copy (`BeIR/nq`, `BeIR/nq-qrels`) by default, because the
+  original UKP server ran at 0.06-0.4 MB/s from Samarth's machine; `--source ukp` uses the original `nq.zip`. Both give
+  identical outputs (tested on a fixture).
 
 ## Step log
 (Newest first. Per step: what was built, files, how to run, verify results with actual numbers, open issues.)
+
+### Step 2 -- Load NQ corpus and questions -- DONE-LOCAL (2026-10-16, env=local)
+**Built**
+- `src/ire/data/download.py`: pinned, resumable downloads with verified TLS (certifi): BEIR NQ from Hugging Face
+  (`BeIR/nq` @ `b7253e6c`, `BeIR/nq-qrels` @ `519acd4e`) or the original UKP `nq.zip` (`--source ukp`), and
+  `google-research-datasets/nq_open` @ `5dd9790a` (validation + train parquet).
+- `src/ire/data/nq.py`: `BeirParquet` / `BeirZip` readers (corpus streamed in batches / line by line, never fully
+  in RAM), qrels (score > 0), nq_open answers (union over rows and splits), the join key `normalize_question` (NFKC,
+  lowercase, punctuation removed, whitespace collapsed), eligible pool, seeded placeholder selection, seeded passage
+  selection, corpus writer.
+- `src/ire/data/prepare.py`: `prepare()` (two streaming passes: scan, then write) and `verify_outputs()` (re-reads
+  all three files through the schemas). Mode `subset` raises `NotImplementedError` (clearly marked TODO, steps 3-5).
+- `scripts/prepare_data.py`: CLI with free-disk and download-size guards (`--max-download-gb 6`, `--min-free-gb 5`),
+  resume stamp (`data/.prepare_data.json`), `--force`, `--dev-subset`, `--delete-raw`; writes
+  `$IRE_DATA_DIR/reports/A1_local.json` and the data card `reports/data_card_local.json` (relative paths only).
+- `ada/run_prepare_data.sh` (job A1); A1 rules in `scripts/check_ada_report.py` (corpus size matches the mode,
+  200 + 200 balanced over folds, every gold ID exists, no duplicate doc/question IDs, corpus rows = count).
+- `ire.schemas.QuestionAllRecord`; `requirements.txt` adds `pyarrow==26.0.0`, `certifi==2026.7.22`.
+- Tests: `tests/test_data_nq.py` (13, on a synthetic BEIR zip + parquet built in a temp dir, no network),
+  `QuestionAllRecord` cases in `tests/test_schemas.py`, A1 rule cases in `tests/test_ada_report.py`.
+
+**How to run (PowerShell, repo root)**
+```
+.\.venv\Scripts\python.exe scripts/prepare_data.py                 # local: random mode, 5,000 passages
+.\.venv\Scripts\python.exe scripts/check_ada_report.py A1 --file <IRE_DATA_DIR>/reports/A1_local.json --allow-local
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+**Verify results (env=local, local profile; numbers are for correctness only)**
+- Downloads: 733.3 MiB (BEIR corpus parquet 728.8, queries 0.1, qrels 0.1, nq_open 4.5). Free disk under
+  `IRE_DATA_DIR`: 35.63 GiB before, 34.48 GiB after. Run time 132 s (download ~96 s, both corpus passes ~26 s).
+- BEIR NQ corpus: 2,681,468 passages, 0 duplicate ids, no `poison_` ids. Test qrels: 4,201 gold ids, all present.
+- BEIR test queries: 3,452; with >= 1 gold passage in the corpus: 3,452 (100.0%).
+  Matched to nq_open answers: 2,255 (answer coverage 65.3%), all from nq_open validation (0 extra from train).
+  The 1,197 unmatched are not spelling/spacing near-misses (0 more match with all whitespace removed); nq_open keeps
+  only NQ questions with short answers, so they have no answer there. Eligible (gold AND answer): 2,255.
+- `questions.jsonl`: 400 = target/A 100, target/B 100, clean/A 100, clean/B 100 (seed 13). Their 509 gold passages
+  are all in the corpus (0 missing).
+- `corpus.jsonl`: 5,000 = 509 gold + 4,491 seeded random passages, 0 duplicate doc_ids (2.78 MiB).
+  `questions_all.jsonl`: 2,255 (0.35 MiB). `questions.jsonl`: 0.07 MiB.
+- Checks: corpus_size_matches_mode, no_duplicate_doc_ids, no_duplicate_qids, all_question_gold_in_corpus,
+  fold_balance, questions_subset_of_questions_all all PASS. questions_all_gold_in_corpus is false by design in
+  local random mode (2,304 pool gold ids not in the 5,000-passage corpus) and is not required in this mode.
+- Resume: a re-run downloads 0 MiB and skips the build (6.2 s). Determinism: `--force` rebuild gives byte-identical
+  files (same sha256 for all three).
+- `check_ada_report.py A1 --allow-local` on the real local report: every A1 rule passes, `STATUS: LOCAL_DRY_RUN`.
+- `pytest -q`: 156 passed (7 skeleton, 13 config, 13 data, 88 schemas, 34 Ada report, 1 log).
+- Samples (shortened):
+  - corpus: `{"doc_id": "doc91", "title": "Market economy", "text": "A market economy is an economic system where
+    decisions regarding investment, production, and distribution ...", "is_poison": false}`
+  - questions_all: `{"qid": "test3", "question": "who is the leader of the ontario pc party", "answers": ["Patrick
+    Brown", "Patrick Walter Brown MPP", "Patrick Walter Brown"], "gold_doc_ids": ["doc17", "doc18"]}`
+  - questions: `{"qid": "test1587", "question": "who starred in the movie summer of 42", "answers": ["Oliver
+    Conant", ...], "gold_doc_ids": ["doc56384"], "role": "target", "fold": "A"}`
+- Raw download kept: 737.5 MiB in `raw/` (under the 1 GB delete threshold); re-downloadable with the same command.
 
 ### Step 1 -- Config, paths, logging, contract schemas -- DONE-LOCAL (2026-10-15, env=local)
 **Built**
@@ -185,11 +276,13 @@ None to the data contracts. Layout notes (not contract changes):
 **Open issues**: see below.
 
 ## Open issues / blockers
-- **Low local disk**: 10.9-12 GiB free on C: (97% used); one check_env run at 10:32 UTC even saw 4.2 GiB (a
-  temporary dip from something outside the project). Fine for steps 0-1, but step 2 downloads BEIR NQ (the full
-  corpus zip must be downloaded even to build a 5,000-passage subset). Samarth: free some space before step 2.
-- `questions_all.jsonl` (step 2) has no `role`/`fold` yet, so it cannot use `QuestionRecord` as is; step 2 will
-  define its record and record it under "Interface changes".
+- Disk: resolved for now (34.5 GiB free after step 2).
+- `questions.jsonl` is a placeholder until Arya's final 200 + 200 set replaces it (see "What teammates can use").
+- Corpus mode `subset` (~500k gold + hard negatives) is a TODO that needs the retrievers (after step 5).
+- Answer coverage is 65.3% (2,255 of 3,452 BEIR test questions have an nq_open answer); the pool of 2,255 is far
+  more than the 400 needed.
+- A 4 MiB partial `raw/beir/nq.zip.part` from the abandoned slow UKP download is still in `IRE_DATA_DIR`
+  (kept so `--source ukp` can resume; Samarth can delete it).
 - `src/ire/stubs.py` (`candidate_pool` stub, section 2) is not created yet; it will be added when first needed
   (step 13 at the latest).
 - **Model choices to confirm** (config values, easy to change before the Ada jobs run): Ada dense model

@@ -5,9 +5,9 @@ name: local
 # seed and other shared settings: configs/experiment.yaml. This file holds only what differs per machine.
 
 corpus:
-  mode: subset             # local always uses a tiny subset
-  n_passages: 5000         # all gold passages of the dev questions + random others (seed 13)
-n_dev_questions: 100
+  mode: random             # all gold passages of the 400 placeholder questions + seeded random others
+  n_passages: 5000         # total passages in the local corpus (seed 13)
+n_dev_questions: 400       # the 200 target + 200 clean placeholder questions (was 100 before step 2)
 
 models:
   dense: intfloat/e5-small-v2                       # small stand-in from the E5 family

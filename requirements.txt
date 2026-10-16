@@ -26,6 +26,8 @@ PyStemmer==3.1.0
 
 # data
 datasets==5.1.0
+pyarrow==26.0.0          # reads the nq_open parquet files
+certifi==2026.7.22       # CA bundle for the BEIR download (Windows' default store fails on that server)
 
 # tests
 pytest==9.1.1

@@ -4,11 +4,9 @@ name: ada
 # seed and other shared settings: configs/experiment.yaml. This file holds only what differs per machine.
 
 corpus:
-  mode: full               # full (~2.7M BEIR NQ) | subset (~500k: all gold + hard negatives); decided after the pilot
+  mode: full               # full (~2.7M BEIR NQ) | subset (~500k: all gold + hard negatives; needs steps 3-5)
+                           # | random (gold + seeded random fill); decided after the pilot
   n_passages: null         # null = all passages for mode=full
-dev_subset:                # the larger "dev subset" used on Ada (IMPLEMENTATION_PLAN.md section 0)
-  n_questions: 1000
-  n_passages: 50000
 n_dev_questions: 1000
 
 models:

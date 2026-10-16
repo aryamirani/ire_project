@@ -9,6 +9,10 @@ questions:
   n_clean: 200
   folds: [A, B]
 
+dev_subset:                # scripts/prepare_data.py --dev-subset (IMPLEMENTATION_PLAN.md section 0)
+  n_questions: 1000        # the 400 placeholder questions + 600 more (seed 13)
+  n_passages: 50000        # their gold passages + seeded random others
+
 retrievers: [bm25, dense, splade, rrf]
 top_k_cache: 150           # raw top-150 (doc_id, score) cached per (retriever, qid)
 pool_size: 50              # masked candidate pool the filters read

@@ -22,6 +22,7 @@ Claude Code appends a section below for every job as its step is finished. Check
 | Job | Script | Status | Owner |
 |---|---|---|---|
 | A0 setup | `ada/setup_env.sh` | REQUESTED | whoever starts first (Arya or Vansh) |
+| A1 data | `ada/run_prepare_data.sh` | REQUESTED | Arya |
 
 ### A0 setup
 ```
@@ -49,6 +50,36 @@ Details for a non-expert:
 5. It is safe to run again: the environment is reused and downloads resume.
 6. Please also fill in the SLURM values at the top of `ada/common.sh` (partition, account, time) and commit them,
    so later jobs can use them.
+
+### A1 data
+```
+ADA REQUEST A1
+Owner: Arya          Needs: A0 done (environment exists)
+Run:   git pull && bash ada/run_prepare_data.sh               (on the LOGIN node: it downloads ~735 MB)
+Time:  10-30 min (estimate: download at a few MB/s + two passes over 2.68M passages)
+Disk:  ~3 GB under $IRE_DATA_DIR (estimate: raw parquet 0.75 GB + corpus.jsonl ~1.5-2 GB)
+Success looks like: the output ends with "RESULT: OK" and "SUMMARY A1: OK", with corpus passages ~2.68M,
+       200 target + 200 clean (100 per role and fold) and every check PASS.
+Send back: $IRE_DATA_DIR/reports/A1.json (paste it in the team chat or commit it to reports/)
+           and commit reports/data_card_ada.json (counts, sizes, sources; no absolute paths in it).
+If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A1_prepare_data.log and the report file if one exists.
+```
+Details for a non-expert:
+1. It downloads BEIR NQ (the pinned Hugging Face copy `BeIR/nq` + `BeIR/nq-qrels`, ~729 MiB) and the `nq_open`
+   answers (~4.5 MiB) into `$IRE_DATA_DIR/raw/`,
+   then writes `$IRE_DATA_DIR/data/corpus.jsonl` (all ~2.68M passages), `questions_all.jsonl` (every test question
+   with a gold passage and an nq_open answer) and `questions.jsonl` (the placeholder 200 target + 200 clean set).
+2. The corpus mode comes from `configs/env_ada.yaml` (`corpus.mode: full`). Do not use `--corpus-mode subset`
+   yet: the ~500k subset needs the retrievers and is not implemented until after step 5.
+3. Before downloading it checks free disk: it stops if the download is over 6 GB or free space would drop
+   below 5 GB (change with `--max-download-gb` / `--min-free-gb` if your quota is different).
+4. Safe to re-run: the download resumes, and if the files are already built for the same settings the build is
+   skipped and only the checks and the report run again (`--force` rebuilds).
+   If Hugging Face is blocked on Ada, add `--source ukp` to download the original BEIR `nq.zip` (~475 MiB, but
+   that server was very slow from Samarth's machine).
+5. Optional, only if asked: `bash ada/run_prepare_data.sh --dev-subset` builds the 1,000-question /
+   50,000-passage dev subset in `$IRE_DATA_DIR/data/dev/` and writes `reports/A1_dev.json`.
+6. Arya: when your final question set is ready, it replaces `questions.jsonl` (same format, see HANDOFF.md).
 
 ## Division of labour (suggested; adjust freely)
 - Arya: data (A1), BM25 (A2), poison ingestion (A6). She already owns the poison shards.

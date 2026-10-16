@@ -32,7 +32,7 @@ def test_load_config_merges_experiment_and_env(env: str) -> None:
     assert cfg["retrievers"] == ["bm25", "dense", "splade", "rrf"]
     assert cfg.get("cluster.tau_c") == 0.85
     assert cfg.get("perplexity.alpha") == 0.025
-    assert cfg["corpus.mode"] == ("subset" if env == "local" else "full")
+    assert cfg["corpus.mode"] == ("random" if env == "local" else "full")
 
 
 def test_models_differ_per_env() -> None:

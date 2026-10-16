@@ -5,6 +5,7 @@ Records (one JSON object per line):
     PoisonRecord          poison_*.jsonl          {"doc_id", "qid", "attack", "title", "text", "is_poison": true,
                                                    "target_answer"}
     QuestionRecord        questions.jsonl         {"qid", "question", "answers", "gold_doc_ids", "role", "fold"}
+    QuestionAllRecord     questions_all.jsonl     {"qid", "question", "answers", "gold_doc_ids"}  (added in step 2)
     RetrievalCacheRecord  top150_<retriever>.jsonl {"qid", "retriever", "top150": [[doc_id, score], ...]}
 In-memory interfaces: VectorAPI, FilterContext, FilterResult, FilterFn, GenerationOutput.
 
@@ -206,6 +207,25 @@ class QuestionRecord(Record):
     def _check(self) -> None:
         if not self.qid or not self.question:
             raise SchemaError(f"QuestionRecord {self.qid!r}: qid and question must be non-empty")
+
+
+@dataclass(frozen=True)
+class QuestionAllRecord(Record):
+    """One question of `questions_all.jsonl`: the eligible pool the 400-question set is drawn from.
+
+    No role/fold yet. Only questions with >= 1 gold passage in the (full) corpus and >= 1 answer string.
+    """
+
+    qid: str
+    question: str
+    answers: list[str]
+    gold_doc_ids: list[str]
+
+    def _check(self) -> None:
+        if not self.qid or not self.question:
+            raise SchemaError(f"QuestionAllRecord {self.qid!r}: qid and question must be non-empty")
+        if not self.answers or not self.gold_doc_ids:
+            raise SchemaError(f"QuestionAllRecord {self.qid!r}: needs >= 1 answer and >= 1 gold_doc_id")
 
 
 @dataclass(frozen=True)

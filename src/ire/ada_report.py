@@ -17,7 +17,15 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from ire.config import load_env_profile
+import yaml
+
+from ire.config import CONFIG_DIR, load_env_profile
+
+def load_experiment() -> dict[str, Any]:
+    """configs/experiment.yaml as a dict (question counts and folds for the A1 rules)."""
+    with (CONFIG_DIR / "experiment.yaml").open("r", encoding="utf-8") as fh:
+        return yaml.safe_load(fh)
+
 
 JOBS: tuple[str, ...] = ("A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9")
 
@@ -105,12 +113,60 @@ def _rules_a0(report: dict[str, Any]) -> list[Check]:
     return checks
 
 
-# ---------------------------------------------------------------- A1-A9 (stubs; filled in with each step)
+# ---------------------------------------------------------------- A1 (fields written by scripts/prepare_data.py)
+
+A1_FIELDS: tuple[str, ...] = ("corpus_mode", "n_passages_requested", "counts", "checks", "ok", "files", "sources")
+FULL_CORPUS_RANGE: tuple[int, int] = (2_600_000, 2_750_000)  # BEIR NQ has ~2.68M passages
+SUBSET_CORPUS_RANGE: tuple[int, int] = (400_000, 600_000)    # the ~500k fallback
+
+
+def _rules_a1(report: dict[str, Any]) -> list[Check]:
+    checks = []
+    missing = [k for k in A1_FIELDS if k not in report]
+    checks.append(Check("prepare_data fields present", not missing, f"missing: {missing}" if missing else ""))
+    if missing:
+        return checks
+    c, mode = report["counts"], report["corpus_mode"]
+    checks.append(Check("prepare_data RESULT OK", report["ok"] is True, f"ok={report['ok']!r}"))
+
+    n = c.get("corpus_passages")
+    if mode == "full":
+        lo, hi = FULL_CORPUS_RANGE
+        expected = c.get("raw_corpus_passages", -1) - c.get("raw_duplicate_doc_ids", 0)
+        size_ok = n == expected and lo <= (n or 0) <= hi
+        detail = f"{n:,} passages; expected all {expected:,} unique BEIR passages, within {lo:,}-{hi:,}"
+    elif mode == "subset":
+        lo, hi = SUBSET_CORPUS_RANGE
+        size_ok, detail = lo <= (n or 0) <= hi, f"{n:,} passages; expected {lo:,}-{hi:,}"
+    else:
+        size_ok = n == report["n_passages_requested"]
+        detail = f"{n:,} passages; requested {report['n_passages_requested']}"
+    checks.append(Check(f"corpus size matches mode={mode}", size_ok, detail))
+    rows = report["files"].get("corpus", {}).get("rows")
+    checks.append(Check("corpus.jsonl row count = corpus passages", rows == n, f"rows={rows}"))
+
+    exp = load_experiment()
+    n_t, n_c, folds = exp["questions"]["n_target"], exp["questions"]["n_clean"], exp["questions"]["folds"]
+    want = {f"{r}/{f}": n // len(folds) for r, n in (("target", n_t), ("clean", n_c)) for f in folds}
+    got = c.get("role_fold", {})
+    checks.append(Check(f"{n_t} target + {n_c} clean, balanced over folds", got == want, str(got)))
+
+    checks.append(Check("every question gold ID exists in the corpus", c.get("question_gold_missing_in_corpus") == 0,
+                        f"missing: {c.get('question_gold_missing_in_corpus')}"))
+    if mode == "full" or report.get("dev_subset"):
+        checks.append(Check("every questions_all gold ID exists in the corpus",
+                            c.get("questions_all_gold_missing_in_corpus") == 0,
+                            f"missing: {c.get('questions_all_gold_missing_in_corpus')}"))
+    checks.append(Check("no duplicate doc IDs", c.get("corpus_duplicate_doc_ids") == 0,
+                        f"duplicates: {c.get('corpus_duplicate_doc_ids')}"))
+    checks.append(Check("no duplicate question IDs", report["checks"].get("no_duplicate_qids") is True))
+    return checks
+
+
+# ---------------------------------------------------------------- A2-A9 (stubs; filled in with each step)
 
 STUBS: dict[str, tuple[int, str]] = {
     # job: (step that fills in the rules, acceptance check from IMPLEMENTATION_PLAN.md section 5)
-    "A1": (2, "counts match the plan (corpus ~2.7M or the chosen subset; 200 target + 200 clean; "
-              "every gold ID exists)"),
     "A2": (3, "BM25 index builds; Recall@100 on 1,000 questions reported; unique-token doc found at rank 1"),
     "A3": (4, "dense index builds; Recall@100 on 1,000 questions reported; unique-token doc found at rank 1"),
     "A4": (5, "SPLADE index builds; Recall@100 on 1,000 questions reported; unique-token doc found at rank 1"),
@@ -123,7 +179,7 @@ STUBS: dict[str, tuple[int, str]] = {
     "A9": (13, "all four retrievers and both filters run end to end on 20 questions"),
 }
 
-RULES: dict[str, Callable[[dict[str, Any]], list[Check]]] = {"A0": _rules_a0}
+RULES: dict[str, Callable[[dict[str, Any]], list[Check]]] = {"A0": _rules_a0, "A1": _rules_a1}
 
 
 def check_report(job: str, report: dict[str, Any], allow_local: bool = False) -> ReportResult:
