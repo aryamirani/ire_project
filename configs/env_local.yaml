@@ -15,9 +15,6 @@ models:
   llm: Qwen/Qwen2.5-1.5B-Instruct                   # stand-in behind the same generate() interface
   perplexity: openai-community/gpt2                 # GPT-2 small
 
-bm25:
-  library: bm25s           # no Java needed
-
 compute:
   device: cuda             # falls back to cpu if CUDA is unavailable
   fp16: true

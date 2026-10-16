@@ -163,11 +163,65 @@ def _rules_a1(report: dict[str, Any]) -> list[Check]:
     return checks
 
 
-# ---------------------------------------------------------------- A2-A9 (stubs; filled in with each step)
+# ---------------------------------------------------------------- A2 (fields written by scripts/build_index.py)
+
+A2_FIELDS: tuple[str, ...] = ("retriever", "ok", "checks", "corpus", "n_docs", "n_poison", "build_time_s",
+                              "index_bytes", "eval", "latency_ms", "determinism", "edge_queries", "unique_token",
+                              "libraries")
+MIN_RECALL_100 = 0.2   # "clearly above random" (random Recall@100 on ~2.7M passages is ~0)
+EXPECTED_RECALL_100 = 0.6  # BEIR reports BM25 Recall@100 = 0.76 on NQ; lower is a warning worth a look
+
+
+def _rules_a2(report: dict[str, Any]) -> list[Check]:
+    checks = []
+    missing = [k for k in A2_FIELDS if k not in report]
+    checks.append(Check("build_index fields present", not missing, f"missing: {missing}" if missing else ""))
+    if missing:
+        return checks
+    checks.append(Check("retriever is bm25", report["retriever"] == "bm25", f"retriever={report['retriever']!r}"))
+    checks.append(Check("build_index RESULT OK", report["ok"] is True,
+                        str({k: v for k, v in report["checks"].items() if not v}) if not report["ok"] else ""))
+    rows, n_docs, n_poison = report["corpus"].get("rows"), report["n_docs"], report["n_poison"]
+    checks.append(Check("index holds corpus + poison", n_docs == (rows or 0) + n_poison,
+                        f"n_docs={n_docs:,}, corpus rows={rows}, poison={n_poison}"))
+    lo, _ = FULL_CORPUS_RANGE
+    checks.append(Check("full-size corpus indexed", (rows or 0) >= lo, f"corpus rows={rows}", fatal=False))
+    checks.append(Check("build time and index size reported",
+                        isinstance(report["build_time_s"], (int, float)) and report["index_bytes"] > 0,
+                        f"build {report['build_time_s']} s, {report['index_bytes'] / 2**20:,.1f} MiB"))
+
+    exp = load_experiment()
+    n_eval = exp["retrieval_eval"]["n_questions"]
+    pool = report["eval"].get("questions_all_sample", {})
+    want = min(n_eval, pool.get("n_available", 0))
+    checks.append(Check(f"Recall@100 on {n_eval:,} questions (or all available)",
+                        pool.get("n_questions") == want and want > 0,
+                        f"n_questions={pool.get('n_questions')}, available={pool.get('n_available')}"))
+    r10, r100 = pool.get("recall@10"), pool.get("recall@100")
+    numeric = isinstance(r10, (int, float)) and isinstance(r100, (int, float))
+    checks.append(Check(f"Recall@100 clearly above random (> {MIN_RECALL_100})",
+                        numeric and MIN_RECALL_100 < r100 <= 1 and r10 <= r100,
+                        f"recall@10={r10}, recall@100={r100}"))
+    checks.append(Check(f"Recall@100 near the BEIR BM25 figure (>= {EXPECTED_RECALL_100})",
+                        numeric and r100 >= EXPECTED_RECALL_100, f"recall@100={r100}", fatal=False))
+    n_placeholder = exp["questions"]["n_target"] + exp["questions"]["n_clean"]
+    ph = report["eval"].get("placeholder_questions", {}).get("n_questions")
+    checks.append(Check(f"all {n_placeholder} questions.jsonl questions have gold in the index",
+                        ph == n_placeholder, f"n_questions={ph}"))
+    ut = report["unique_token"]
+    checks.append(Check("unique-token passage found at rank 1", ut.get("rank") == 1,
+                        f"rank={ut.get('rank')} in a {ut.get('n_docs_in_test_index')}-doc temp index"))
+    checks.append(Check("same query twice gives identical results",
+                        report["determinism"].get("same_query_twice") is True))
+    edge_ok = all(v.get("error") is None for v in report["edge_queries"].values())
+    checks.append(Check("empty / stopword / unknown-word queries do not crash", edge_ok, str(report["edge_queries"])))
+    return checks
+
+
+# ---------------------------------------------------------------- A3-A9 (stubs; filled in with each step)
 
 STUBS: dict[str, tuple[int, str]] = {
     # job: (step that fills in the rules, acceptance check from IMPLEMENTATION_PLAN.md section 5)
-    "A2": (3, "BM25 index builds; Recall@100 on 1,000 questions reported; unique-token doc found at rank 1"),
     "A3": (4, "dense index builds; Recall@100 on 1,000 questions reported; unique-token doc found at rank 1"),
     "A4": (5, "SPLADE index builds; Recall@100 on 1,000 questions reported; unique-token doc found at rank 1"),
     "A5": (7, "row count = number of questions; every row has 150 sorted entries; 10 random rows match a "
@@ -179,7 +233,7 @@ STUBS: dict[str, tuple[int, str]] = {
     "A9": (13, "all four retrievers and both filters run end to end on 20 questions"),
 }
 
-RULES: dict[str, Callable[[dict[str, Any]], list[Check]]] = {"A0": _rules_a0, "A1": _rules_a1}
+RULES: dict[str, Callable[[dict[str, Any]], list[Check]]] = {"A0": _rules_a0, "A1": _rules_a1, "A2": _rules_a2}
 
 
 def check_report(job: str, report: dict[str, Any], allow_local: bool = False) -> ReportResult:

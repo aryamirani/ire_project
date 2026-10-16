@@ -138,6 +138,6 @@
     "join": "BEIR test query text = nq_open question after NFKC, lowercase, punctuation removed, whitespace collapsed"
   },
   "note": "questions.jsonl is a PLACEHOLDER (200 target + 200 clean, seed 13); Arya's final set replaces it.",
-  "git_commit": "5edc85dc5e09be1e98fe4804b09fe1910f33dc12-dirty",
-  "timestamp_utc": "2026-10-16T09:23:20+00:00"
+  "git_commit": "04ab57304113c5d5974d11bd389b3eec2598befb-dirty",
+  "timestamp_utc": "2026-10-16T11:12:56+00:00"
 }

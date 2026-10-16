@@ -1,14 +1,14 @@
 # HANDOFF -- Samarth's lane (indexes, retrievers, cache, generation, cluster + perplexity filters)
 
-Last updated: 2026-10-16 (after step 2)
+Last updated: 2026-10-16 (after step 3)
 
 ## Status board
 | Step | Title | Status | Date | Suggested message |
 |---|---|---|---|---|
 | 0 | Repo skeleton and environment | DONE-LOCAL | 2026-10-15 | `step 0: repo skeleton and environment` (committed) |
 | 1 | Config, paths, logging, data-contract schemas | DONE-LOCAL | 2026-10-15 | `step 1: config, paths, logging, contract schemas` (committed) |
-| 2 | Load NQ corpus and questions | DONE-LOCAL | 2026-10-16 | `step 2: load NQ corpus and questions` |
-| 3 | BM25 index and retriever | TODO | | |
+| 2 | Load NQ corpus and questions | DONE-LOCAL | 2026-10-16 | `step 2: load NQ corpus and questions` (committed) |
+| 3 | BM25 index and retriever | DONE-LOCAL | 2026-10-16 | `step 3: BM25 index and retriever` |
 | 4 | Dense index and retriever (+ get_doc_vector) | TODO | | |
 | 5 | SPLADE index and retriever | TODO | | |
 | 6 | RRF hybrid retriever | TODO | | |
@@ -27,7 +27,7 @@ Status values: TODO, IN PROGRESS, DONE-LOCAL (passes on tiny local profile), DON
 |---|---|---|---|---|---|
 | A0 setup | 0 | Arya or Vansh (whoever starts first) | `bash ada/setup_env.sh` (login node), then `bash ada/setup_env.sh --check-only` (GPU session) | REQUESTED | `$IRE_DATA_DIR/reports/A0.json` |
 | A1 data | 2 | Arya | `bash ada/run_prepare_data.sh` (login node) | REQUESTED | `$IRE_DATA_DIR/reports/A1.json` + `reports/data_card_ada.json` |
-| A2 bm25 | 3 | Arya | | not yet requested | |
+| A2 bm25 | 3 | Arya | `bash ada/run_index.sh bm25` (CPU job, 48 GB RAM) | REQUESTED | `$IRE_DATA_DIR/reports/A2.json` |
 | A3 dense | 4 | Vansh | | not yet requested | |
 | A4 splade | 5 | Vansh | | not yet requested | |
 | A5 cache | 7 | Vansh | | not yet requested | |
@@ -62,6 +62,18 @@ Send back: $IRE_DATA_DIR/reports/A1.json (paste it in the team chat or commit it
 If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A1_prepare_data.log and the report file if one exists.
 ```
 
+```
+ADA REQUEST A2
+Owner: Arya          Needs: A1 done (data/corpus.jsonl and questions exist)
+Run:   git pull && bash ada/run_index.sh bm25        (in a CPU job or interactive session; no GPU, no internet)
+Time:  15-45 min (estimate: tokenising + indexing 2.68M passages, then ~1,400 test searches)
+Disk:  ~1.5-3 GB under $IRE_DATA_DIR/indexes/ada/bm25 (estimate)   RAM: ask for 48 GB (estimate: peak 16-32 GB)
+Success looks like: "RESULT: OK" and "SUMMARY A2: OK"; the report shows ~2.68M docs, Recall@10/@100 on
+       1,000 questions, and the unique-token passage at rank 1.
+Send back: $IRE_DATA_DIR/reports/A2.json (paste it in the team chat or commit it to reports/)
+If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A2_bm25.log and the report file if one exists.
+```
+
 ## What teammates can use right now
 - `python scripts/check_env.py [--report JOB]` -- prints Python/torch/CUDA/GPU, free disk under `$IRE_DATA_DIR`, library
   versions, Java, and whether the profile's models are cached; `--report JOB` also writes `$IRE_DATA_DIR/reports/JOB.json`.
@@ -79,14 +91,26 @@ If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A1_prepare_data.log an
   Arya/Vansh: validate your files with e.g. `read_jsonl("poison_fact.jsonl", PoisonRecord)`; errors name the line.
 - `ire.utils.log.get_logger(name)` -- console + `$IRE_DATA_DIR/logs/<name>.log`, every line tagged `env=<IRE_ENV>`.
 - `python scripts/check_ada_report.py <A0..A9> [--file PATH] [--allow-local]` -- checks a returned Ada report
-  (looks in `reports/<job>.json`, then `$IRE_DATA_DIR/reports/<job>.json`). Exit 0 = PASS. Rules exist for A0 and
-  A1; A2-A9 print NOT_IMPLEMENTED until their step adds the rules.
+  (looks in `reports/<job>.json`, then `$IRE_DATA_DIR/reports/<job>.json`). Exit 0 = PASS. Rules exist for A0, A1
+  and A2; A3-A9 print NOT_IMPLEMENTED until their step adds the rules.
 - `python scripts/prepare_data.py [--corpus-mode full|random] [--dev-subset] [--source hf|ukp] [--force]` -- builds
   `$IRE_DATA_DIR/data/{corpus,questions_all,questions}.jsonl` (step 2; details in the step log). Local files exist now:
   5,000 passages, 2,255 pool questions, 400 placeholder questions.
 - `ire.data.nq`: `BeirParquet` / `BeirZip` readers (`iter_beir_corpus` streams the corpus), `load_beir_queries`,
   `load_beir_qrels`, `load_nq_open`, `normalize_question` (the join key), `select_placeholder(pool, 200, 200, seed=13)`.
 - `ire.schemas.QuestionAllRecord` for `questions_all.jsonl`.
+- `python scripts/build_index.py --retriever bm25 [--force] [--check-rebuild] [--no-poison-shards]` -- builds
+  `$IRE_DATA_DIR/indexes/<env>/bm25` (skips if current) and writes the A2 report. Local index exists now.
+- `ire.retrieval.bm25`:
+  `bm25 = BM25Retriever.from_config(load_config())` (cheap, memory-mapped);
+  `bm25.search(["who wrote hamlet"], k=150)` -> `[[("doc12", 17.3), ...]]` (string doc_ids);
+  `bm25.score_docs(query, doc_ids)` -> numpy array of BM25 scores under the current index statistics;
+  `BM25Retriever.is_poison(doc_id)` (= `poison_` prefix); `build_index(corpus_path, out_dir, extra_shards=None)`;
+  `find_poison_shards(poison_dir)`.
+- Vansh: `score_docs` is what you need for the BM25 masking check (plan section 2.1): score the same documents
+  under an index with and without poison and compare ranks.
+- `ire.retrieval.eval`: `recall_at_k(results, gold, ks)`, `questions_with_gold_in_index`, `sample_eval_set`
+  (retrieval sanity only; the project metrics stay with Vansh).
 - **Arya**: `questions.jsonl` is a PLACEHOLDER (200 target + 200 clean, seed 13, folds A/B 100 each). Your final
   set replaces it; same `QuestionRecord` format. Pick from `questions_all.jsonl` (every question there has a gold
   passage and an nq_open answer). After replacing it, re-run step 2 in random mode locally so the local corpus
@@ -119,12 +143,63 @@ None to the data contracts. Layout notes (not contract changes):
   negatives, TODO after step 5). `env_local.yaml` changed `corpus.mode: subset` -> `random` and
   `n_dev_questions: 100` -> `400` (the local profile now uses the 400 placeholder questions). The `dev_subset`
   sizes moved to `experiment.yaml`; new path key `dev_data_dir`.
+- (Step 3) **BM25 result lists can be shorter than k**: only documents sharing at least one query term
+  (score > 0) are returned, and a query with no indexable term (empty, only stopwords, only unknown words) returns
+  `[]`. So a `top150_bm25.jsonl` row can have fewer than 150 entries even when the index is larger (section 2 said
+  "fewer only if the index is smaller"). On the local corpus all 400 placeholder questions still get 100+ hits.
+  Ties are ordered by position in the index, so results are deterministic.
+- (Step 3) BM25 settings moved from `env_*.yaml` to `experiment.yaml` (`bm25:`), plus `retrieval_eval:`; indexes
+  live in `<indexes_dir>/<env>/<retriever>` so local and Ada indexes never mix.
 - (Step 2) BEIR NQ is downloaded from the pinned Hugging Face copy (`BeIR/nq`, `BeIR/nq-qrels`) by default, because the
   original UKP server ran at 0.06-0.4 MB/s from Samarth's machine; `--source ukp` uses the original `nq.zip`. Both give
   identical outputs (tested on a fixture).
 
 ## Step log
 (Newest first. Per step: what was built, files, how to run, verify results with actual numbers, open issues.)
+
+### Step 3 -- BM25 index and retriever -- DONE-LOCAL (2026-10-16, env=local)
+**Built**
+- `src/ire/retrieval/bm25.py`: `build_index(corpus_path, out_dir, extra_shards=None)` (title + text; corpus then
+  poison shards in name order; duplicate ids rejected; written to a temp folder and swapped in atomically;
+  `manifest.json` records corpus/shard sha256, settings, counts, timings), `BM25Retriever` (`search`, `score_docs`,
+  `is_poison`, `from_config`; memory-mapped loading), `find_poison_shards`, `index_is_current`,
+  `unique_token_test` (throw-away index, deleted afterwards).
+- bm25s 0.3.13: Lucene BM25, k1 = 0.9, b = 0.4 (Anserini/pyserini defaults used for the BEIR baselines),
+  lowercase, token pattern `(?u)\b\w\w+\b`, bm25s English stopwords, PyStemmer Snowball English. All in
+  `experiment.yaml` `bm25:` and stored in the index manifest; loading an index built with other settings fails.
+- Fixed a bm25s pitfall: bm25s maps empty / stopword-only / unknown-word queries *and* all-stopword documents to the
+  same "" token, so such a query "matched" any all-stopword passage. That token is now dropped from queries.
+- `src/ire/retrieval/eval.py` (Recall@k / Hit@k helpers), `src/ire/utils/run_info.py` (git commit + library
+  versions, now shared by all scripts), `scripts/build_index.py --retriever bm25`, `ada/run_index.sh` (job A2),
+  A2 rules in `scripts/check_ada_report.py`.
+- Tests: `tests/test_bm25.py` (20, tiny hand-made corpus incl. an all-stopword passage and a poison shard),
+  A2 rule cases in `tests/test_ada_report.py`.
+
+**How to run (PowerShell, repo root)**
+```
+.\.venv\Scripts\python.exe scripts/build_index.py --retriever bm25 --check-rebuild
+.\.venv\Scripts\python.exe scripts/check_ada_report.py A2 --file <IRE_DATA_DIR>/reports/A2_local.json --allow-local
+```
+
+**Verify results (env=local)** -- the local corpus has only 5,000 passages (509 of them gold), so these
+recall numbers only show that the code works; they say nothing about BM25 quality on NQ.
+- Index: 5,000 docs, 0 poison (no shards yet; the empty case is handled), vocabulary 26,935 terms,
+  4.17 MiB on disk, build 0.56 s (read 0.06 s, tokenise + index 0.44 s), load 0.05 s.
+- Recall, env=local, 400 placeholder questions: Recall@10 0.9383, Recall@100 0.9912 (Hit@10 0.9475,
+  Hit@100 0.9975).
+- Recall, env=local, all questions_all.jsonl questions with gold in the local corpus (403): Recall@10 0.9388,
+  Recall@100 0.9913 (Hit@10 0.9479, Hit@100 0.9975).
+- Search latency, env=local: 0.28 ms median for a single query, 0.19 ms per query in a batch (k = 100).
+- Determinism: the same 50 queries twice give identical results; a rebuild into a temp folder gives identical
+  top-100 results for all 403 queries; `--force` rebuild of the real index works (atomic swap).
+- Unique-token test: "zorblaxquintavel" passage found at rank 1 (the only hit) in a 5,001-doc throw-away index;
+  the real index and corpus untouched, temp folder removed.
+- Edge queries `""`, `"the of and is"`, `"qwertzuiopasdfghjk"`: no crash, 0 hits.
+- `score_docs` vs `search` on the real local index: 40,000 (question, doc) pairs, max |difference| = 0.
+- Resume: a second run skips the build ("index is current"), 2.2 s in total.
+- `check_ada_report.py A2 --allow-local` on the real report: all A2 rules pass (one warning: corpus is not
+  full-size), `STATUS: LOCAL_DRY_RUN`.
+- `pytest -q`: 188 passed (46 Ada report, 20 bm25, 13 config, 13 data, 1 log, 88 schemas, 7 skeleton).
 
 ### Step 2 -- Load NQ corpus and questions -- DONE-LOCAL (2026-10-16, env=local)
 **Built**
@@ -277,6 +352,10 @@ None to the data contracts. Layout notes (not contract changes):
 
 ## Open issues / blockers
 - Disk: resolved for now (34.5 GiB free after step 2).
+- BM25 on the full corpus (job A2): peak RAM is an estimate (16-32 GB; the token ids are Python lists). If A2
+  runs out of memory, switch tokenisation to streaming (`Tokenizer.streaming_tokenize`) before re-running.
+- The BM25 masking check (plan 2.1, "max rank difference on a 50-question check") is not run yet: it needs poison
+  shards. `score_docs` is ready for it.
 - `questions.jsonl` is a placeholder until Arya's final 200 + 200 set replaces it (see "What teammates can use").
 - Corpus mode `subset` (~500k gold + hard negatives) is a TODO that needs the retrievers (after step 5).
 - Answer coverage is 65.3% (2,255 of 3,452 BEIR test questions have an nq_open answer); the pool of 2,255 is far

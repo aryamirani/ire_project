@@ -28,6 +28,7 @@ if str(REPO_ROOT / "src") not in sys.path:  # works even before `pip install -e 
     sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from ire.config import get_data_dir, get_env_name, load_dotenv_file, load_env_profile  # noqa: E402
+from ire.utils.run_info import git_commit  # noqa: E402
 
 # (import name, display name, required?)
 LIBRARIES: list[tuple[str, str, bool]] = [
@@ -46,18 +47,6 @@ LIBRARIES: list[tuple[str, str, bool]] = [
     ("pytest", "pytest", True),
     ("pyserini", "pyserini", False),  # not used: BM25 is bm25s, so Java is not needed
 ]
-
-
-def git_commit() -> str:
-    """Return the current git commit hash (with '-dirty' if the tree has changes), or 'unknown'."""
-    try:
-        sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True,
-                             text=True, check=True).stdout.strip()
-        dirty = subprocess.run(["git", "status", "--porcelain"], cwd=REPO_ROOT, capture_output=True,
-                               text=True, check=True).stdout.strip()
-        return sha + ("-dirty" if dirty else "")
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
 
 
 def check_torch() -> dict[str, Any]:

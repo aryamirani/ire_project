@@ -22,7 +22,6 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -34,6 +33,7 @@ if str(REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from ire.config import load_config  # noqa: E402
+from ire.utils.run_info import git_commit  # noqa: E402
 from ire.data.download import (  # noqa: E402
     BEIR_HF_FILES,
     BEIR_NQ_URL,
@@ -56,17 +56,6 @@ from ire.utils.log import get_logger  # noqa: E402
 
 GIB = 2**30
 STAMP = ".prepare_data.json"  # written next to the outputs; lets a re-run skip an identical build
-
-
-def git_commit() -> str:
-    try:
-        sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True,
-                             check=True).stdout.strip()
-        dirty = subprocess.run(["git", "status", "--porcelain"], cwd=REPO_ROOT, capture_output=True, text=True,
-                               check=True).stdout.strip()
-        return sha + ("-dirty" if dirty else "")
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
 
 
 def file_info(path: Path, data_dir: Path, rows: bool = True) -> dict[str, Any]:

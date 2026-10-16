@@ -15,9 +15,6 @@ models:
   llm: Qwen/Qwen2.5-3B-Instruct                     # fixed 3-4B instruct model; confirm before job A7
   perplexity: openai-community/gpt2                 # GPT-2 small
 
-bm25:
-  library: bm25s
-
 compute:
   device: cuda
   fp16: true

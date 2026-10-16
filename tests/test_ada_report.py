@@ -67,7 +67,7 @@ def test_local_report_is_only_a_dry_run() -> None:
     assert check_report("A0", dict(a0_report(), job="A0_local")).status == "FAIL"  # suffix only in dry runs
 
 
-@pytest.mark.parametrize("job", [j for j in JOBS if j not in ("A0", "A1")])
+@pytest.mark.parametrize("job", [j for j in JOBS if j not in ("A0", "A1", "A2")])
 def test_other_jobs_are_stubs(job: str) -> None:
     result = check_report(job, {"job": job, "env": "ada"})
     assert result.status == "NOT_IMPLEMENTED"
@@ -122,3 +122,51 @@ def test_a1_random_mode_size_must_match_request() -> None:
     report = a1_report("random")
     report["n_passages_requested"] = 6000
     assert check_report("A1", report).status == "FAIL"
+
+
+def a2_report() -> dict:
+    """A report with the structure scripts/build_index.py writes (synthetic, for testing the rules only)."""
+    return {
+        "job": "A2", "env": "ada", "git_commit": "abc1234", "timestamp_utc": "2026-10-16T10:00:00+00:00",
+        "retriever": "bm25", "ok": True, "checks": {"unique_token_rank_1": True},
+        "corpus": {"rows": 2_681_468}, "n_docs": 2_681_468, "n_poison": 0, "build_time_s": 900.0,
+        "index_bytes": 2 * 2**30,
+        "eval": {"placeholder_questions": {"n_questions": 400, "recall@10": 0.55, "recall@100": 0.8},
+                 "questions_all_sample": {"n_questions": 1000, "n_available": 2255, "recall@10": 0.52,
+                                          "recall@100": 0.77}},
+        "latency_ms": {"single_query_median_ms": 40.0}, "determinism": {"same_query_twice": True},
+        "edge_queries": {"''": {"hits": 0, "error": None}},
+        "unique_token": {"rank": 1, "n_docs_in_test_index": 50_001}, "libraries": {"bm25s": "0.3.13"},
+    }
+
+
+def test_a2_passes() -> None:
+    result = check_report("A2", a2_report())
+    assert result.status == "PASS", [c for c in result.failed]
+
+
+@pytest.mark.parametrize("breaker", [
+    lambda r: r.update(ok=False),
+    lambda r: r.update(retriever="dense"),
+    lambda r: r.update(n_docs=2_681_467),                                         # index != corpus + poison
+    lambda r: r["eval"]["questions_all_sample"].update(n_questions=500),          # not 1,000 questions
+    lambda r: r["eval"]["questions_all_sample"].update(**{"recall@100": 0.05}),   # not above random
+    lambda r: r["eval"]["questions_all_sample"].update(**{"recall@10": 0.9}),     # recall@10 > recall@100
+    lambda r: r["eval"]["placeholder_questions"].update(n_questions=390),
+    lambda r: r["unique_token"].update(rank=2),
+    lambda r: r["determinism"].update(same_query_twice=False),
+    lambda r: r["edge_queries"]["''"].update(error="ValueError: boom"),
+    lambda r: r.pop("index_bytes"),
+], ids=["not-ok", "wrong-retriever", "doc-count", "n-questions", "recall-low", "recall-order", "placeholder",
+        "unique-token", "determinism", "edge-crash", "field-missing"])
+def test_a2_fails(breaker) -> None:
+    report = copy.deepcopy(a2_report())
+    breaker(report)
+    assert check_report("A2", report).status == "FAIL"
+
+
+def test_a2_low_but_plausible_recall_is_only_a_warning() -> None:
+    report = a2_report()
+    report["eval"]["questions_all_sample"].update(**{"recall@10": 0.3, "recall@100": 0.5})
+    result = check_report("A2", report)
+    assert result.status == "PASS" and any(not c.passed and not c.fatal for c in result.checks)
