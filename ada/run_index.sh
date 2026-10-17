@@ -2,7 +2,7 @@
 # ada/run_index.sh -- build one retriever index and write its report.
 #
 #   bash ada/run_index.sh bm25      # job A2 (CPU only; no GPU needed)
-#   bash ada/run_index.sh dense     # job A3 (added in step 4)
+#   bash ada/run_index.sh dense     # job A3 (needs a GPU; E5 encoding + FAISS)
 #   bash ada/run_index.sh splade    # job A4 (added in step 5)
 #
 # Extra arguments are passed on, e.g. `bash ada/run_index.sh bm25 --force` to rebuild.

@@ -67,7 +67,7 @@ def test_local_report_is_only_a_dry_run() -> None:
     assert check_report("A0", dict(a0_report(), job="A0_local")).status == "FAIL"  # suffix only in dry runs
 
 
-@pytest.mark.parametrize("job", [j for j in JOBS if j not in ("A0", "A1", "A2")])
+@pytest.mark.parametrize("job", [j for j in JOBS if j not in ("A0", "A1", "A2", "A3")])
 def test_other_jobs_are_stubs(job: str) -> None:
     result = check_report(job, {"job": job, "env": "ada"})
     assert result.status == "NOT_IMPLEMENTED"
@@ -169,4 +169,61 @@ def test_a2_low_but_plausible_recall_is_only_a_warning() -> None:
     report = a2_report()
     report["eval"]["questions_all_sample"].update(**{"recall@10": 0.3, "recall@100": 0.5})
     result = check_report("A2", report)
+    assert result.status == "PASS" and any(not c.passed and not c.fatal for c in result.checks)
+
+
+def a3_report() -> dict:
+    """A report with the structure build_index.py --retriever dense writes (synthetic, for testing the rules only)."""
+    return {
+        "job": "A3", "env": "ada", "git_commit": "abc1234", "timestamp_utc": "2026-10-17T10:00:00+00:00",
+        "retriever": "dense", "ok": True, "checks": {"norms_within_1e-3": True},
+        "corpus": {"rows": 2_681_468}, "n_docs": 2_681_468, "n_poison": 0, "build_time_s": 3600.0,
+        "index_bytes": 12 * 2**30, "model": "intfloat/e5-base-v2", "model_revision": "b533fe4636f4a2507c08ddab40644d20b0006d6a",
+        "dim": 768, "device": "cuda", "vram_peak_gib": {"build": 6.1, "overall": 6.1, "cap": None},
+        "settings": {"query_prefix": "query: ", "passage_prefix": "passage: ", "index_type": "hnsw"},
+        "eval": {"placeholder_questions": {"n_questions": 400, "recall@10": 0.7, "recall@100": 0.9},
+                 "questions_all_sample": {"n_questions": 1000, "n_available": 2255, "recall@10": 0.68,
+                                          "recall@100": 0.91}},
+        "latency_ms": {"single_query_median_ms": 12.0}, "determinism": {"same_query_twice": True},
+        "edge_queries": {"''": {"hits": 10, "error": None}},
+        "prefix_test": {"differ": True}, "reencode_check": {"n": 200, "min_cosine": 0.9999, "passed": True},
+        "norms": {"min": 0.9998, "max": 1.0002, "passed": True}, "self_retrieval": {"n": 100, "top1_rate": 0.99,
+                                                                                    "passed": True},
+        "libraries": {"torch": "2.6.0"},
+    }
+
+
+def test_a3_passes() -> None:
+    result = check_report("A3", a3_report())
+    assert result.status == "PASS", [c for c in result.failed]
+
+
+@pytest.mark.parametrize("breaker", [
+    lambda r: r.update(ok=False),
+    lambda r: r.update(retriever="bm25"),
+    lambda r: r.update(model="intfloat/e5-small-v2"),                               # not the Ada model
+    lambda r: r.update(model_revision="unknown"),
+    lambda r: r["settings"].update(query_prefix=""),
+    lambda r: r.update(n_docs=1),
+    lambda r: r["eval"]["questions_all_sample"].update(n_questions=10),
+    lambda r: r["eval"]["questions_all_sample"].update(**{"recall@100": 0.1}),
+    lambda r: r["reencode_check"].update(min_cosine=0.99, passed=False),
+    lambda r: r["norms"].update(passed=False),
+    lambda r: r["prefix_test"].update(differ=False),
+    lambda r: r["self_retrieval"].update(passed=False),
+    lambda r: r["determinism"].update(same_query_twice=False),
+    lambda r: r["edge_queries"]["''"].update(error="RuntimeError: boom"),
+    lambda r: r.pop("vram_peak_gib"),
+], ids=["not-ok", "wrong-retriever", "wrong-model", "no-revision", "no-prefix", "doc-count", "n-questions",
+        "recall-low", "reencode", "norms", "prefix", "self-retrieval", "determinism", "edge-crash", "field-missing"])
+def test_a3_fails(breaker) -> None:
+    report = copy.deepcopy(a3_report())
+    breaker(report)
+    assert check_report("A3", report).status == "FAIL"
+
+
+def test_a3_cpu_encoding_is_only_a_warning() -> None:
+    report = a3_report()
+    report["device"] = "cpu"
+    result = check_report("A3", report)
     assert result.status == "PASS" and any(not c.passed and not c.fatal for c in result.checks)

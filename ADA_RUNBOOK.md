@@ -24,6 +24,7 @@ Claude Code appends a section below for every job as its step is finished. Check
 | A0 setup | `ada/setup_env.sh` | REQUESTED | whoever starts first (Arya or Vansh) |
 | A1 data | `ada/run_prepare_data.sh` | REQUESTED | Arya |
 | A2 bm25 | `ada/run_index.sh bm25` | REQUESTED | Arya |
+| A3 dense | `ada/run_index.sh dense` | REQUESTED | Vansh |
 
 ### A0 setup
 ```
@@ -108,6 +109,32 @@ Details for a non-expert:
 4. Safe to re-run: if the index is already built from the same corpus and settings, the build is skipped and only
    the checks run again. `bash ada/run_index.sh bm25 --force` rebuilds.
 5. If it runs out of memory, re-submit with `--mem=96G` and tell Samarth the peak memory from the job accounting.
+
+### A3 dense
+```
+ADA REQUEST A3
+Owner: Vansh          Needs: A0 (environment + intfloat/e5-base-v2 downloaded) and A1 (data/corpus.jsonl)
+Run:   git pull && bash ada/run_index.sh dense        (in a GPU job; no internet needed)
+Time:  1-3 h (estimate: encoding 2.68M passages with e5-base-v2 on one GPU, then building the HNSW index on CPU)
+Disk:  ~14 GB under $IRE_DATA_DIR/indexes/ada/dense (estimate: float16 vectors ~4 GB + HNSW index ~9 GB)
+RAM:   ask for 48 GB (estimate: peak ~16-24 GB while the HNSW index is built)
+Success looks like: "RESULT: OK" and "SUMMARY A3: OK"; the report shows ~2.68M docs, Recall@10/@100 on 1,000
+       questions (next to BM25's on the same questions), stored-vs-re-encoded cosine > 0.999 and norms 1 +/- 1e-3.
+Send back: $IRE_DATA_DIR/reports/A3.json (paste it in the team chat or commit it to reports/)
+If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A3_dense.log and the report file if one exists.
+```
+Details for a non-expert:
+1. Run it as a GPU batch job, e.g.
+   `sbatch -p <partition> --gres=gpu:1 -c 10 --mem=48G -t 06:00:00 -o $IRE_DATA_DIR/logs/%x-%j.log --wrap "bash ada/run_index.sh dense"`
+   (partition from the top of `ada/common.sh`), or the same command inside an interactive `srun ... --gres=gpu:1 --pty bash`.
+2. It encodes every passage of `$IRE_DATA_DIR/data/corpus.jsonl` (+ any `poison_*.jsonl` in `data/poison/`) with
+   `intfloat/e5-base-v2` (`passage: ` prefix, fp16), stores the vectors and builds a FAISS HNSW index
+   (settings in `configs/env_ada.yaml`).
+3. **If the job hits its time limit or dies, just submit the same command again**: encoding resumes from the last
+   checkpoint (every 50,000 passages) instead of starting over. The log says "resuming an interrupted build at row N".
+4. If the GPU runs out of memory the batch size is halved automatically; nothing to do.
+5. Safe to re-run after success: the build is skipped and only the checks run. `--force` rebuilds.
+6. A2 (BM25) does not have to be finished first; if it is, the report also lists BM25 recall on the same questions.
 
 ## Division of labour (suggested; adjust freely)
 - Arya: data (A1), BM25 (A2), poison ingestion (A6). She already owns the poison shards.

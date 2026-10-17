@@ -32,6 +32,18 @@ bm25:                      # step 3; identical on every machine (the index manif
   include_poison_shards: true          # append every poison_*.jsonl under poison_dir when building
   unique_token_test_passages: 50000    # size of the throw-away index for the unique-token test (local: whole corpus)
 
+dense:                     # step 4; the model itself is per machine (models.dense in env_*.yaml)
+  query_prefix: "query: "      # required by E5 (model card); tests fail if these are missing
+  passage_prefix: "passage: "
+  pooling: mean                # E5: mean of the last hidden state over non-padding tokens
+  max_length: 512              # E5 maximum input length (tokens)
+  store_dtype: float16         # passage vectors on disk (L2-normalised before the cast)
+  fields: title+text           # encoded text = passage prefix + title + " " + text
+  include_poison_shards: true
+  checkpoint_every: 50000      # passages between resume checkpoints while encoding
+  reencode_check_passages: 200 # stored vs freshly re-encoded vectors (cosine > 0.999)
+  self_retrieval_check_passages: 100   # a passage's own text as query should return it at rank 1
+
 retrieval_eval:            # sanity recall reported by scripts/build_index.py
   ks: [10, 100]
   n_questions: 1000        # seeded sample of questions_all with gold in the index (all if fewer)

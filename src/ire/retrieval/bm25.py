@@ -20,13 +20,10 @@ Design notes
 
 from __future__ import annotations
 
-import hashlib
 import json
-import os
 import shutil
 import time
-from collections import Counter
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -37,9 +34,20 @@ import numpy as np
 import Stemmer
 from bm25s.tokenization import Tokenizer
 
-from ire.schemas import CorpusRecord, PoisonRecord, SchemaError, is_poison_id, iter_jsonl
+from ire.retrieval.common import (  # noqa: F401  (doc_text, find_poison_shards, iter_documents re-exported)
+    MANIFEST,
+    dir_size,
+    doc_text,
+    find_poison_shards,
+    index_dir_for,
+    inputs_fingerprint,
+    iter_documents,
+    load_documents,
+    read_manifest,
+    swap_in,
+)
+from ire.schemas import is_poison_id
 
-MANIFEST = "manifest.json"
 DOC_IDS = "doc_ids.json"
 EMPTY_TOKEN_ID = 0  # bm25s gives every empty document/query the "" token; it must never match anything
 
@@ -67,43 +75,10 @@ class BM25Settings:
                          stemmer=Stemmer.Stemmer(self.stemmer))
 
 
-def doc_text(title: str, text: str) -> str:
-    """The indexed text of a passage: title + text."""
-    return f"{title} {text}".strip()
-
-
-def find_poison_shards(poison_dir: Path) -> list[Path]:
-    """Every `poison_*.jsonl` under poison_dir (sorted by name); [] if the folder does not exist yet."""
-    return sorted(poison_dir.glob("poison_*.jsonl")) if poison_dir.is_dir() else []
-
-
-def iter_documents(corpus_path: Path, extra_shards: Sequence[Path] = ()) -> Iterator[tuple[str, str]]:
-    """(doc_id, indexed text) for the clean corpus, then each poison shard, validated against the contracts."""
-    for rec in iter_jsonl(corpus_path, CorpusRecord):
-        yield rec.doc_id, doc_text(rec.title, rec.text)
-    for shard in extra_shards:
-        for prec in iter_jsonl(shard, PoisonRecord):
-            yield prec.doc_id, doc_text(prec.title, prec.text)
-
-
-def _sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as fh:
-        while chunk := fh.read(1 << 20):
-            h.update(chunk)
-    return h.hexdigest()
-
-
 def fingerprint(corpus_path: Path, extra_shards: Sequence[Path], settings: BM25Settings) -> dict[str, Any]:
     """What an index was built from: content hashes of the corpus and shards, and the settings."""
-    return {"corpus_sha256": _sha256(corpus_path),
-            "shards": [{"name": s.name, "sha256": _sha256(s)} for s in extra_shards],
-            "settings": asdict(settings), "bm25s_version": bm25s.__version__}
-
-
-def read_manifest(index_dir: Path) -> dict[str, Any] | None:
-    path = index_dir / MANIFEST
-    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+    return {**inputs_fingerprint(corpus_path, extra_shards), "settings": asdict(settings),
+            "bm25s_version": bm25s.__version__}
 
 
 def index_is_current(index_dir: Path, corpus_path: Path, extra_shards: Sequence[Path],
@@ -111,10 +86,6 @@ def index_is_current(index_dir: Path, corpus_path: Path, extra_shards: Sequence[
     """True if index_dir holds a finished index built from exactly these inputs and settings."""
     manifest = read_manifest(index_dir)
     return manifest is not None and manifest.get("fingerprint") == fingerprint(corpus_path, extra_shards, settings)
-
-
-def dir_size(path: Path) -> int:
-    return sum(p.stat().st_size for p in path.rglob("*") if p.is_file())
 
 
 def build_index(corpus_path: Path, out_dir: Path, extra_shards: Sequence[Path] | None = None,
@@ -128,19 +99,7 @@ def build_index(corpus_path: Path, out_dir: Path, extra_shards: Sequence[Path] |
     settings = settings or BM25Settings()
     shards = list(extra_shards or [])
     t0 = time.time()
-    doc_ids: list[str] = []
-    texts: list[str] = []
-    for i, (doc_id, text) in enumerate(iter_documents(corpus_path, shards)):
-        if max_docs is not None and i >= max_docs:
-            break
-        doc_ids.append(doc_id)
-        texts.append(text)
-    for doc_id, text in extra_docs:
-        doc_ids.append(doc_id)
-        texts.append(text)
-    if len(set(doc_ids)) != len(doc_ids):
-        dupes = sorted(d for d, n in Counter(doc_ids).items() if n > 1)
-        raise SchemaError(f"duplicate doc_ids across corpus and shards ({len(dupes)}): {dupes[:5]}")
+    doc_ids, texts = load_documents(corpus_path, shards, max_docs, extra_docs)
     t_read = time.time() - t0
 
     tokenizer = settings.tokenizer()
@@ -172,16 +131,7 @@ def build_index(corpus_path: Path, out_dir: Path, extra_shards: Sequence[Path] |
     (tmp / MANIFEST).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     manifest["index_bytes"] = dir_size(tmp)
 
-    if out_dir.exists():
-        old = out_dir.with_name(out_dir.name + ".old")
-        if old.exists():
-            shutil.rmtree(old)
-        os.replace(out_dir, old)
-        os.replace(tmp, out_dir)
-        shutil.rmtree(old)
-    else:
-        out_dir.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(tmp, out_dir)
+    swap_in(tmp, out_dir)
     return manifest
 
 
@@ -254,7 +204,7 @@ class BM25Retriever:
 
 def default_index_dir(cfg: Any) -> Path:
     """`<indexes_dir>/<env>/bm25` (local and Ada indexes never mix)."""
-    return cfg.path("indexes_dir") / cfg.env / "bm25"
+    return index_dir_for(cfg, "bm25")
 
 
 def unique_token_test(corpus_path: Path, work_dir: Path, settings: BM25Settings | None = None,

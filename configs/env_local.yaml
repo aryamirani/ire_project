@@ -18,6 +18,7 @@ models:
 compute:
   device: cuda             # falls back to cpu if CUDA is unavailable
   fp16: true
-  encode_batch_size: 64
+  encode_batch_size: 64     # halved automatically on CUDA out-of-memory
+  max_vram_gb: 5.0          # hard cap for this process (RTX 3050 has 6 GB)
   generate_batch_size: 4
-  dense_index: flat        # FAISS IndexFlatIP on the tiny corpus
+  dense_index: flat         # FAISS IndexFlatIP (exact) on the tiny corpus

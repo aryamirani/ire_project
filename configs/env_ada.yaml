@@ -18,6 +18,11 @@ models:
 compute:
   device: cuda
   fp16: true
-  encode_batch_size: 512
+  encode_batch_size: 128   # halved automatically on CUDA out-of-memory
+  max_vram_gb: null        # no cap
   generate_batch_size: 32
-  dense_index: hnsw        # HNSW or IVF-flat on the full corpus; parameters set in step 4
+  dense_index: hnsw        # flat | hnsw (FAISS, inner product)
+  hnsw:                    # used when dense_index = hnsw
+    M: 32
+    ef_construction: 200
+    ef_search: 256         # raised to k automatically if k is larger
