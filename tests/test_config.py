@@ -28,7 +28,8 @@ def test_load_config_merges_experiment_and_env(env: str) -> None:
     cfg = load_config(env)
     assert cfg.env == env
     assert cfg["seed"] == 13
-    assert (cfg["top_k_cache"], cfg["pool_size"], cfg["final_k"], cfg["rrf_k"]) == (150, 50, 5, 60)
+    assert (cfg["top_k_cache"], cfg["pool_size"], cfg["final_k"]) == (150, 50, 5)
+    assert (cfg["rrf.k"], cfg["rrf.depth"], cfg["rrf.components"]) == (60, 150, ["bm25", "dense"])
     assert cfg["retrievers"] == ["bm25", "dense", "splade", "rrf"]
     assert cfg.get("cluster.tau_c") == 0.85
     assert cfg.get("perplexity.alpha") == 0.025

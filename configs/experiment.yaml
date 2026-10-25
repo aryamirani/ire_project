@@ -17,7 +17,10 @@ retrievers: [bm25, dense, splade, rrf]
 top_k_cache: 150           # raw top-150 (doc_id, score) cached per (retriever, qid)
 pool_size: 50              # masked candidate pool the filters read
 final_k: 5                 # first 5 unflagged passages go to the LLM
-rrf_k: 60                  # RRF score = sum 1 / (rrf_k + rank)
+rrf:                       # step 6; reciprocal rank fusion of masked component lists
+  k: 60                    # score = sum over lists of 1 / (k + rank), rank starting at 1
+  depth: 150               # each component is retrieved to this depth; the fused list is cut to it
+  components: [bm25, dense]
 
 bm25:                      # step 3; identical on every machine (the index manifest records them)
   library: bm25s           # no Java / pyserini

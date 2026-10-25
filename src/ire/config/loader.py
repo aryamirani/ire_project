@@ -32,7 +32,7 @@ REQUIRED_PATH_KEYS: tuple[str, ...] = (
 )
 # Keys the merged experiment + env config must define.
 REQUIRED_CONFIG_KEYS: tuple[str, ...] = (
-    "seed", "retrievers", "top_k_cache", "pool_size", "final_k", "rrf_k", "corpus.mode", "models.dense",
+    "seed", "retrievers", "top_k_cache", "pool_size", "final_k", "rrf.k", "rrf.depth", "corpus.mode", "models.dense",
     "models.splade", "models.llm", "models.perplexity",
 )
 _VAR = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")

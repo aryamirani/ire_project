@@ -1,6 +1,6 @@
 # HANDOFF -- Samarth's lane (indexes, retrievers, cache, generation, cluster + perplexity filters)
 
-Last updated: 2026-10-25 (after step 5)
+Last updated: 2026-10-25 (after step 6)
 
 ## Status board
 | Step | Title | Status | Date | Suggested message |
@@ -10,8 +10,8 @@ Last updated: 2026-10-25 (after step 5)
 | 2 | Load NQ corpus and questions | DONE-LOCAL | 2026-10-16 | `step 2: load NQ corpus and questions` (committed) |
 | 3 | BM25 index and retriever | DONE-LOCAL | 2026-10-16 | `step 3: BM25 index and retriever` (committed) |
 | 4 | Dense index and retriever (+ get_doc_vector) | DONE-LOCAL | 2026-10-17 | `step 4: dense index and retriever + vector API` (committed) |
-| 5 | SPLADE index and retriever | DONE-LOCAL | 2026-10-25 | `step 5: SPLADE index and exact sparse retriever` |
-| 6 | RRF hybrid retriever | TODO | | |
+| 5 | SPLADE index and retriever | DONE-LOCAL | 2026-10-25 | `step 5: SPLADE index and exact sparse retriever` (committed) |
+| 6 | RRF hybrid retriever | DONE-LOCAL (no Ada job: RRF needs no index; it becomes real once A2 + A3 exist) | 2026-10-25 | `step 6: RRF hybrid retriever (fuse masked component lists)` |
 | 7 | Top-150 cache builder | TODO | | |
 | 8 | Poison ingestion hook (index poison shards) | TODO | | |
 | 9 | Generation harness and cache | TODO | | |
@@ -163,6 +163,17 @@ If the job is killed (time limit), submit the same command again: encoding resum
   `doc_vectors(doc_ids)` / `query_vectors(texts)` (scipy CSR, vocabulary-id columns), `is_poison`.
 - Vansh: all three retrievers now have `score_docs(query, doc_ids)`, so the masking check can score any set of
   documents under the current index.
+- `ire.retrieval.rrf`: `fuse(list_a, list_b, k=60, depth=150)` and `fuse_many(lists, k, depth)` -> fused
+  `[(doc_id, rrf_score), ...]`; score = sum of 1/(k + rank), rank from 1 in each list, input scores ignored, ties
+  by doc_id. `RRFRetriever.from_config(cfg)` (BM25 + dense, `search`, `search_components`, `fuse_components`)
+  is for recall checks and the smoke test only; it does no masking. `python scripts/check_rrf.py` re-runs the
+  step 6 checks.
+- **Vansh, RRF in `candidate_pool`: mask each component list first, then fuse** (`is_active` is yours):
+  ```python
+  bm25  = [(d, s) for d, s in cache["bm25"][qid]  if not (is_poison_id(d) and not is_active(d, attack, rate))]
+  dense = [(d, s) for d, s in cache["dense"][qid] if not (is_poison_id(d) and not is_active(d, attack, rate))]
+  pool  = fuse(bm25, dense, k=cfg["rrf.k"], depth=cfg["rrf.depth"])[:pool_size]
+  ```
 - `ire.retrieval.eval`: `recall_at_k(results, gold, ks)`, `questions_with_gold_in_index`, `sample_eval_set`
   (retrieval sanity only; the project metrics stay with Vansh).
 - **Arya**: `questions.jsonl` is a PLACEHOLDER (200 target + 200 clean, seed 13, folds A/B 100 each). Your final
@@ -202,6 +213,13 @@ None to the data contracts. Layout notes (not contract changes):
   `[]`. So a `top150_bm25.jsonl` row can have fewer than 150 entries even when the index is larger (section 2 said
   "fewer only if the index is smaller"). On the local corpus all 400 placeholder questions still get 100+ hits.
   Ties are ordered by position in the index, so results are deterministic.
+- (Step 6) **RRF config**: the top-level `rrf_k: 60` became an `rrf:` section in `experiment.yaml` (`k: 60`,
+  `depth: 150`, `components: [bm25, dense]`); read it as `cfg["rrf.k"]`, `cfg["rrf.depth"]`.
+- (Step 6) **RRF must fuse masked component lists.** `fuse()` takes lists that are already masked. Masking after
+  fusing is wrong: the clean passages keep ranks computed with the poison present (in the toy test, clean
+  passages c2 and c3 swap places), and a fused list cut at depth loses passages. **Step 7 will cache a fused
+  top150_rrf.jsonl only as an unmasked, no-poison reference. Any setting with poison active or masked must fuse
+  the masked component lists at pool time; never mask the fused cache file.**
 - (Step 5) **SPLADE**: `splade:` in `experiment.yaml` (doc max length 256 tokens, query max length 64, pooling
   max log(1 + ReLU), no term pruning; `prune_doc_terms: true` is refused). Index files:
   `doc_matrix.{data,indices,indptr}.npy` (CSR, rows = documents, columns = vocabulary ids, float32 weights > 0),
@@ -238,6 +256,42 @@ None to the data contracts. Layout notes (not contract changes):
 
 ## Step log
 (Newest first. Per step: what was built, files, how to run, verify results with actual numbers, open issues.)
+
+### Step 6 -- RRF hybrid retriever -- DONE-LOCAL (2026-10-25, env=local; no Ada job)
+**Built**
+- `src/ire/retrieval/rrf.py`: `fuse_many(lists, k=60, depth=150)` and `fuse(list_a, list_b, k, depth)` (pure
+  functions on already-masked ranked lists; rank order only; `math.fsum`, so the score does not depend on the order
+  of the lists; ties by doc_id; duplicate ids in one list rejected), `RRFRetriever` (runs each component to depth
+  150 and fuses; `search_components` / `fuse_components` for step 7). No masking, no candidate_pool (Vansh's).
+- `configs/experiment.yaml`: `rrf: {k: 60, depth: 150, components: [bm25, dense]}` (replaces `rrf_k`).
+- `scripts/check_rrf.py`: recall of BM25 / dense / RRF on the same questions, fusion time, determinism, and the
+  mask demo; report `$IRE_DATA_DIR/reports/rrf_local.json`. No index, no Ada job.
+- Tests: `tests/test_rrf.py` (10: hand-built order with docs in one list only, ties, empty lists, short BM25 list
+  vs 150 dense, identical lists, scores ignored / JSON lists, depth and k, three lists and list-order invariance,
+  mask-then-fuse vs fuse-then-remove, RRFRetriever with fake components).
+
+**How to run (PowerShell, repo root)**
+```
+.\.venv\Scripts\python.exe scripts/check_rrf.py
+```
+
+**Verify results (env=local)** -- 5,000-passage corpus; these numbers only show that the code works.
+- Recall, env=local, 400 placeholder questions (component lists at depth 150, same questions):
+  | retriever | Recall@10 | Recall@100 | Hit@10 | Hit@100 |
+  |---|---|---|---|---|
+  | BM25 | 0.9383 | 0.9912 | 0.9475 | 0.9975 |
+  | dense | 0.9979 | 1.0 | 1.0 | 1.0 |
+  | RRF (BM25 + dense) | 0.9888 | 1.0 | 0.995 | 1.0 |
+  RRF Recall@100 (1.0) >= the worse component (BM25, 0.9912): PASS. The 403 questions with gold in the local
+  corpus give the same numbers. On average only 18.8 of the top-100 BM25 and dense passages overlap.
+- Mask-then-fuse vs fuse-then-remove (toy example, poison above clean passages in both lists):
+  BM25 [poison, c1, c2, c3, c4], dense [c1, c3, poison, c2, c4] -> mask then fuse: c1, c2, c3, c4; fuse then
+  remove: c1, c3, c2, c4 (c2 and c3 swap). With depth 3 the fuse-then-remove list keeps only 2 clean passages.
+- Determinism: the same 400 (and 403) questions fused twice give identical lists.
+- Fusion time, env=local: 0.17 ms median per question (two 150-item lists); retrieving the two component lists
+  takes 5.9 ms per question once the E5 model is loaded.
+- `pytest -q`: 263 passed (79 Ada report, 20 bm25, 13 config, 13 data, 14 dense, 1 log, 10 rrf, 88 schemas,
+  7 skeleton, 18 splade).
 
 ### Step 5 -- SPLADE index and retriever -- DONE-LOCAL (2026-10-25, env=local)
 **Built**
@@ -447,7 +501,7 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
   indexes, vectors, caches, logs, reports), repo-relative for small tracked files (`reports/`,
   `configs/perplexity_thresholds.json`, `heldout/`).
 - `configs/experiment.yaml`: shared settings from the plan: seed 13, 200 target + 200 clean, folds A/B, retrievers,
-  `top_k_cache` 150, `pool_size` 50, `final_k` 5, `rrf_k` 60, attacks, poison rates 1/3/5, generation
+  `top_k_cache` 150, `pool_size` 50, `final_k` 5, `rrf_k` 60 (an `rrf:` section since step 6), attacks, poison rates 1/3/5, generation
   (temperature 0, 32 new tokens), cluster (top-20, k=2, tau_c 0.85 + sweep 0.70-0.95, ROUGE-L 0.25), perplexity
   (alpha 2.5% + sweep 1/2.5/5/10%, 1,000 calibration passages, min 20 tokens, rule `either`).
   Per-machine values (`corpus.mode`, models, batch sizes) stay in `env_*.yaml`; `seed` moved out of them so it has
