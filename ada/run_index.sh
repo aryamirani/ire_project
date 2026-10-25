@@ -3,7 +3,7 @@
 #
 #   bash ada/run_index.sh bm25      # job A2 (CPU only; no GPU needed)
 #   bash ada/run_index.sh dense     # job A3 (needs a GPU; E5 encoding + FAISS)
-#   bash ada/run_index.sh splade    # job A4 (added in step 5)
+#   bash ada/run_index.sh splade    # job A4 (needs a GPU; SPLADE encoding, exact sparse search)
 #
 # Extra arguments are passed on, e.g. `bash ada/run_index.sh bm25 --force` to rebuild.
 # Resumable: an index built from the same corpus, poison shards and settings is reused (only the checks rerun).

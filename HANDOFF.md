@@ -1,6 +1,6 @@
 # HANDOFF -- Samarth's lane (indexes, retrievers, cache, generation, cluster + perplexity filters)
 
-Last updated: 2026-10-17 (after step 4)
+Last updated: 2026-10-25 (after step 5)
 
 ## Status board
 | Step | Title | Status | Date | Suggested message |
@@ -9,8 +9,8 @@ Last updated: 2026-10-17 (after step 4)
 | 1 | Config, paths, logging, data-contract schemas | DONE-LOCAL | 2026-10-15 | `step 1: config, paths, logging, contract schemas` (committed) |
 | 2 | Load NQ corpus and questions | DONE-LOCAL | 2026-10-16 | `step 2: load NQ corpus and questions` (committed) |
 | 3 | BM25 index and retriever | DONE-LOCAL | 2026-10-16 | `step 3: BM25 index and retriever` (committed) |
-| 4 | Dense index and retriever (+ get_doc_vector) | DONE-LOCAL | 2026-10-17 | `step 4: dense index and retriever + vector API` |
-| 5 | SPLADE index and retriever | TODO | | |
+| 4 | Dense index and retriever (+ get_doc_vector) | DONE-LOCAL | 2026-10-17 | `step 4: dense index and retriever + vector API` (committed) |
+| 5 | SPLADE index and retriever | DONE-LOCAL | 2026-10-25 | `step 5: SPLADE index and exact sparse retriever` |
 | 6 | RRF hybrid retriever | TODO | | |
 | 7 | Top-150 cache builder | TODO | | |
 | 8 | Poison ingestion hook (index poison shards) | TODO | | |
@@ -29,7 +29,7 @@ Status values: TODO, IN PROGRESS, DONE-LOCAL (passes on tiny local profile), DON
 | A1 data | 2 | Arya | `bash ada/run_prepare_data.sh` (login node) | REQUESTED | `$IRE_DATA_DIR/reports/A1.json` + `reports/data_card_ada.json` |
 | A2 bm25 | 3 | Arya | `bash ada/run_index.sh bm25` (CPU job, 48 GB RAM) | REQUESTED | `$IRE_DATA_DIR/reports/A2.json` |
 | A3 dense | 4 | Vansh | `bash ada/run_index.sh dense` (GPU job, 48 GB RAM) | REQUESTED | `$IRE_DATA_DIR/reports/A3.json` |
-| A4 splade | 5 | Vansh | | not yet requested | |
+| A4 splade | 5 | Vansh | `bash ada/run_index.sh splade` (GPU job, 48 GB RAM) | REQUESTED | `$IRE_DATA_DIR/reports/A4.json` |
 | A5 cache | 7 | Vansh | | not yet requested | |
 | A6 poison | 8 | Arya | | not yet requested | |
 | A7 generate | 9 | Vansh | | not yet requested | |
@@ -78,13 +78,33 @@ If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A2_bm25.log and the re
 ADA REQUEST A3
 Owner: Vansh          Needs: A0 (environment + intfloat/e5-base-v2 downloaded) and A1 (data/corpus.jsonl)
 Run:   git pull && bash ada/run_index.sh dense        (in a GPU job; no internet needed)
-Time:  1-3 h (estimate: encoding 2.68M passages with e5-base-v2 on one GPU, then building the HNSW index on CPU)
-Disk:  ~14 GB under $IRE_DATA_DIR/indexes/ada/dense (estimate: float16 vectors ~4 GB + HNSW index ~9 GB)
-RAM:   ask for 48 GB (estimate: peak ~16-24 GB while the HNSW index is built)
+Time:  1-2 h (estimate: encoding 2.68M passages with e5-base-v2 on one GPU; the exact Flat index adds minutes)
+Disk:  ~13 GB under $IRE_DATA_DIR/indexes/ada/dense (estimate: float16 vectors 2.68M x 768 x 2 B = 4.1 GB +
+       Flat index in float32 2.68M x 768 x 4 B = 8.2 GB)
+RAM:   ask for 48 GB (estimate: peak ~12-16 GB = 8.2 GB Flat index + ~1.5 GB passage texts + model/overhead)
 Success looks like: "RESULT: OK" and "SUMMARY A3: OK"; the report shows ~2.68M docs, Recall@10/@100 on 1,000
        questions (next to BM25's on the same questions), stored-vs-re-encoded cosine > 0.999 and norms 1 +/- 1e-3.
 Send back: $IRE_DATA_DIR/reports/A3.json (paste it in the team chat or commit it to reports/)
 If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A3_dense.log and the report file if one exists.
+If the job is killed (time limit), submit the same command again: encoding resumes from the last checkpoint.
+```
+
+```
+ADA REQUEST A4
+Owner: Vansh          Needs: A0 (environment + SPLADE model downloaded) and A1 (data/corpus.jsonl)
+Run:   git pull && bash ada/run_index.sh splade       (in a GPU job; no internet needed)
+Time:  1-3 h (estimate: SPLADE encoding of 2.68M passages; 260 passages/s on Samarth's throttled 6 GB laptop
+       GPU, so a cluster GPU should be several times faster)
+Disk:  ~6 GB final + ~3 GB temporary checkpoint files while building, under $IRE_DATA_DIR/indexes/ada/splade
+       (estimate scaled from the local index: 147.8 non-zeros per passage -> ~396M non-zeros; 8 bytes each,
+       stored twice: document matrix + inverted index)
+RAM:   ask for 48 GB (estimate: peak ~12-16 GB while the two matrices are assembled)
+VRAM:  ~1.2 GB at batch 64 locally (fp16); the batch halves itself on out-of-memory
+Success looks like: "RESULT: OK" and "SUMMARY A4: OK"; the report shows ~2.68M docs, non-zeros per document
+       and per query, Recall@10/@100 on 1,000 questions (next to BM25 and dense if their indexes exist), the
+       exactness check and self-retrieval at rank 1.
+Send back: $IRE_DATA_DIR/reports/A4.json (paste it in the team chat or commit it to reports/)
+If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A4_splade.log and the report file if one exists.
 If the job is killed (time limit), submit the same command again: encoding resumes from the last checkpoint.
 ```
 
@@ -105,8 +125,8 @@ If the job is killed (time limit), submit the same command again: encoding resum
   Arya/Vansh: validate your files with e.g. `read_jsonl("poison_fact.jsonl", PoisonRecord)`; errors name the line.
 - `ire.utils.log.get_logger(name)` -- console + `$IRE_DATA_DIR/logs/<name>.log`, every line tagged `env=<IRE_ENV>`.
 - `python scripts/check_ada_report.py <A0..A9> [--file PATH] [--allow-local]` -- checks a returned Ada report
-  (looks in `reports/<job>.json`, then `$IRE_DATA_DIR/reports/<job>.json`). Exit 0 = PASS. Rules exist for A0-A3;
-  A4-A9 print NOT_IMPLEMENTED until their step adds the rules.
+  (looks in `reports/<job>.json`, then `$IRE_DATA_DIR/reports/<job>.json`). Exit 0 = PASS. Rules exist for A0-A4;
+  A5-A9 print NOT_IMPLEMENTED until their step adds the rules.
 - `python scripts/prepare_data.py [--corpus-mode full|random] [--dev-subset] [--source hf|ukp] [--force]` -- builds
   `$IRE_DATA_DIR/data/{corpus,questions_all,questions}.jsonl` (step 2; details in the step log). Local files exist now:
   5,000 passages, 2,255 pool questions, 400 placeholder questions.
@@ -135,6 +155,14 @@ If the job is killed (time limit), submit the same command again: encoding resum
 - `ire.retrieval.dense`: `DenseRetriever.from_config(cfg)` with `search(queries, k)` -> `[[(doc_id, cosine), ...]]`,
   `score_docs(query, doc_ids)`, `is_poison`; `build_dense_index(...)`; `E5Encoder` (prefixes, mean pooling, fp16,
   VRAM cap, automatic batch halving on CUDA out-of-memory).
+- `python scripts/build_index.py --retriever splade [--force] [--check-rebuild]` -- SPLADE index in
+  `$IRE_DATA_DIR/indexes/<env>/splade` (skips if current; resumes an interrupted encoding); A4 report.
+  Local SPLADE index exists now.
+- `ire.retrieval.splade`: `SpladeRetriever.from_config(cfg)` with `search(queries, k)` ->
+  `[[(doc_id, score), ...]]` (exact sparse dot product), `score_docs(query, doc_ids)` (same scores as `search`),
+  `doc_vectors(doc_ids)` / `query_vectors(texts)` (scipy CSR, vocabulary-id columns), `is_poison`.
+- Vansh: all three retrievers now have `score_docs(query, doc_ids)`, so the masking check can score any set of
+  documents under the current index.
 - `ire.retrieval.eval`: `recall_at_k(results, gold, ks)`, `questions_with_gold_in_index`, `sample_eval_set`
   (retrieval sanity only; the project metrics stay with Vansh).
 - **Arya**: `questions.jsonl` is a PLACEHOLDER (200 target + 200 clean, seed 13, folds A/B 100 each). Your final
@@ -174,6 +202,23 @@ None to the data contracts. Layout notes (not contract changes):
   `[]`. So a `top150_bm25.jsonl` row can have fewer than 150 entries even when the index is larger (section 2 said
   "fewer only if the index is smaller"). On the local corpus all 400 placeholder questions still get 100+ hits.
   Ties are ordered by position in the index, so results are deterministic.
+- (Step 5) **SPLADE**: `splade:` in `experiment.yaml` (doc max length 256 tokens, query max length 64, pooling
+  max log(1 + ReLU), no term pruning; `prune_doc_terms: true` is refused). Index files:
+  `doc_matrix.{data,indices,indptr}.npy` (CSR, rows = documents, columns = vocabulary ids, float32 weights > 0),
+  `inverted.{data,indices,indptr}.npy` (the transpose, used for search), `doc_ids.npy`, `manifest.json` (exact
+  model revision and encoding precision). Search is exact; like BM25, only documents with score > 0 are
+  returned, so a row can be shorter than k, and an empty / whitespace-only query returns `[]` (SPLADE would
+  otherwise "expand" the bare [CLS]/[SEP] markers into 126 terms). Stopword-only queries are encoded normally.
+- (Step 5) **Queries are encoded one at a time** for SPLADE and dense (documents stay batched). In fp16 a
+  query's vector changed slightly with the other queries in its batch (padding / batch shape): up to 0.01 in a
+  SPLADE score, enough to reorder near-ties between the top-150 cache and `score_docs`. Now a query's vector
+  depends only on its text (checked: batch of 20 vs one by one, max difference 0.0). No index changed.
+- (Step 5) As for dense, the A4 report uses the self-retrieval test instead of the unique-token test.
+- (Before step 5, decided by Samarth) **Ada dense index = exact FAISS Flat inner product**, not HNSW:
+  `compute.dense_index: flat` in `env_ada.yaml`. Masking poison after retrieval is only exactly equivalent to
+  a separate index when search is exact (plan 2.1). Cost: the index file is the float32 vectors (~8.2 GB on
+  Ada) and exact search over 2.68M passages, which is still fast enough for our query volume. The `hnsw`
+  parameters stay in the config but are unused.
 - (Step 4) Dense settings: `dense:` in `experiment.yaml` (E5 prefixes `query: ` / `passage: `, mean pooling,
   max_length 512, float16 storage, checkpoints); per machine in `env_*.yaml`: `compute.dense_index` (local `flat`,
   Ada `hnsw` with `compute.hnsw` M 32 / ef_construction 200 / ef_search 256), `compute.max_vram_gb` (local 5.0) and
@@ -193,6 +238,61 @@ None to the data contracts. Layout notes (not contract changes):
 
 ## Step log
 (Newest first. Per step: what was built, files, how to run, verify results with actual numbers, open issues.)
+
+### Step 5 -- SPLADE index and retriever -- DONE-LOCAL (2026-10-25, env=local)
+**Built**
+- `src/ire/retrieval/splade.py`: `SpladeEncoder` (naver/splade-cocondenser-ensembledistil loaded from its local
+  HF snapshot, revision pinned; masked-LM logits -> w_j = max over tokens of log(1 + ReLU(logit_j)), computed as
+  log(1 + ReLU(max logit)), which is identical and needs no second [batch, length, vocab] tensor; fp16 on GPU, VRAM
+  cap, batch halving on out-of-memory; documents truncated to 256 tokens, queries to 64), `build_splade_index`
+  (corpus + poison shards via `retrieval/common.py`; checkpoint chunks, resumable; CSR document matrix + inverted
+  transpose saved as memory-mappable .npy arrays; atomic swap), `SpladeRetriever` (exact `search`, `score_docs`,
+  `doc_vectors`, `query_vectors`, `is_poison`), `index_is_current`.
+- `retrieval/common.py`: `resolve_model` and `setup_device` moved here (shared by dense and SPLADE).
+- Queries are now encoded one at a time for SPLADE and dense (see "Interface changes").
+- `scripts/build_index.py --retriever splade` (recall next to BM25 and dense, sparsity, non-negativity,
+  exactness, self-retrieval, rebuild check, Ada scale estimate); `ada/run_index.sh splade` (job A4); A4 rules.
+- Tests: `tests/test_splade.py` (18: config, pruning refused, storage, exact dot product vs manual, ties at the
+  top-k boundary, empty queries, poison shard, resume after a simulated crash, fingerprint, revision guard; three
+  use the real SPLADE model on CPU: pooling equals the textbook formula, queries truncated at 64 tokens, sensible
+  ranking), A4 rule cases in `tests/test_ada_report.py`.
+- Also before step 5: Ada dense index switched to exact Flat (see "Interface changes"), A3 estimates updated.
+
+**How to run (PowerShell, repo root)**
+```
+.\.venv\Scripts\python.exe scripts/build_index.py --retriever splade --check-rebuild
+.\.venv\Scripts\python.exe scripts/check_ada_report.py A4 --file <IRE_DATA_DIR>/reports/A4_local.json --allow-local
+```
+
+**Verify results (env=local)** -- 5,000-passage corpus (509 gold); the recall numbers only show that the code
+works on a tiny corpus, not how the retrievers compare on NQ.
+- Recall, env=local, 400 placeholder questions (same questions for all three):
+  | retriever | Recall@10 | Recall@100 | Hit@10 | Hit@100 |
+  |---|---|---|---|---|
+  | BM25 | 0.9383 | 0.9912 | 0.9475 | 0.9975 |
+  | dense (e5-small-v2) | 0.9979 | 1.0 | 1.0 | 1.0 |
+  | SPLADE | 0.9925 | 1.0 | 0.995 | 1.0 |
+  All 403 questions with gold in the local corpus: SPLADE 0.9926 / 1.0.
+- Self-retrieval: 100/100 passages queried by their own text come back at rank 1.
+- Exactness (20 queries x top-100 = 2,000 pairs): `search()` vs a manual dot product of the stored vectors, max
+  relative difference 3.0e-7 (float32 summation order); `score_docs` vs `search`, max difference 0.0.
+- Sparsity: documents mean 147.8 non-zeros (min 21, max 339, 0 empty), queries (400) mean 46.5 (min 21, max
+  102); 24,615 of 30,522 vocabulary terms used. Every weight > 0 (smallest document weight 5.4e-7, query 1.8e-5).
+- Determinism: same 50 queries twice identical; `--check-rebuild` gives identical document vectors and top-100
+  results for 403 queries; `--force` rebuild works; a second run skips the build.
+- Edge queries: `""` -> 0 hits; `"the of and is"` and an unknown word -> 10 hits; no crash.
+- Build 19.5 s (encode 19.3 s = 260 passages/s, fp16, batch 64 never halved; index assembly 0.1 s); index
+  11.6 MiB on disk (8 bytes per non-zero per copy, two copies); load 0.17 s; peak VRAM 1.20 GiB building,
+  1.26 GiB overall (cap 5.0).
+- Query latency, env=local, including encoding: 25.8 ms median single query, 24.8 ms per query in a batch (queries
+  are encoded one at a time on purpose).
+- Ada estimate from these counts: 2.68M x 147.8 = ~396M non-zeros -> ~5.9 GiB index on disk (+ ~3 GiB temporary
+  chunks while building), ~12 GiB peak RAM (estimate). No pruning needed.
+- `check_ada_report.py A4 --allow-local` on the real report: all A4 rules pass (warnings: dirty tree, corpus not
+  full-size), `STATUS: LOCAL_DRY_RUN`. The dense report was re-run after the query-encoding change: all checks
+  pass, recall unchanged.
+- `pytest -q`: 253 passed (79 Ada report, 20 bm25, 13 config, 13 data, 14 dense, 1 log, 88 schemas, 7 skeleton,
+  18 splade).
 
 ### Step 4 -- Dense index and retriever + vector API -- DONE-LOCAL (2026-10-17, env=local)
 **Built**
@@ -439,11 +539,7 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
 - Disk: resolved for now (34.5 GiB free after step 2).
 - BM25 on the full corpus (job A2): peak RAM is an estimate (16-32 GB; the token ids are Python lists). If A2
   runs out of memory, switch tokenisation to streaming (`Tokenizer.streaming_tokenize`) before re-running.
-- **Decision needed (Samarth / Vansh): HNSW vs Flat for the Ada dense index.** The plan argues masking is
-  *exactly* equivalent to a separate index for dense retrieval; that holds for exact (Flat) search, while HNSW is
-  approximate. A Flat index of 2.68M x 768 float32 needs ~8 GB RAM and exact search for a few thousand queries
-  takes minutes on CPU, so Flat is feasible on Ada. Config currently says `hnsw` as planned; switching is one line
-  (`compute.dense_index: flat` in `env_ada.yaml`) and should be decided before A3 runs.
+- Resolved: the Ada dense index is exact Flat (see "Interface changes").
 - Local GPU/CPU speed looks power-throttled (see step 4 log); plug in / use a performance power plan before
   timing-sensitive local runs (step 9 generation throughput).
 - The BM25 masking check (plan 2.1, "max rank difference on a 50-question check") is not run yet: it needs poison

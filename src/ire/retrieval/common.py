@@ -94,3 +94,29 @@ def swap_in(tmp: Path, out_dir: Path) -> None:
 def index_dir_for(cfg: Any, retriever: str) -> Path:
     """`<indexes_dir>/<env>/<retriever>` (local and Ada indexes never mix)."""
     return cfg.path("indexes_dir") / cfg.env / retriever
+
+
+def resolve_model(model: str) -> tuple[Path, str]:
+    """Local snapshot folder and exact commit hash of a Hub model; downloads only if it is not cached yet.
+
+    Loading from the snapshot path avoids Hub network calls (they made loading take ~2 minutes here) and pins the
+    revision that goes into the index fingerprint.
+    """
+    from huggingface_hub import snapshot_download
+
+    try:
+        path = Path(snapshot_download(model, local_files_only=True))
+    except Exception:  # noqa: BLE001 - not cached yet
+        path = Path(snapshot_download(model))
+    return path, path.name
+
+
+def setup_device(device: str, fp16: bool, max_vram_gb: float | None) -> tuple[str, bool]:
+    """Pick cuda if asked and available (else cpu); fp16 only on cuda; cap this process's VRAM if configured."""
+    import torch
+
+    device = device if (device != "cuda" or torch.cuda.is_available()) else "cpu"
+    if device == "cuda" and max_vram_gb:
+        total = torch.cuda.get_device_properties(0).total_memory
+        torch.cuda.set_per_process_memory_fraction(min(1.0, max_vram_gb * 2**30 / total))
+    return device, fp16 and device == "cuda"

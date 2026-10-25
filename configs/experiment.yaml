@@ -44,6 +44,17 @@ dense:                     # step 4; the model itself is per machine (models.den
   reencode_check_passages: 200 # stored vs freshly re-encoded vectors (cosine > 0.999)
   self_retrieval_check_passages: 100   # a passage's own text as query should return it at rank 1
 
+splade:                    # step 5; model in models.splade (env_*.yaml); identical on every machine
+  doc_max_length: 256          # tokens per passage (incl. [CLS]/[SEP]); longer passages are truncated
+  query_max_length: 64         # tokens per query
+  pooling: max_log1p_relu      # w_j = max over tokens of log(1 + ReLU(logit_j)) (standard SPLADE max pooling)
+  fields: title+text           # encoded text = title + " " + text
+  prune_doc_terms: false       # no pruning: exact scores, so masking equals a separate index
+  include_poison_shards: true
+  checkpoint_every: 50000      # passages between resume checkpoints while encoding
+  self_retrieval_check_passages: 100   # a passage's own text as query should return it at rank 1
+  exactness_check_queries: 20  # search() scores vs a manual dot product of the stored vectors
+
 retrieval_eval:            # sanity recall reported by scripts/build_index.py
   ks: [10, 100]
   n_questions: 1000        # seeded sample of questions_all with gold in the index (all if fewer)

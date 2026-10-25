@@ -3,13 +3,14 @@
 Usage (repo root; PowerShell or bash):
     python scripts/build_index.py --retriever bm25                   # build if needed, then evaluate
     python scripts/build_index.py --retriever dense                  # E5 vectors + FAISS (GPU if available)
+    python scripts/build_index.py --retriever splade                 # SPLADE sparse vectors, exact search (GPU)
     python scripts/build_index.py --retriever bm25 --force           # rebuild even if the index is current
     python scripts/build_index.py --retriever dense --check-rebuild  # also rebuild a temp copy and compare results
 
 The index goes to $IRE_DATA_DIR/indexes/<env>/<retriever>. Resumable: if the index exists and was built from the
-same corpus (sha256), poison shards and settings (dense: also the exact model revision), the build is skipped and
-only the checks run; an interrupted dense encoding resumes from its last checkpoint.
-Report: $IRE_DATA_DIR/reports/<A2|A3>[_local].json with sizes, timings, Recall@10/100 and the retriever's sanity
+same corpus (sha256), poison shards and settings (dense/SPLADE: also the exact model revision), the build is
+skipped and only the checks run; an interrupted dense/SPLADE encoding resumes from its last checkpoint.
+Report: $IRE_DATA_DIR/reports/<A2|A3|A4>[_local].json with sizes, timings, Recall@10/100 and the retriever's sanity
 checks. Exit code 0 only if every check passes.
 """
 
@@ -321,6 +322,175 @@ def run_dense(args: argparse.Namespace, cfg: Any, log: Any) -> dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------- SPLADE (step 5)
+
+FULL_CORPUS_PASSAGES = 2_681_468  # BEIR NQ; used to scale the local sparsity into an Ada RAM/disk estimate
+
+
+def splade_scale_estimate(nnz_per_doc: float, n_docs: int = FULL_CORPUS_PASSAGES) -> dict[str, Any]:
+    """Disk/RAM for the full corpus from the measured mean non-zeros per passage (8 B per non-zero per copy:
+    float32 weight + int32 column; the index stores the matrix twice: rows = docs and the inverted transpose)."""
+    nnz = nnz_per_doc * n_docs
+    one_copy = nnz * 8 + (n_docs + 1) * 4
+    return {"n_docs": n_docs, "nnz_per_doc": round(nnz_per_doc, 1), "nnz_total": int(nnz),
+            "index_disk_gib": round(2 * one_copy / 2**30, 2),
+            "build_peak_ram_gib": round(3.5 * one_copy / 2**30 + 1.5, 1),  # chunks + matrix + transpose + texts
+            "note": "estimate scaled from the local corpus, not measured on Ada"}
+
+
+def run_splade(args: argparse.Namespace, cfg: Any, log: Any) -> dict[str, Any]:
+    from ire.retrieval import splade as splade_mod
+
+    data_dir = cfg.path("data_dir")
+    corpus = cfg.path("corpus")
+    use_shards = cfg["splade.include_poison_shards"] and not args.no_poison_shards
+    shards = find_poison_shards(cfg.path("poison_dir")) if use_shards else []
+    index_dir = index_dir_for(cfg, "splade")
+    seed = int(cfg["seed"])
+
+    t0 = time.perf_counter()
+    encoder = splade_mod.SpladeEncoder.from_config(cfg)
+    model_load_s = time.perf_counter() - t0
+    settings = encoder.settings
+    log.info("splade env=%s model=%s@%s device=%s %s batch=%d doc/query max length %d/%d index=%s poison shards=%d",
+             cfg.env, settings.model, encoder.revision[:12], encoder.device, settings.encode_dtype,
+             encoder.batch_size, settings.doc_max_length, settings.query_max_length, index_dir, len(shards))
+
+    encoder.reset_peak_vram()
+    if not args.force and splade_mod.index_is_current(index_dir, corpus, shards, settings, encoder.revision):
+        log.info("index is current (same corpus sha256, shards, settings and model revision): skipping the build")
+        built, build_vram = False, None
+    else:
+        manifest = splade_mod.build_splade_index(corpus, index_dir, encoder, settings, shards,
+                                                 int(cfg["splade.checkpoint_every"]), log)
+        build_vram = encoder.peak_vram_gib()
+        log.info("built: %d docs (%d poison) in %.1f s (encode %.1f s, %.0f passages/s), nnz/doc %.1f, peak VRAM %s GiB",
+                 manifest["n_docs"], manifest["n_poison"], manifest["timings_s"]["total"],
+                 manifest["timings_s"]["encode"], manifest["encode_passages_per_s"] or 0,
+                 manifest["nnz_per_doc"]["mean"], build_vram)
+        built = True
+    manifest = read_manifest(index_dir)
+    index_bytes = dir_size(index_dir)
+
+    t0 = time.perf_counter()
+    retriever = splade_mod.SpladeRetriever(index_dir, encoder=encoder)
+    load_s = time.perf_counter() - t0
+    rows = corpus_rows(corpus)
+
+    # ---- recall, side by side with BM25 and dense on the same questions (if their indexes exist) ----
+    ks = [int(k) for k in cfg["retrieval_eval.ks"]]
+    placeholder, pool, n_available = eval_sets(cfg, set(retriever.doc_ids))
+    eval_placeholder, _ = evaluate(retriever.search, placeholder, ks)
+    eval_pool, pool_results = evaluate(retriever.search, pool, ks)
+    eval_pool["n_available"] = n_available
+    others: dict[str, Any] = {}
+    if read_manifest(index_dir_for(cfg, "bm25")):
+        bm25 = bm25_mod.BM25Retriever(index_dir_for(cfg, "bm25"), bm25_mod.BM25Settings.from_config(cfg))
+        others["bm25_same_questions"] = {"placeholder_questions": evaluate(bm25.search, placeholder, ks)[0],
+                                         "questions_all_sample": evaluate(bm25.search, pool, ks)[0]}
+    if read_manifest(index_dir_for(cfg, "dense")):
+        from ire.retrieval.dense import DenseRetriever
+
+        dense = DenseRetriever.from_config(cfg)
+        others["dense_same_questions"] = {"placeholder_questions": evaluate(dense.search, placeholder, ks)[0],
+                                          "questions_all_sample": evaluate(dense.search, pool, ks)[0]}
+    log.info("recall placeholder: %s | pool: %s | others: %s", eval_placeholder, eval_pool, others)
+    common = common_checks(retriever.search, pool)
+    edge = common["edge"]
+    edge_ok = all(v["error"] is None for v in edge.values()) and edge["''"]["hits"] == 0
+
+    # ---- sparsity and non-negativity ----
+    q_vecs = retriever.query_vectors([q for _, q, _ in placeholder])
+    q_nnz = np.diff(q_vecs.indptr)
+    sparsity = {"doc": manifest["nnz_per_doc"],
+                "query": {"mean": round(float(q_nnz.mean()), 2), "max": int(q_nnz.max()), "min": int(q_nnz.min()),
+                          "n": len(q_nnz)},
+                "vocab_size": manifest["vocab_size"], "vocab_terms_used_by_docs": manifest["vocab_terms_used"]}
+    nonneg = {"doc_min_weight": float(retriever.docs.data.min()), "query_min_weight": float(q_vecs.data.min()),
+              "passed": bool(retriever.docs.data.min() > 0 and q_vecs.data.min() >= 0)}
+
+    # ---- exactness: search() == manual dot product of stored vectors; score_docs() == search() ----
+    n_exact = int(cfg["splade.exactness_check_queries"])
+    exact_q = [q for _, q, _ in pool[:n_exact]]
+    exact_hits = retriever.search(exact_q, 100)
+    qmat = retriever.query_vectors(exact_q)
+    max_rel = max_sd = 0.0
+    for i, hits in enumerate(exact_hits):
+        ids = [d for d, _ in hits]
+        got = np.array([s for _, s in hits], dtype=np.float64)
+        manual = retriever.doc_vectors(ids).toarray().astype(np.float64) @ qmat[i].toarray().ravel().astype(np.float64)
+        max_rel = max(max_rel, float(np.max(np.abs(got - manual) / np.maximum(np.abs(manual), 1e-12))))
+        max_sd = max(max_sd, float(np.max(np.abs(retriever.score_docs(exact_q[i], ids) - got))))
+    exactness = {"n_queries": len(exact_q), "n_pairs": sum(len(h) for h in exact_hits),
+                 "max_rel_diff_search_vs_manual": max_rel, "max_abs_diff_score_docs_vs_search": max_sd,
+                 "passed": max_rel < 1e-5 and max_sd < 1e-4}
+
+    # ---- self-retrieval ----
+    rng = random.Random(seed)
+    n_self = min(int(cfg["splade.self_retrieval_check_passages"]), retriever.n_docs)
+    self_ids = rng.sample(retriever.doc_ids, n_self)
+    texts = {d: t for d, t in iter_documents(corpus, shards) if d in set(self_ids)}
+    top1 = retriever.search([texts[d] for d in self_ids], k=1)
+    self_rate = sum(1 for d, hits in zip(self_ids, top1) if hits and hits[0][0] == d) / max(1, n_self)
+    misses = [d for d, hits in zip(self_ids, top1) if not hits or hits[0][0] != d]
+    self_retrieval = {"n": n_self, "top1_rate": round(self_rate, 4), "passed": self_rate >= 0.9, "misses": misses[:10]}
+
+    rebuild_identical = None
+    if args.check_rebuild:
+        tmp_root = data_dir / "tmp"
+        tmp_root.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=tmp_root) as tmp:
+            splade_mod.build_splade_index(corpus, Path(tmp) / "splade_rebuild", encoder, settings, shards,
+                                          int(cfg["splade.checkpoint_every"]))
+            again = splade_mod.SpladeRetriever(Path(tmp) / "splade_rebuild", encoder=encoder, mmap=False)
+            same_vectors = bool((again.docs != retriever.docs).nnz == 0)
+            rebuild_identical = same_vectors and again.search([q for _, q, _ in pool], max(ks)) == pool_results
+            del again
+        log.info("rebuild: identical vectors and top-%d results: %s", max(ks), rebuild_identical)
+
+    peak = encoder.peak_vram_gib()
+    cap = cfg["compute"].get("max_vram_gb")
+    checks = {
+        "n_docs_matches_corpus_plus_poison": manifest["n_docs"] == rows + manifest["n_poison"],
+        "recall_reported": "recall@100" in eval_pool,
+        "same_query_twice_identical": common["same_twice"],
+        "edge_queries_no_crash_empty_returns_nothing": edge_ok,
+        "weights_non_negative": nonneg["passed"],
+        "search_exact_and_score_docs_agree": exactness["passed"],
+        "self_retrieval_top1_ge_0.9": self_retrieval["passed"],
+    }
+    if cap and peak is not None:
+        checks["vram_peak_under_cap"] = peak <= cap
+    if rebuild_identical is not None:
+        checks["rebuild_identical"] = rebuild_identical
+    return {
+        "retriever": "splade", "checks": checks, "built_now": built,
+        "index_dir": index_dir.relative_to(data_dir).as_posix(),
+        "model": settings.model, "model_revision": encoder.revision, "device": encoder.device,
+        "encode_dtype": settings.encode_dtype, "encode_batch_size_final": encoder.batch_size,
+        "build_time_s": manifest["timings_s"]["total"], "build_timings_s": manifest["timings_s"],
+        "encode_passages_per_s": manifest["encode_passages_per_s"], "resumed_from_row": manifest["resumed_from_row"],
+        "vram_peak_gib": {"build": build_vram, "overall": peak, "cap": cap},
+        "index_bytes": index_bytes, "index_mib": round(index_bytes / 2**20, 2),
+        "load_time_s": round(load_s, 3), "model_load_time_s": round(model_load_s, 2),
+        "corpus": {"path": corpus.relative_to(data_dir).as_posix(), "rows": rows,
+                   "sha256": manifest["fingerprint"]["corpus_sha256"]},
+        "n_docs": manifest["n_docs"], "n_clean": manifest["n_clean"], "n_poison": manifest["n_poison"],
+        "nnz": manifest["nnz"], "poison_shards": [s.name for s in shards], "settings": manifest["settings"],
+        "eval": {"ks": ks, "placeholder_questions": eval_placeholder, "questions_all_sample": eval_pool, **others},
+        "latency_ms": {"single_query_median_ms": common["single_query_median_ms"],
+                       "batch_ms_per_query": eval_pool.get("batch_ms_per_query"),
+                       "note": "includes encoding the query"},
+        "determinism": {"same_query_twice": common["same_twice"], "rebuild_identical": rebuild_identical},
+        "edge_queries": edge, "sparsity": sparsity, "non_negative": nonneg, "exactness": exactness,
+        "self_retrieval": self_retrieval,
+        "scale_estimate_full_corpus": splade_scale_estimate(manifest["nnz_per_doc"]["mean"]),
+        "libraries": library_versions("torch", "transformers", "scipy", "numpy", "huggingface_hub"),
+        "_summary": f"{manifest['n_docs']:,} docs ({manifest['n_poison']} poison), {settings.model}, "
+                    f"{manifest['nnz_per_doc']['mean']} non-zeros/doc",
+    }
+
+
 # ---------------------------------------------------------------- main
 
 
@@ -333,15 +503,11 @@ def main() -> int:
                         help="build a second index in a temp folder and check its results are identical")
     parser.add_argument("--report", help="report name (default: A2/A3/A4 on Ada, <job>_local otherwise)")
     args = parser.parse_args()
-    if args.retriever == "splade":
-        print("--retriever splade is not implemented yet (step 5).")
-        return 2
-
     t_start = time.time()
     cfg = load_config()
     log = get_logger("build_index")
     job = args.report or JOB_NAMES[args.retriever] + ("" if cfg.env == "ada" else f"_{cfg.env}")
-    body = run_bm25(args, cfg, log) if args.retriever == "bm25" else run_dense(args, cfg, log)
+    body = {"bm25": run_bm25, "dense": run_dense, "splade": run_splade}[args.retriever](args, cfg, log)
     summary = body.pop("_summary")
     ok = all(body["checks"].values())
     report = {"job": job, "env": cfg.env, "ok": ok, "git_commit": git_commit(),
@@ -358,11 +524,14 @@ def main() -> int:
     for name, key in (("placeholder questions", "placeholder_questions"),
                       ("questions_all (gold in index)", "questions_all_sample")):
         print(f"{name}: " + ", ".join(f"{k}={v}" for k, v in ev[key].items()))
-    if ev.get("bm25_same_questions"):
-        for name, key in (("  bm25, placeholder", "placeholder_questions"), ("  bm25, questions_all", "questions_all_sample")):
-            print(f"{name}: " + ", ".join(f"{k}={v}" for k, v in ev["bm25_same_questions"][key].items()))
+    for other in ("bm25", "dense"):
+        if ev.get(f"{other}_same_questions"):
+            for name, key in ((f"  {other}, placeholder", "placeholder_questions"),
+                              (f"  {other}, questions_all", "questions_all_sample")):
+                print(f"{name}: " + ", ".join(f"{k}={v}" for k, v in ev[f"{other}_same_questions"][key].items()))
     print(f"latency: {report['latency_ms']}")
-    for key in ("vram_peak_gib", "prefix_test", "reencode_check", "norms", "self_retrieval", "unique_token"):
+    for key in ("vram_peak_gib", "prefix_test", "reencode_check", "norms", "sparsity", "non_negative", "exactness",
+                "self_retrieval", "unique_token", "scale_estimate_full_corpus"):
         if key in report:
             print(f"{key}: {report[key]}")
     print(f"edge queries: {report['edge_queries']}")

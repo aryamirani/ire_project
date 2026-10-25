@@ -38,6 +38,8 @@ from ire.retrieval.common import (
     inputs_fingerprint,
     load_documents,
     read_manifest,
+    resolve_model,
+    setup_device,
     swap_in,
 )
 from ire.schemas import is_poison_id
@@ -87,21 +89,6 @@ class Encoder(Protocol):
     def encode_queries(self, texts: Sequence[str]) -> np.ndarray: ...
 
 
-def resolve_model(model: str) -> tuple[Path, str]:
-    """Local snapshot folder and exact commit hash of a Hub model; downloads only if it is not cached yet.
-
-    Loading from the snapshot path avoids Hub network calls (they made loading take ~2 minutes here) and pins the
-    revision that goes into the index fingerprint.
-    """
-    from huggingface_hub import snapshot_download
-
-    try:
-        path = Path(snapshot_download(model, local_files_only=True))
-    except Exception:  # noqa: BLE001 - not cached yet
-        path = Path(snapshot_download(model))
-    return path, path.name
-
-
 class E5Encoder:
     """E5 sentence encoder: prefixes, mean pooling, L2 normalisation; float32 numpy output."""
 
@@ -118,12 +105,8 @@ class E5Encoder:
             raise ValueError(f"only mean pooling is implemented (got {settings.pooling!r})")
         self.torch = torch
         self.settings = settings
-        self.device = device if (device != "cuda" or torch.cuda.is_available()) else "cpu"
-        self.fp16 = fp16 and self.device == "cuda"
+        self.device, self.fp16 = setup_device(device, fp16, max_vram_gb)
         self.batch_size = batch_size
-        if self.device == "cuda" and max_vram_gb:
-            total = torch.cuda.get_device_properties(0).total_memory
-            torch.cuda.set_per_process_memory_fraction(min(1.0, max_vram_gb * GIB / total))
         path, self.revision = resolve_model(settings.model)
         self.tokenizer = AutoTokenizer.from_pretrained(path)
         self.model = AutoModel.from_pretrained(path, dtype=torch.float16 if self.fp16 else torch.float32)
@@ -141,16 +124,21 @@ class E5Encoder:
         return self._encode([self.settings.passage_prefix + t for t in texts])
 
     def encode_queries(self, texts: Sequence[str]) -> np.ndarray:
-        return self._encode([self.settings.query_prefix + t for t in texts])
+        """One query at a time (no padding, no batch neighbours): a query's vector depends only on its text."""
+        return self._encode([self.settings.query_prefix + t for t in texts], batch_size=1)
 
-    def _encode(self, texts: list[str]) -> np.ndarray:
-        """Encode in batches of similar length (less padding); output keeps the input order."""
+    def _encode(self, texts: list[str], batch_size: int | None = None) -> np.ndarray:
+        """Encode in batches of similar length (less padding); output keeps the input order.
+
+        batch_size=1 makes every vector independent of the other texts in the call (fp16 results change slightly
+        with batch shape and padding); queries use it. Passages use the configured batch size.
+        """
         torch = self.torch
         out = np.zeros((len(texts), self.dim), dtype=np.float32)
         order = sorted(range(len(texts)), key=lambda i: len(texts[i]), reverse=True)
         start = 0
         while start < len(order):
-            idx = order[start:start + self.batch_size]
+            idx = order[start:start + (batch_size or self.batch_size)]
             try:
                 out[idx] = self._encode_batch([texts[i] for i in idx])
             except torch.cuda.OutOfMemoryError:

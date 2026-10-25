@@ -67,7 +67,7 @@ def test_local_report_is_only_a_dry_run() -> None:
     assert check_report("A0", dict(a0_report(), job="A0_local")).status == "FAIL"  # suffix only in dry runs
 
 
-@pytest.mark.parametrize("job", [j for j in JOBS if j not in ("A0", "A1", "A2", "A3")])
+@pytest.mark.parametrize("job", [j for j in JOBS if j not in ("A0", "A1", "A2", "A3", "A4")])
 def test_other_jobs_are_stubs(job: str) -> None:
     result = check_report(job, {"job": job, "env": "ada"})
     assert result.status == "NOT_IMPLEMENTED"
@@ -226,4 +226,65 @@ def test_a3_cpu_encoding_is_only_a_warning() -> None:
     report = a3_report()
     report["device"] = "cpu"
     result = check_report("A3", report)
+    assert result.status == "PASS" and any(not c.passed and not c.fatal for c in result.checks)
+
+
+def a4_report() -> dict:
+    """A report with the structure build_index.py --retriever splade writes (synthetic, for testing the rules only)."""
+    return {
+        "job": "A4", "env": "ada", "git_commit": "abc1234", "timestamp_utc": "2026-10-25T10:00:00+00:00",
+        "retriever": "splade", "ok": True, "checks": {"weights_non_negative": True},
+        "corpus": {"rows": 2_681_468}, "n_docs": 2_681_468, "n_poison": 0, "build_time_s": 5400.0,
+        "index_bytes": 6 * 2**30, "model": "naver/splade-cocondenser-ensembledistil",
+        "model_revision": "49cf4c7b0db5b870a401ddf5e2669993ef3699c7", "device": "cuda",
+        "settings": {"doc_max_length": 256, "query_max_length": 64, "pooling": "max_log1p_relu"},
+        "vram_peak_gib": {"build": 3.0, "overall": 3.1, "cap": None},
+        "eval": {"placeholder_questions": {"n_questions": 400, "recall@10": 0.7, "recall@100": 0.92},
+                 "questions_all_sample": {"n_questions": 1000, "n_available": 2255, "recall@10": 0.69,
+                                          "recall@100": 0.93}},
+        "latency_ms": {"single_query_median_ms": 40.0}, "determinism": {"same_query_twice": True},
+        "edge_queries": {"''": {"hits": 0, "error": None}, "'the of and is'": {"hits": 10, "error": None}},
+        "sparsity": {"doc": {"mean": 150.2, "max": 400, "min": 10, "empty_rows": 0},
+                     "query": {"mean": 46.0, "max": 100, "min": 20, "n": 400}},
+        "non_negative": {"passed": True}, "exactness": {"passed": True, "max_rel_diff_search_vs_manual": 1e-7,
+                                                       "max_abs_diff_score_docs_vs_search": 0.0},
+        "self_retrieval": {"n": 100, "top1_rate": 1.0, "passed": True}, "libraries": {"scipy": "1.18.1"},
+    }
+
+
+def test_a4_passes() -> None:
+    result = check_report("A4", a4_report())
+    assert result.status == "PASS", [c for c in result.failed]
+
+
+@pytest.mark.parametrize("breaker", [
+    lambda r: r.update(ok=False),
+    lambda r: r.update(retriever="dense"),
+    lambda r: r.update(model="naver/splade_v2_max"),
+    lambda r: r.update(model_revision=""),
+    lambda r: r["settings"].update(doc_max_length=512),                          # differs from experiment.yaml
+    lambda r: r["settings"].update(query_max_length=32),
+    lambda r: r.update(n_docs=5),
+    lambda r: r["sparsity"]["doc"].update(mean=0),
+    lambda r: r["eval"]["questions_all_sample"].update(**{"recall@100": 0.1}),
+    lambda r: r["non_negative"].update(passed=False),
+    lambda r: r["exactness"].update(passed=False),
+    lambda r: r["self_retrieval"].update(passed=False),
+    lambda r: r["determinism"].update(same_query_twice=False),
+    lambda r: r["edge_queries"]["''"].update(hits=5),                            # empty query must return nothing
+    lambda r: r["edge_queries"]["'the of and is'"].update(error="ValueError: boom"),
+    lambda r: r.pop("sparsity"),
+], ids=["not-ok", "wrong-retriever", "wrong-model", "no-revision", "doc-len", "query-len", "doc-count",
+        "no-sparsity", "recall-low", "negative", "not-exact", "self-retrieval", "determinism", "empty-query",
+        "edge-crash", "field-missing"])
+def test_a4_fails(breaker) -> None:
+    report = copy.deepcopy(a4_report())
+    breaker(report)
+    assert check_report("A4", report).status == "FAIL"
+
+
+def test_a4_empty_doc_vectors_only_warn() -> None:
+    report = a4_report()
+    report["sparsity"]["doc"]["empty_rows"] = 3
+    result = check_report("A4", report)
     assert result.status == "PASS" and any(not c.passed and not c.fatal for c in result.checks)

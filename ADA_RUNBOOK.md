@@ -25,6 +25,7 @@ Claude Code appends a section below for every job as its step is finished. Check
 | A1 data | `ada/run_prepare_data.sh` | REQUESTED | Arya |
 | A2 bm25 | `ada/run_index.sh bm25` | REQUESTED | Arya |
 | A3 dense | `ada/run_index.sh dense` | REQUESTED | Vansh |
+| A4 splade | `ada/run_index.sh splade` | REQUESTED | Vansh |
 
 ### A0 setup
 ```
@@ -115,9 +116,10 @@ Details for a non-expert:
 ADA REQUEST A3
 Owner: Vansh          Needs: A0 (environment + intfloat/e5-base-v2 downloaded) and A1 (data/corpus.jsonl)
 Run:   git pull && bash ada/run_index.sh dense        (in a GPU job; no internet needed)
-Time:  1-3 h (estimate: encoding 2.68M passages with e5-base-v2 on one GPU, then building the HNSW index on CPU)
-Disk:  ~14 GB under $IRE_DATA_DIR/indexes/ada/dense (estimate: float16 vectors ~4 GB + HNSW index ~9 GB)
-RAM:   ask for 48 GB (estimate: peak ~16-24 GB while the HNSW index is built)
+Time:  1-2 h (estimate: encoding 2.68M passages with e5-base-v2 on one GPU; the exact Flat index adds minutes)
+Disk:  ~13 GB under $IRE_DATA_DIR/indexes/ada/dense (estimate: float16 vectors 2.68M x 768 x 2 B = 4.1 GB +
+       Flat index in float32 2.68M x 768 x 4 B = 8.2 GB)
+RAM:   ask for 48 GB (estimate: peak ~12-16 GB = 8.2 GB Flat index + ~1.5 GB passage texts + model/overhead)
 Success looks like: "RESULT: OK" and "SUMMARY A3: OK"; the report shows ~2.68M docs, Recall@10/@100 on 1,000
        questions (next to BM25's on the same questions), stored-vs-re-encoded cosine > 0.999 and norms 1 +/- 1e-3.
 Send back: $IRE_DATA_DIR/reports/A3.json (paste it in the team chat or commit it to reports/)
@@ -128,13 +130,45 @@ Details for a non-expert:
    `sbatch -p <partition> --gres=gpu:1 -c 10 --mem=48G -t 06:00:00 -o $IRE_DATA_DIR/logs/%x-%j.log --wrap "bash ada/run_index.sh dense"`
    (partition from the top of `ada/common.sh`), or the same command inside an interactive `srun ... --gres=gpu:1 --pty bash`.
 2. It encodes every passage of `$IRE_DATA_DIR/data/corpus.jsonl` (+ any `poison_*.jsonl` in `data/poison/`) with
-   `intfloat/e5-base-v2` (`passage: ` prefix, fp16), stores the vectors and builds a FAISS HNSW index
-   (settings in `configs/env_ada.yaml`).
+   `intfloat/e5-base-v2` (`passage: ` prefix, fp16), stores the vectors and builds an exact FAISS Flat
+   inner-product index (settings in `configs/env_ada.yaml`).
 3. **If the job hits its time limit or dies, just submit the same command again**: encoding resumes from the last
    checkpoint (every 50,000 passages) instead of starting over. The log says "resuming an interrupted build at row N".
 4. If the GPU runs out of memory the batch size is halved automatically; nothing to do.
 5. Safe to re-run after success: the build is skipped and only the checks run. `--force` rebuilds.
 6. A2 (BM25) does not have to be finished first; if it is, the report also lists BM25 recall on the same questions.
+
+### A4 splade
+```
+ADA REQUEST A4
+Owner: Vansh          Needs: A0 (environment + SPLADE model downloaded) and A1 (data/corpus.jsonl)
+Run:   git pull && bash ada/run_index.sh splade       (in a GPU job; no internet needed)
+Time:  1-3 h (estimate: SPLADE encoding of 2.68M passages; 260 passages/s on Samarth's throttled 6 GB laptop
+       GPU, so a cluster GPU should be several times faster)
+Disk:  ~6 GB final + ~3 GB temporary checkpoint files while building, under $IRE_DATA_DIR/indexes/ada/splade
+       (estimate scaled from the local index: 147.8 non-zeros per passage -> ~396M non-zeros; 8 bytes each,
+       stored twice: document matrix + inverted index)
+RAM:   ask for 48 GB (estimate: peak ~12-16 GB while the two matrices are assembled)
+VRAM:  ~1.2 GB at batch 64 locally (fp16); the batch halves itself on out-of-memory
+Success looks like: "RESULT: OK" and "SUMMARY A4: OK"; the report shows ~2.68M docs, non-zeros per document
+       and per query, Recall@10/@100 on 1,000 questions (next to BM25 and dense if their indexes exist), the
+       exactness check and self-retrieval at rank 1.
+Send back: $IRE_DATA_DIR/reports/A4.json (paste it in the team chat or commit it to reports/)
+If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A4_splade.log and the report file if one exists.
+If the job is killed (time limit), submit the same command again: encoding resumes from the last checkpoint.
+```
+Details for a non-expert:
+1. Run it as a GPU batch job, e.g.
+   `sbatch -p <partition> --gres=gpu:1 -c 10 --mem=48G -t 06:00:00 -o $IRE_DATA_DIR/logs/%x-%j.log --wrap "bash ada/run_index.sh splade"`
+   (partition from the top of `ada/common.sh`), or inside an interactive `srun ... --gres=gpu:1 --pty bash`.
+2. It encodes every passage of `$IRE_DATA_DIR/data/corpus.jsonl` (+ any `poison_*.jsonl` in `data/poison/`)
+   with `naver/splade-cocondenser-ensembledistil` (256 tokens per passage, 64 per query, fp16) and stores the
+   sparse vectors without pruning, so search is exact.
+3. **If the job hits its time limit or dies, submit the same command again**: encoding resumes from the last
+   checkpoint (every 50,000 passages). The log says "resuming an interrupted build at row N".
+4. Safe to re-run after success: the build is skipped and only the checks run. `--force` rebuilds.
+5. A2 and A3 do not have to be finished first; if they are, the report also lists their recall on the same
+   questions.
 
 ## Division of labour (suggested; adjust freely)
 - Arya: data (A1), BM25 (A2), poison ingestion (A6). She already owns the poison shards.

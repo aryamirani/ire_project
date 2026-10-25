@@ -275,11 +275,74 @@ def _rules_a3(report: dict[str, Any]) -> list[Check]:
     return checks
 
 
-# ---------------------------------------------------------------- A4-A9 (stubs; filled in with each step)
+# ---------------------------------------------------------------- A4 (fields written by build_index.py --retriever splade)
+
+A4_FIELDS: tuple[str, ...] = ("retriever", "ok", "checks", "corpus", "n_docs", "n_poison", "build_time_s",
+                              "index_bytes", "model", "model_revision", "device", "settings", "eval", "latency_ms",
+                              "determinism", "edge_queries", "sparsity", "non_negative", "exactness",
+                              "self_retrieval", "vram_peak_gib", "libraries")
+
+
+def _rules_a4(report: dict[str, Any]) -> list[Check]:
+    checks = []
+    missing = [k for k in A4_FIELDS if k not in report]
+    checks.append(Check("build_index fields present", not missing, f"missing: {missing}" if missing else ""))
+    if missing:
+        return checks
+    checks.append(Check("retriever is splade", report["retriever"] == "splade", f"retriever={report['retriever']!r}"))
+    checks.append(Check("build_index RESULT OK", report["ok"] is True,
+                        str({k: v for k, v in report["checks"].items() if not v}) if not report["ok"] else ""))
+    profile = "local" if report.get("env") == "local" else "ada"  # local only reaches here as a dry run
+    want_model = load_env_profile(profile)["models"]["splade"]
+    checks.append(Check(f"model is env_{profile}.yaml models.splade", report["model"] == want_model,
+                        f"{report['model']} (expected {want_model})"))
+    checks.append(Check("model revision recorded", report["model_revision"] not in ("", "unknown", None),
+                        str(report["model_revision"])))
+    exp = load_experiment()["splade"]
+    s = report["settings"]
+    same = (s.get("doc_max_length"), s.get("query_max_length"), s.get("pooling")) == (
+        exp["doc_max_length"], exp["query_max_length"], exp["pooling"])
+    checks.append(Check("doc/query max length and pooling as in experiment.yaml", same, str(s)))
+    rows, n_docs, n_poison = report["corpus"].get("rows"), report["n_docs"], report["n_poison"]
+    checks.append(Check("index holds corpus + poison", n_docs == (rows or 0) + n_poison,
+                        f"n_docs={n_docs:,}, corpus rows={rows}, poison={n_poison}"))
+    lo, _ = FULL_CORPUS_RANGE
+    checks.append(Check("full-size corpus indexed", (rows or 0) >= lo, f"corpus rows={rows}", fatal=False))
+    checks.append(Check("encoded on a GPU", report["device"] == "cuda", f"device={report['device']}", fatal=False))
+    checks.append(Check("build time, index size and peak VRAM reported",
+                        isinstance(report["build_time_s"], (int, float)) and report["index_bytes"] > 0,
+                        f"build {report['build_time_s']} s, {report['index_bytes'] / 2**30:,.2f} GiB, "
+                        f"peak VRAM {report['vram_peak_gib']}"))
+    sparsity = report["sparsity"]
+    doc_mean = (sparsity.get("doc") or {}).get("mean")
+    q_mean = (sparsity.get("query") or {}).get("mean")
+    checks.append(Check("non-zeros per document and per query reported",
+                        isinstance(doc_mean, (int, float)) and doc_mean > 0 and isinstance(q_mean, (int, float)),
+                        f"doc mean {doc_mean}, query mean {q_mean}"))
+    checks.append(Check("no empty document vectors", (sparsity.get("doc") or {}).get("empty_rows") == 0,
+                        str(sparsity.get("doc")), fatal=False))
+    checks.extend(_recall_checks(report, "SPLADE"))
+    checks.append(Check("all weights non-negative", report["non_negative"].get("passed") is True,
+                        str(report["non_negative"])))
+    ex = report["exactness"]
+    checks.append(Check("search() equals the dot product of stored vectors; score_docs agrees",
+                        ex.get("passed") is True, f"max rel diff {ex.get('max_rel_diff_search_vs_manual')}, "
+                        f"score_docs max abs diff {ex.get('max_abs_diff_score_docs_vs_search')}"))
+    sr = report["self_retrieval"]
+    checks.append(Check("a passage's own text retrieves it at rank 1 (>= 90%)", sr.get("passed") is True,
+                        f"top-1 rate {sr.get('top1_rate')} over {sr.get('n')} passages"))
+    checks.append(Check("same query twice gives identical results",
+                        report["determinism"].get("same_query_twice") is True))
+    edge = report["edge_queries"]
+    edge_ok = all(v.get("error") is None for v in edge.values()) and (edge.get("''") or {}).get("hits") == 0
+    checks.append(Check("edge queries do not crash; empty query returns nothing", edge_ok, str(edge)))
+    return checks
+
+
+# ---------------------------------------------------------------- A5-A9 (stubs; filled in with each step)
 
 STUBS: dict[str, tuple[int, str]] = {
     # job: (step that fills in the rules, acceptance check from IMPLEMENTATION_PLAN.md section 5)
-    "A4": (5, "SPLADE index builds; Recall@100 on 1,000 questions reported; unique-token doc found at rank 1"),
     "A5": (7, "row count = number of questions; every row has 150 sorted entries; 10 random rows match a "
               "fresh search"),
     "A6": (8, "a poison passage for question X is in X's top-10 for >= 1 retriever; index sizes reported"),
@@ -290,7 +353,7 @@ STUBS: dict[str, tuple[int, str]] = {
 }
 
 RULES: dict[str, Callable[[dict[str, Any]], list[Check]]] = {"A0": _rules_a0, "A1": _rules_a1, "A2": _rules_a2,
-                                                          "A3": _rules_a3}
+                                                          "A3": _rules_a3, "A4": _rules_a4}
 
 
 def check_report(job: str, report: dict[str, Any], allow_local: bool = False) -> ReportResult:
