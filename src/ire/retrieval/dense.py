@@ -33,11 +33,13 @@ import numpy as np
 
 from ire.retrieval.common import (
     MANIFEST,
+    chunk_bounds,
     dir_size,
     doc_id_ranks,
     index_dir_for,
     inputs_fingerprint,
     load_documents,
+    load_shard_documents,
     read_manifest,
     resolve_model,
     setup_device,
@@ -238,9 +240,9 @@ def build_dense_index(corpus_path: Path, out_dir: Path, encoder: Encoder, settin
     resumed_from = done
 
     t_enc = time.time()
-    while done < n:
-        end = min(n, done + checkpoint_every)
-        vectors[done:end] = encoder.encode_passages(texts[done:end]).astype(settings.store_dtype)
+    n_clean = sum(1 for d in doc_ids if not is_poison_id(d))  # corpus first, then shards (load_documents order)
+    for start, end in chunk_bounds(n, n_clean, checkpoint_every, start=done):
+        vectors[start:end] = encoder.encode_passages(texts[start:end]).astype(settings.store_dtype)
         vectors.flush()
         done = end
         progress_path.write_text(json.dumps({"fingerprint": fp, "n_docs": n, "rows_done": done}), encoding="utf-8")
@@ -274,6 +276,74 @@ def build_dense_index(corpus_path: Path, out_dir: Path, encoder: Encoder, settin
     manifest["index_bytes"] = dir_size(tmp)
     swap_in(tmp, out_dir)
     return manifest
+
+
+def ingest_poison(index_dir: Path, corpus_path: Path, encoder: Encoder, settings: DenseSettings,
+                  extra_shards: Sequence[Path] | None = None, checkpoint_every: int = 50_000, force: bool = False,
+                  log: Any = None) -> dict[str, Any]:
+    """Make the index hold the clean corpus + exactly these poison shards, WITHOUT re-encoding the clean corpus.
+
+    The clean rows (the first n_clean) are copied bit for bit; old poison rows are dropped; the shards' passages are
+    encoded in their own chunks (chunk_bounds), so the result equals a full build with the shards. No shards ->
+    the clean index again. A no-op if the index already has exactly this fingerprint (unless force).
+    Returns {"noop": bool, "manifest": ...}.
+    """
+    index_dir = Path(index_dir)
+    shards = list(extra_shards or [])
+    manifest = read_manifest(index_dir)
+    if manifest is None:
+        raise FileNotFoundError(f"no dense index at {index_dir} (build it first)")
+    target = fingerprint(corpus_path, shards, settings, encoder.revision)
+    if not force and manifest["fingerprint"] == target:
+        return {"noop": True, "manifest": manifest}
+    clean_fp = {k: v for k, v in fingerprint(corpus_path, [], settings, encoder.revision).items() if k != "shards"}
+    if {k: v for k, v in manifest["fingerprint"].items() if k != "shards"} != clean_fp:
+        raise RuntimeError(f"the clean part of {index_dir} was built from another corpus / settings / model "
+                           "revision: rebuild it with scripts/build_index.py --retriever dense --force")
+    t0 = time.time()
+    n_clean = int(manifest["n_clean"])
+    all_ids = np.load(index_dir / DOC_IDS).tolist()
+    clean_ids = all_ids[:n_clean]
+    if any(is_poison_id(d) for d in clean_ids) or not all(is_poison_id(d) for d in all_ids[n_clean:]):
+        raise RuntimeError(f"{index_dir}: rows are not ordered clean-then-poison; rebuild with --force")
+    p_ids, p_texts = load_shard_documents(shards)
+    if len(set(p_ids)) != len(p_ids) or set(p_ids) & set(clean_ids):
+        raise ValueError("duplicate poison doc_ids (within the shards or against the corpus)")
+
+    tmp = index_dir.with_name(index_dir.name + ".ingesting")
+    if tmp.exists():
+        shutil.rmtree(tmp)  # our own leftover from an interrupted ingestion
+    tmp.mkdir(parents=True)
+    n = n_clean + len(p_ids)
+    old = np.load(index_dir / VECTORS, mmap_mode="r")
+    vectors = np.lib.format.open_memmap(tmp / VECTORS, mode="w+", dtype=old.dtype, shape=(n, old.shape[1]))
+    for s in range(0, n_clean, 100_000):
+        vectors[s:min(n_clean, s + 100_000)] = old[s:min(n_clean, s + 100_000)]
+    del old
+    t_enc = time.time()
+    for start, end in chunk_bounds(len(p_ids), 0, checkpoint_every):
+        vectors[n_clean + start:n_clean + end] = encoder.encode_passages(p_texts[start:end]).astype(vectors.dtype)
+    vectors.flush()
+    encode_s = time.time() - t_enc
+    np.save(tmp / DOC_IDS, np.asarray(clean_ids + p_ids))
+    index = _faiss_index(vectors, settings)
+    faiss.write_index(index, str(tmp / FAISS_INDEX))
+    norms = np.concatenate([np.linalg.norm(np.asarray(vectors[s:s + 100_000], dtype=np.float32), axis=1)
+                            for s in range(0, n, 100_000)]) if n else np.zeros(0)
+    del vectors, index  # release the memmap before moving the folder (Windows)
+
+    new = {**manifest, "fingerprint": target, "n_docs": n, "n_poison": len(p_ids), "n_clean": n_clean,
+           "norms": {"min": float(norms.min()), "max": float(norms.max())},
+           "poison_ingestion": {"method": "append (clean rows copied, poison encoded)", "n_poison": len(p_ids),
+                                "shards": [s.name for s in shards], "encode_s": round(encode_s, 2),
+                                "total_s": round(time.time() - t0, 2),
+                                "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds")}}
+    new.pop("index_bytes", None)
+    (tmp / MANIFEST).write_text(json.dumps(new, indent=2), encoding="utf-8")
+    swap_in(tmp, index_dir)
+    if log:
+        log.info("dense: %d poison passages appended to %d clean (%.1f s)", len(p_ids), n_clean, time.time() - t0)
+    return {"noop": False, "manifest": new}
 
 
 # ---------------------------------------------------------------- searching / vector API

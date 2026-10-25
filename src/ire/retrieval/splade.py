@@ -36,11 +36,13 @@ import scipy.sparse as sp
 
 from ire.retrieval.common import (
     MANIFEST,
+    chunk_bounds,
     dir_size,
     doc_id_ranks,
     index_dir_for,
     inputs_fingerprint,
     load_documents,
+    load_shard_documents,
     read_manifest,
     resolve_model,
     setup_device,
@@ -252,10 +254,10 @@ def build_splade_index(corpus_path: Path, out_dir: Path, encoder: SparseEncoder,
     resumed_from = done
 
     t_enc = time.time()
-    while done < n:
-        end = min(n, done + checkpoint_every)
-        chunk = encoder.encode_documents(texts[done:end])
-        sp.save_npz(tmp / f"chunk_{done:010d}.npz", chunk, compressed=False)
+    n_clean = sum(1 for d in doc_ids if not is_poison_id(d))  # corpus first, then shards (load_documents order)
+    for start, end in chunk_bounds(n, n_clean, checkpoint_every, start=done):
+        chunk = encoder.encode_documents(texts[start:end])
+        sp.save_npz(tmp / f"chunk_{start:010d}.npz", chunk, compressed=False)
         done = end
         progress_path.write_text(json.dumps({"fingerprint": fp, "n_docs": n, "rows_done": done}), encoding="utf-8")
         if log:
@@ -296,6 +298,71 @@ def build_splade_index(corpus_path: Path, out_dir: Path, encoder: SparseEncoder,
     manifest["index_bytes"] = dir_size(tmp)
     swap_in(tmp, out_dir)
     return manifest
+
+
+def ingest_poison(index_dir: Path, corpus_path: Path, encoder: SparseEncoder, settings: SpladeSettings,
+                  extra_shards: Sequence[Path] | None = None, checkpoint_every: int = 50_000, force: bool = False,
+                  log: Any = None) -> dict[str, Any]:
+    """Make the index hold the clean corpus + exactly these poison shards, WITHOUT re-encoding the clean corpus.
+
+    Clean document rows (the first n_clean) are kept as they are; old poison rows are dropped; the shards' passages
+    are encoded in their own chunks (chunk_bounds) and appended; the inverted index is rebuilt from the result, so
+    it equals a full build with the shards. No shards -> the clean index again. No-op if already current.
+    Returns {"noop": bool, "manifest": ...}.
+    """
+    index_dir = Path(index_dir)
+    shards = list(extra_shards or [])
+    manifest = read_manifest(index_dir)
+    if manifest is None:
+        raise FileNotFoundError(f"no SPLADE index at {index_dir} (build it first)")
+    target = fingerprint(corpus_path, shards, settings, encoder.revision)
+    if not force and manifest["fingerprint"] == target:
+        return {"noop": True, "manifest": manifest}
+    clean_fp = {k: v for k, v in fingerprint(corpus_path, [], settings, encoder.revision).items() if k != "shards"}
+    if {k: v for k, v in manifest["fingerprint"].items() if k != "shards"} != clean_fp:
+        raise RuntimeError(f"the clean part of {index_dir} was built from another corpus / settings / model "
+                           "revision: rebuild it with scripts/build_index.py --retriever splade --force")
+    t0 = time.time()
+    n_clean = int(manifest["n_clean"])
+    all_ids = np.load(index_dir / DOC_IDS).tolist()
+    clean_ids = all_ids[:n_clean]
+    if any(is_poison_id(d) for d in clean_ids) or not all(is_poison_id(d) for d in all_ids[n_clean:]):
+        raise RuntimeError(f"{index_dir}: rows are not ordered clean-then-poison; rebuild with --force")
+    p_ids, p_texts = load_shard_documents(shards)
+    if len(set(p_ids)) != len(p_ids) or set(p_ids) & set(clean_ids):
+        raise ValueError("duplicate poison doc_ids (within the shards or against the corpus)")
+
+    old = _load_csr(index_dir, DOC_MATRIX, (manifest["n_docs"], manifest["vocab_size"]), mmap=True)
+    parts = [old[:n_clean].copy()]
+    del old
+    t_enc = time.time()
+    for start, end in chunk_bounds(len(p_ids), 0, checkpoint_every):
+        parts.append(encoder.encode_documents(p_texts[start:end]))
+    encode_s = time.time() - t_enc
+    docs = sp.vstack(parts, format="csr", dtype=np.float32)
+    del parts
+
+    tmp = index_dir.with_name(index_dir.name + ".ingesting")
+    if tmp.exists():
+        shutil.rmtree(tmp)  # our own leftover from an interrupted ingestion
+    tmp.mkdir(parents=True)
+    np.save(tmp / DOC_IDS, np.asarray(clean_ids + p_ids))
+    _save_csr(tmp, DOC_MATRIX, docs)
+    _save_csr(tmp, INVERTED, docs.T.tocsr())
+    new = {**manifest, "fingerprint": target, "n_docs": len(clean_ids) + len(p_ids), "n_poison": len(p_ids),
+           "n_clean": n_clean, "nnz": int(docs.nnz), "nnz_per_doc": nnz_stats(docs),
+           "vocab_terms_used": int(np.unique(docs.indices).size),
+           "poison_ingestion": {"method": "append (clean rows kept, poison encoded)", "n_poison": len(p_ids),
+                                "shards": [s.name for s in shards], "encode_s": round(encode_s, 2),
+                                "total_s": round(time.time() - t0, 2),
+                                "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds")}}
+    new.pop("index_bytes", None)
+    del docs
+    (tmp / MANIFEST).write_text(json.dumps(new, indent=2), encoding="utf-8")
+    swap_in(tmp, index_dir)
+    if log:
+        log.info("splade: %d poison passages appended to %d clean (%.1f s)", len(p_ids), n_clean, time.time() - t0)
+    return {"noop": False, "manifest": new}
 
 
 # ---------------------------------------------------------------- searching

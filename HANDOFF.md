@@ -1,6 +1,6 @@
 # HANDOFF -- Samarth's lane (indexes, retrievers, cache, generation, cluster + perplexity filters)
 
-Last updated: 2026-10-25 (after step 7)
+Last updated: 2026-10-25 (after step 8)
 
 ## Status board
 | Step | Title | Status | Date | Suggested message |
@@ -12,8 +12,8 @@ Last updated: 2026-10-25 (after step 7)
 | 4 | Dense index and retriever (+ get_doc_vector) | DONE-LOCAL | 2026-10-17 | `step 4: dense index and retriever + vector API` (committed) |
 | 5 | SPLADE index and retriever | DONE-LOCAL | 2026-10-25 | `step 5: SPLADE index and exact sparse retriever` (committed) |
 | 6 | RRF hybrid retriever | DONE-LOCAL (no Ada job: RRF needs no index; it becomes real once A2 + A3 exist) | 2026-10-25 | `step 6: RRF hybrid retriever (fuse masked component lists)` (committed) |
-| 7 | Top-150 cache builder | DONE-LOCAL | 2026-10-25 | `step 7: top-150 cache builder with fingerprinted sidecars` |
-| 8 | Poison ingestion hook (index poison shards) | TODO | | |
+| 7 | Top-150 cache builder | DONE-LOCAL | 2026-10-25 | `step 7: top-150 cache builder with fingerprinted sidecars` (committed) |
+| 8 | Poison ingestion hook (index poison shards) | DONE-LOCAL | 2026-10-25 | `step 8: poison ingestion hook with masking-equivalence check` |
 | 9 | Generation harness and cache | TODO | | |
 | 10 | Cluster filter | TODO | | |
 | 11 | Perplexity filter and score cache | TODO | | |
@@ -31,7 +31,7 @@ Status values: TODO, IN PROGRESS, DONE-LOCAL (passes on tiny local profile), DON
 | A3 dense | 4 | Vansh | `bash ada/run_index.sh dense` (GPU job, 48 GB RAM) | REQUESTED | `$IRE_DATA_DIR/reports/A3.json` |
 | A4 splade | 5 | Vansh | `bash ada/run_index.sh splade` (GPU job, 48 GB RAM) | REQUESTED | `$IRE_DATA_DIR/reports/A4.json` |
 | A5 cache | 7 | Vansh | `bash ada/run_cache.sh all` (GPU job, 48 GB RAM; after A2-A4, A6 and the final questions) | REQUESTED | `$IRE_DATA_DIR/reports/A5.json` |
-| A6 poison | 8 | Arya | | not yet requested | |
+| A6 poison | 8 | Arya | `bash ada/run_index_poison.sh` (GPU job, 48 GB RAM; after A2-A4, with the real shards; before A5) | REQUESTED | `$IRE_DATA_DIR/reports/A6.json` |
 | A7 generate | 9 | Vansh | | not yet requested | |
 | A8 perplexity | 11 | Vansh | | not yet requested | |
 | A9 smoke | 13 | Arya/Vansh | | not yet requested | |
@@ -124,6 +124,21 @@ timing test and must be rebuilt. The loader refuses such a cache automatically o
 the questions file changes (StaleCacheError), so a stale cache cannot be used by mistake.
 ```
 
+```
+ADA REQUEST A6
+Owner: Arya          Needs: A2, A3, A4 (the three indexes) and Arya's real poison shards, including the adaptive
+                     shard, as poison_*.jsonl in $IRE_DATA_DIR/data/poison/ (and her final questions.jsonl)
+Run:   git pull && bash ada/run_index_poison.sh        (in a GPU job; no internet needed)
+Time:  30-90 min (estimate: BM25 is rebuilt with the shards; dense/SPLADE copy their clean rows and encode only
+       the poison passages; 400 questions are searched before and after on each index)
+Disk:  free space of about the largest index while it is swapped (~13 GB for dense); indexes grow by the poison
+RAM:   ask for 48 GB                   Order: A5 (caches) must run AFTER A6.
+Success looks like: "RESULT: OK" and "SUMMARY A6: OK"; dense and SPLADE masking exactly equivalent, BM25 rank
+       differences reported, and poison in its target's top-10 for at least one retriever.
+Send back: $IRE_DATA_DIR/reports/A6.json (paste it in the team chat or commit it to reports/)
+If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A6_index_poison.log and the report file if one exists.
+```
+
 ## What teammates can use right now
 - `python scripts/check_env.py [--report JOB]` -- prints Python/torch/CUDA/GPU, free disk under `$IRE_DATA_DIR`, library
   versions, Java, and whether the profile's models are cached; `--report JOB` also writes `$IRE_DATA_DIR/reports/JOB.json`.
@@ -141,8 +156,8 @@ the questions file changes (StaleCacheError), so a stale cache cannot be used by
   Arya/Vansh: validate your files with e.g. `read_jsonl("poison_fact.jsonl", PoisonRecord)`; errors name the line.
 - `ire.utils.log.get_logger(name)` -- console + `$IRE_DATA_DIR/logs/<name>.log`, every line tagged `env=<IRE_ENV>`.
 - `python scripts/check_ada_report.py <A0..A9> [--file PATH] [--allow-local]` -- checks a returned Ada report
-  (looks in `reports/<job>.json`, then `$IRE_DATA_DIR/reports/<job>.json`). Exit 0 = PASS. Rules exist for A0-A5;
-  A6-A9 print NOT_IMPLEMENTED until their step adds the rules.
+  (looks in `reports/<job>.json`, then `$IRE_DATA_DIR/reports/<job>.json`). Exit 0 = PASS. Rules exist for A0-A6;
+  A7-A9 print NOT_IMPLEMENTED until their step adds the rules.
 - `python scripts/prepare_data.py [--corpus-mode full|random] [--dev-subset] [--source hf|ukp] [--force]` -- builds
   `$IRE_DATA_DIR/data/{corpus,questions_all,questions}.jsonl` (step 2; details in the step log). Local files exist now:
   5,000 passages, 2,255 pool questions, 400 placeholder questions.
@@ -202,6 +217,18 @@ the questions file changes (StaleCacheError), so a stale cache cannot be used by
   if they differ (e.g. after poison ingestion or a new question set). `load_cache(["rrf"])` raises
   `UnmaskedReferenceError` unless `allow_unmasked_reference=True`: for RRF, load bm25 + dense, mask, `fuse()`.
   Pass `questions_path=` if the cache was built with `--questions`.
+- `python scripts/index_poison.py [--retriever ...|all] [--shards DIR] [--force] [--check-masking]` -- ingests
+  `poison_*.jsonl` into the indexes (A6). `--work-copy` runs everything on temporary copies (used for the local
+  checks; the real indexes stay clean).
+- `ire.retrieval.poison`: `load_shards(shards, question_roles)` (validation + counts),
+  `masking_equivalence(poisoned_rows, clean_rows, qids)`, `poison_reach(rows, records)`, `top_k_changed(...)`.
+  **Vansh**: the A6 report's `retrievers.bm25.masking` holds the plan's "maximum rank difference on a
+  50-question check" (`rank_diff_max`, plus mean, top-5 / top-50 unchanged and Jaccard@50).
+  **Arya**: validate your shards before A6 with
+  `load_shards(find_poison_shards(dir), {q.qid: q.role for q in read_jsonl(questions, QuestionRecord)})`.
+- `tests/fixtures/poison_fixture.jsonl`: 10 synthetic passages (5 fact + 5 hijack, PoisonedRAG style) for 5
+  placeholder target questions. **These are test fixtures written by Samarth, not Arya's poison**; they are
+  never put into `data/poison/` (index_poison.py refuses a tests/ folder unless --work-copy).
 - `ire.retrieval.eval`: `recall_at_k(results, gold, ks)`, `questions_with_gold_in_index`, `sample_eval_set`
   (retrieval sanity only; the project metrics stay with Vansh).
 - **Arya**: `questions.jsonl` is a PLACEHOLDER (200 target + 200 clean, seed 13, folds A/B 100 each). Your final
@@ -241,6 +268,15 @@ None to the data contracts. Layout notes (not contract changes):
   `[]`. So a `top150_bm25.jsonl` row can have fewer than 150 entries even when the index is larger (section 2 said
   "fewer only if the index is smaller"). On the local corpus all 400 placeholder questions still get 100+ hits.
   Ties are ordered by position in the index, so results are deterministic.
+- (Step 8) **Poison ingestion**: BM25 is rebuilt with the shards; dense and SPLADE keep their clean rows bit for
+  bit and append only the poison passages (`dense.ingest_poison`, `splade.ingest_poison`). The index manifest
+  fingerprint then equals a full build with the shards, and gains a `poison_ingestion` block. The dense / SPLADE
+  builders now encode clean and poison passages in separate chunks, so in fp16 a full rebuild with shards gives
+  the same clean vectors as a clean build and the same poison vectors as an append (indexes without poison are
+  unchanged; local fingerprints still current).
+- (Step 8) **Masking reference**: before the first ingestion, each clean index's top-150 for every question is
+  saved as `<indexes_dir>/<env>/masking_reference_<retriever>.json` (keyed by the clean fingerprint and the
+  questions sha256). If an index already holds poison and no reference exists, a temporary clean copy is built.
 - (Step 7) **Cache files**: `<cache_dir>/<env>/top150_<retriever>.jsonl` (one RetrievalCacheRecord per question,
   in questions-file order) + `top150_<retriever>.jsonl.manifest.json`. The sidecar's `key` = retriever,
   cache format version, questions sha256, depth and the index `fingerprint` copied from the index manifest
@@ -297,6 +333,66 @@ None to the data contracts. Layout notes (not contract changes):
 
 ## Step log
 (Newest first. Per step: what was built, files, how to run, verify results with actual numbers, open issues.)
+
+### Step 8 -- Poison ingestion hook -- DONE-LOCAL (2026-10-25, env=local; all ingestion on temporary index copies)
+**Built**
+- `src/ire/retrieval/poison.py`: `load_shards` (PoisonRecord validation, duplicate ids across shards and against the
+  corpus, unknown qids rejected, counts by attack / qid), `masking_equivalence`, `poison_reach`, `top_k_changed`,
+  clean-reference save / load.
+- `dense.ingest_poison` / `splade.ingest_poison` (append: clean rows copied, old poison dropped, shards encoded in
+  their own chunks, FAISS / inverted index rebuilt from the result; no-op if current; no shards = clean again);
+  BM25 uses `build_index` with the shards. `common.chunk_bounds`, `common.load_shard_documents`; dense / SPLADE
+  builders encode clean and poison in separate chunks.
+- `scripts/index_poison.py` (validation, clean reference incl. a temporary clean copy if needed, ingestion, reach,
+  top-5 changes, `--check-masking`, `--work-copy`, `--check-append`, `--check-idempotent`, A6 report; refuses a
+  tests/ shard folder without --work-copy), `ada/run_index_poison.sh` (job A6), A6 rules.
+- `tests/fixtures/poison_fixture.jsonl` (10 synthetic fixture passages, not Arya's poison); `tests/test_poison.py`
+  (12: append == full rebuild for dense and SPLADE, idempotent / changed shard / removal for both, outdated clean
+  part refused, BM25 with and without shards, shard validation, masking / reach / top-5 / reference helpers,
+  fixture ids round-trip), A6 rule cases.
+
+**How to run (PowerShell, repo root)**
+```
+.\.venv\Scripts\python.exe scripts/index_poison.py --work-copy --shards tests/fixtures --check-masking --check-append --check-idempotent
+.\.venv\Scripts\python.exe scripts/check_ada_report.py A6 --file <IRE_DATA_DIR>/reports/A6_local.json --allow-local
+```
+
+**Verify results (env=local, fixture shard on temporary copies of the 5,000-passage indexes)**
+- Fixture: 10 passages (fact 5, hijack 5) for 5 target qids; all valid; `is_poison` recoverable from the doc_id and
+  `parse_poison_id` / `make_poison_id` round trip for 10/10.
+- Rank of each fixture passage in its own target question's results (unmasked):
+  | passage | BM25 | dense | SPLADE |
+  |---|---|---|---|
+  | test1587 fact / hijack | 2 / 1 | 1 / 2 | 1 / 3 |
+  | test1783 fact / hijack | 2 / 1 | 1 / 2 | 1 / 3 |
+  | test1117 fact / hijack | 2 / 1 | 2 / 3 | 1 / 3 |
+  | test1397 fact / hijack | 2 / 1 | 1 / 2 | 1 / 3 |
+  | test877 fact / hijack  | 2 / 1 | 1 / 2 | 1 / 2 |
+  All 10 are in their target's top-10 for every retriever (the fixture repeats the question, so this is easy).
+- Index size before -> after: BM25 4,376,466 -> 4,378,420 bytes (5,000 -> 5,010 docs), dense 11,721,602 ->
+  12,026,015, SPLADE 12,167,887 -> 12,460,115.
+- Unmasked top-5 changed: BM25 7.25% of the 400 questions (4.5% of the 200 clean ones), dense 1.25% (0% clean),
+  SPLADE 1.75% (0% clean). BM25 changes clean questions too because adding 10 passages to 5,000 shifts IDF.
+- Masking equivalence (50 questions, all with poison in their unmasked top-150; poison dropped vs clean top-150):
+  dense 50/50 identical ids and order, max relative score difference 1.6e-7 (float rounding); SPLADE 50/50
+  identical, score difference 0.0 -> exact. BM25: 1/50 identical, max rank difference 13, mean 0.36, clean top-5
+  unchanged for 98% of questions, top-50 order unchanged for 14%, Jaccard@50 mean 0.998 (min 0.961). On 2.68M
+  passages a few thousand poison passages move IDF far less than 10 do on 5,000; A6 measures the real number.
+- Append == full rebuild with the shards (real models, fp16 on GPU): dense and SPLADE identical doc_ids, identical
+  vectors (bit for bit), identical top-150 for 50 questions, identical fingerprint.
+- Idempotent: re-running with the same shard is a no-op for all three; ingesting no shards restores the clean
+  fingerprint, 0 poison, and an index identical to the real clean one (dense / SPLADE vectors equal, BM25 results
+  equal). A changed shard is re-ingested (test).
+- Clean-reference fallback (index already poisoned, no reference): for all three retrievers the reference built
+  from a temporary clean copy equals the one from the real clean index; temp copies removed.
+- Real local indexes and caches: sha256 of the 3 index manifests and the 8 cache files identical before and after
+  (11/11), caches still load as current; no temp folders left.
+- Ingestion time on the 5,000-passage copies: BM25 0.6 s, dense 0.3 s, SPLADE 0.4-0.5 s; whole verification run
+  ~150 s (two full rebuilds for the append check included).
+- `check_ada_report.py A6 --allow-local`: all A6 rules pass; warnings: dirty tree, 10 records (fixture, not Arya's
+  shards), no adaptive attack. `STATUS: LOCAL_DRY_RUN`.
+- `pytest -q`: 317 passed (109 Ada report, 21 bm25, 9 cache, 13 config, 13 data, 15 dense, 1 log, 12 poison,
+  10 rrf, 88 schemas, 7 skeleton, 19 splade).
 
 ### Step 7 -- Top-150 cache builder -- DONE-LOCAL (2026-10-25, env=local)
 **Built**
@@ -685,6 +781,7 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
 - BM25 on the full corpus (job A2): peak RAM is an estimate (16-32 GB; the token ids are Python lists). If A2
   runs out of memory, switch tokenisation to streaming (`Tokenizer.streaming_tokenize`) before re-running.
 - Resolved: the Ada dense index is exact Flat (see "Interface changes").
+- **Run order on Ada: A2, A3, A4 -> A6 (poison) -> A5 (caches).** A6 makes every cache stale.
 - **A5 order matters**: the caches must be built after A2-A4, after A6 (poison ingested into every index) and
   on Arya's final questions.jsonl. Anything earlier is a timing test only; the loader will refuse it (stale
   fingerprint / questions sha256) and `check_ada_report.py A5` warns if the indexes hold 0 poison documents.

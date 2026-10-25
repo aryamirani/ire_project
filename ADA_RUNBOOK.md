@@ -27,6 +27,7 @@ Claude Code appends a section below for every job as its step is finished. Check
 | A3 dense | `ada/run_index.sh dense` | REQUESTED | Vansh |
 | A4 splade | `ada/run_index.sh splade` | REQUESTED | Vansh |
 | A5 cache | `ada/run_cache.sh all` | REQUESTED | Vansh |
+| A6 poison | `ada/run_index_poison.sh` | REQUESTED | Arya |
 
 ### A0 setup
 ```
@@ -103,8 +104,7 @@ Details for a non-expert:
    submit it: `sbatch -p <partition> -c 10 --mem=48G -t 02:00:00 -o $IRE_DATA_DIR/logs/%x-%j.log --wrap "bash ada/run_index.sh bm25"`.
    Use the partition from the top of `ada/common.sh`. A GPU is not needed.
 2. It indexes `$IRE_DATA_DIR/data/corpus.jsonl` plus every `poison_*.jsonl` in `$IRE_DATA_DIR/data/poison/`
-   (none yet, which is fine). Arya: once your poison shards are in that folder, the same command rebuilds the
-   index with them (it notices the new files); job A6 covers that later.
+   (none yet, which is fine). Poison is added afterwards by job A6 (`ada/run_index_poison.sh`).
 3. Then it measures Recall@10/@100 of gold passages (1,000 seeded questions from `questions_all.jsonl` plus the
    400 in `questions.jsonl`), search latency, determinism, and a unique-token test on a throw-away 50,000-passage
    index (the real index is never modified by the test).
@@ -196,6 +196,34 @@ Details for a non-expert:
 3. If it is killed, run the same command again: each cache continues after the last question it wrote, and
    finished caches are skipped. `--force` rebuilds.
 4. You may run it earlier (before A6 / the final questions) as a timing test; just run it again afterwards.
+
+### A6 poison
+```
+ADA REQUEST A6
+Owner: Arya          Needs: A2, A3, A4 (the three indexes) and Arya's real poison shards, including the adaptive
+                     shard, as poison_*.jsonl in $IRE_DATA_DIR/data/poison/ (and her final questions.jsonl)
+Run:   git pull && bash ada/run_index_poison.sh        (in a GPU job; no internet needed)
+Time:  30-90 min (estimate: BM25 is rebuilt with the shards; dense/SPLADE copy their clean rows and encode only
+       the poison passages; 400 questions are searched before and after on each index)
+Disk:  free space of about the largest index while it is swapped (~13 GB for dense); indexes grow by the poison
+RAM:   ask for 48 GB                   Order: A5 (caches) must run AFTER A6.
+Success looks like: "RESULT: OK" and "SUMMARY A6: OK"; dense and SPLADE masking exactly equivalent, BM25 rank
+       differences reported, and poison in its target's top-10 for at least one retriever.
+Send back: $IRE_DATA_DIR/reports/A6.json (paste it in the team chat or commit it to reports/)
+If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A6_index_poison.log and the report file if one exists.
+```
+Details for a non-expert:
+1. Put every shard (`poison_*.jsonl`, including the adaptive diverse/repeat/stealth shard) into
+   `$IRE_DATA_DIR/data/poison/`. Each record must pass `PoisonRecord` (see HANDOFF "Interface changes") and
+   its qid must be in `data/questions.jsonl`; the job stops and lists the problems otherwise.
+2. Submit it as a GPU job, e.g.
+   `sbatch -p <partition> --gres=gpu:1 -c 10 --mem=48G -t 04:00:00 -o $IRE_DATA_DIR/logs/%x-%j.log --wrap "bash ada/run_index_poison.sh"`.
+3. Re-running with the same shards does nothing; if you change or add a shard, run it again and only the poison
+   part is redone (BM25 is rebuilt). Removing all shards and re-running gives back the clean indexes.
+4. It does not matter whether the shards were already in `data/poison/` when A2-A4 ran: the job then builds a
+   temporary clean copy to get the masking reference.
+5. **Afterwards run A5** (`bash ada/run_cache.sh all`): every cache built before A6 is stale and the loader
+   refuses it.
 
 ## Division of labour (suggested; adjust freely)
 - Arya: data (A1), BM25 (A2), poison ingestion (A6). She already owns the poison shards.

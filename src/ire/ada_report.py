@@ -392,11 +392,72 @@ def _rules_a5(report: dict[str, Any]) -> list[Check]:
     return checks
 
 
-# ---------------------------------------------------------------- A6-A9 (stubs; filled in with each step)
+# ---------------------------------------------------------------- A6 (fields written by scripts/index_poison.py)
+
+A6_FIELDS: tuple[str, ...] = ("ok", "checks", "work_copy", "shards", "questions", "retrievers")
+ADAPTIVE_ATTACKS: tuple[str, ...] = ("diverse", "repeat", "stealth")
+
+
+def _rules_a6(report: dict[str, Any]) -> list[Check]:
+    checks = []
+    missing = [k for k in A6_FIELDS if k not in report]
+    checks.append(Check("index_poison fields present", not missing, f"missing: {missing}" if missing else ""))
+    if missing:
+        return checks
+    checks.append(Check("index_poison RESULT OK", report["ok"] is True,
+                        str({k: v for k, v in report["checks"].items() if not v}) if not report["ok"] else ""))
+    if report.get("env") != "local":
+        checks.append(Check("ingested into the real indexes (not --work-copy)", report["work_copy"] is False))
+    sh = report["shards"]
+    n_rec = sh.get("n_records") or 0
+    rec_ok = sh.get("is_poison_recoverable_from_doc_id") == f"{n_rec}/{n_rec}"
+    checks.append(Check("shards valid (schema, unique ids, known qids) and non-empty",
+                        report["checks"].get("shards_valid") is True and n_rec > 0 and bool(sh.get("files")) and rec_ok,
+                        f"{n_rec} records in {sh.get('files')}, by attack {sh.get('by_attack')}"))
+    checks.append(Check("looks like Arya's shards, not the 10-passage test fixture", n_rec >= 100,
+                        f"{n_rec} records", fatal=False))
+    adaptive = [a for a in ADAPTIVE_ATTACKS if a in (sh.get("by_attack") or {})]
+    checks.append(Check("adaptive shard included (diverse / repeat / stealth)", bool(adaptive),
+                        f"found {adaptive or 'none'}", fatal=False))
+    checks.append(Check("no poison aimed at clean-role questions", not sh.get("qids_with_role_clean"),
+                        str(sh.get("qids_with_role_clean")), fatal=False))
+    rs = report["retrievers"]
+    for name in ("bm25", "dense", "splade"):
+        r = rs.get(name)
+        if r is None:
+            checks.append(Check(f"{name}: ingested", False, "not in the report"))
+            continue
+        checks.append(Check(f"{name}: index holds every poison passage", r.get("n_poison_after") == n_rec,
+                            f"n_poison_after={r.get('n_poison_after')}, shard records={n_rec}"))
+        sizes = [r.get(k) for k in ("index_bytes_before", "index_bytes_after", "n_docs_before", "n_docs_after")]
+        checks.append(Check(f"{name}: index sizes before/after reported",
+                            all(isinstance(x, int) and x > 0 for x in sizes),
+                            f"{r.get('n_docs_before')} -> {r.get('n_docs_after')} docs, "
+                            f"{r.get('index_bytes_before')} -> {r.get('index_bytes_after')} bytes"))
+        checks.append(Check(f"{name}: poison reach by attack and top-5 change reported",
+                            bool((r.get("reach") or {}).get("by_attack")) and "top5_changed_frac" in r))
+        m = r.get("masking") or {}
+        if name == "bm25":
+            checks.append(Check("bm25: masking rank differences reported",
+                                all(k in m for k in ("rank_diff_max", "rank_diff_mean", "frac_top5_unchanged",
+                                                     "frac_top50_unchanged", "jaccard_at_50_mean")),
+                                f"max {m.get('rank_diff_max')}, mean {m.get('rank_diff_mean')}, top-5 unchanged "
+                                f"{m.get('frac_top5_unchanged')}, Jaccard@50 {m.get('jaccard_at_50_mean')}"))
+        else:
+            checks.append(Check(f"{name}: masking exactly equivalent to a clean index",
+                                m.get("exact") is True and m.get("identical_ids_and_order") == m.get("n_questions")
+                                and (m.get("n_questions") or 0) >= 50,
+                                f"{m.get('identical_ids_and_order')}/{m.get('n_questions')} identical, max rel score "
+                                f"diff {m.get('max_rel_score_diff')}" if m else "no masking result"))
+    any_top10 = any((r.get("reach") or {}).get("any_in_top10") for r in rs.values())
+    checks.append(Check("a poison passage is in its target's top-10 for >= 1 retriever", any_top10))
+    return checks
+
+
+# ---------------------------------------------------------------- A7-A9 (stubs; filled in with each step)
 
 STUBS: dict[str, tuple[int, str]] = {
     # job: (step that fills in the rules, acceptance check from IMPLEMENTATION_PLAN.md section 5)
-    "A6": (8, "a poison passage for question X is in X's top-10 for >= 1 retriever; index sizes reported"),
     "A7": (9, "throughput (requests/min) and projected hours for 60,000 requests; cache hit on repeat; "
               "greedy determinism on 20 prompts"),
     "A8": (11, "flag rate on 1,000 held-out clean passages close to alpha; cache size; fraction too_short"),
@@ -404,7 +465,8 @@ STUBS: dict[str, tuple[int, str]] = {
 }
 
 RULES: dict[str, Callable[[dict[str, Any]], list[Check]]] = {"A0": _rules_a0, "A1": _rules_a1, "A2": _rules_a2,
-                                                          "A3": _rules_a3, "A4": _rules_a4, "A5": _rules_a5}
+                                                          "A3": _rules_a3, "A4": _rules_a4, "A5": _rules_a5,
+                                                          "A6": _rules_a6}
 
 
 def check_report(job: str, report: dict[str, Any], allow_local: bool = False) -> ReportResult:

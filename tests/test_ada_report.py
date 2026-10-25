@@ -67,7 +67,7 @@ def test_local_report_is_only_a_dry_run() -> None:
     assert check_report("A0", dict(a0_report(), job="A0_local")).status == "FAIL"  # suffix only in dry runs
 
 
-@pytest.mark.parametrize("job", [j for j in JOBS if j not in ("A0", "A1", "A2", "A3", "A4", "A5")])
+@pytest.mark.parametrize("job", [j for j in JOBS if j not in ("A0", "A1", "A2", "A3", "A4", "A5", "A6")])
 def test_other_jobs_are_stubs(job: str) -> None:
     result = check_report(job, {"job": job, "env": "ada"})
     assert result.status == "NOT_IMPLEMENTED"
@@ -340,3 +340,60 @@ def test_a5_no_poison_in_index_only_warns() -> None:
     result = check_report("A5", report)
     assert result.status == "PASS"
     assert sum(1 for c in result.checks if not c.passed and not c.fatal) == 3
+
+
+def a6_report() -> dict:
+    """A report with the structure scripts/index_poison.py writes (synthetic, for testing the rules only)."""
+    def r(name):
+        m = ({"rank_diff_max": 4, "rank_diff_mean": 0.1, "frac_top5_unchanged": 0.99, "frac_top50_unchanged": 0.8,
+              "jaccard_at_50_mean": 0.999, "n_questions": 50, "identical_ids_and_order": 30, "exact": False}
+             if name == "bm25" else {"n_questions": 50, "identical_ids_and_order": 50, "exact": True,
+                                     "max_rel_score_diff": 1e-7})
+        return {"n_poison_before": 0, "n_poison_after": 3000, "n_docs_before": 2_681_468, "n_docs_after": 2_684_468,
+                "index_bytes_before": 10**9, "index_bytes_after": 10**9 + 10**6,
+                "reach": {"by_attack": {"fact": {"n": 1000, "frac_in_top10": 0.8}}, "any_in_top10": True},
+                "top5_changed_frac": {"all": 0.4, "clean_role": 0.01}, "masking": m}
+    return {"job": "A6", "env": "ada", "git_commit": "abc1234", "timestamp_utc": "2026-10-25T10:00:00+00:00",
+            "ok": True, "checks": {"shards_valid": True}, "work_copy": False,
+            "shards": {"files": ["poison_main.jsonl", "poison_adaptive.jsonl"], "n_records": 3000,
+                       "by_attack": {"fact": 1000, "hijack": 1000, "diverse": 500, "repeat": 250, "stealth": 250},
+                       "is_poison_recoverable_from_doc_id": "3000/3000", "qids_with_role_clean": []},
+            "questions": {"n": 400}, "retrievers": {n: r(n) for n in ("bm25", "dense", "splade")}}
+
+
+def test_a6_passes() -> None:
+    result = check_report("A6", a6_report())
+    assert result.status == "PASS", [c for c in result.failed]
+
+
+@pytest.mark.parametrize("breaker", [
+    lambda r: r.update(ok=False),
+    lambda r: r.update(work_copy=True),                                        # Ada must ingest for real
+    lambda r: r["shards"].update(n_records=0),
+    lambda r: r["shards"].update(is_poison_recoverable_from_doc_id="2999/3000"),
+    lambda r: r["retrievers"].pop("splade"),
+    lambda r: r["retrievers"]["dense"].update(n_poison_after=10),
+    lambda r: r["retrievers"]["bm25"].update(index_bytes_after=None),
+    lambda r: r["retrievers"]["dense"]["masking"].update(exact=False),
+    lambda r: r["retrievers"]["splade"]["masking"].update(identical_ids_and_order=49),
+    lambda r: r["retrievers"]["splade"]["masking"].update(n_questions=20, identical_ids_and_order=20),
+    lambda r: r["retrievers"]["bm25"]["masking"].pop("rank_diff_max"),
+    lambda r: [x["reach"].update(any_in_top10=False) for x in r["retrievers"].values()],
+    lambda r: r["retrievers"]["dense"].pop("top5_changed_frac"),
+    lambda r: r.pop("shards"),
+], ids=["not-ok", "work-copy", "no-records", "ids", "missing-retriever", "n-poison", "size", "dense-not-exact",
+        "splade-not-identical", "too-few-questions", "bm25-not-reported", "no-reach", "no-top5", "field-missing"])
+def test_a6_fails(breaker) -> None:
+    report = copy.deepcopy(a6_report())
+    breaker(report)
+    assert check_report("A6", report).status == "FAIL"
+
+
+def test_a6_fixture_sized_or_non_adaptive_shards_only_warn() -> None:
+    report = a6_report()
+    report["shards"].update(n_records=10, by_attack={"fact": 5, "hijack": 5},
+                            is_poison_recoverable_from_doc_id="10/10")
+    for r in report["retrievers"].values():
+        r["n_poison_after"] = 10
+    result = check_report("A6", report)
+    assert result.status == "PASS" and sum(1 for c in result.checks if not c.passed and not c.fatal) == 2

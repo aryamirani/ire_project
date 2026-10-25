@@ -144,3 +144,31 @@ def top_k_rows(scores: np.ndarray, k: int, id_rank: np.ndarray, positive_only: b
         kth = np.partition(scores[cand], len(cand) - k)[len(cand) - k]  # k-th largest score
         cand = cand[scores[cand] >= kth]                                # keeps every tie at the boundary
     return cand[np.lexsort((id_rank[cand], -scores[cand]))[:k]]
+
+
+def chunk_bounds(n: int, n_clean: int, size: int, start: int = 0) -> list[tuple[int, int]]:
+    """Encoding chunks [s, e) of at most `size` rows that never mix clean rows (< n_clean) with poison rows.
+
+    Clean rows are chunked exactly as in a clean-only build and poison rows get their own chunks, so in fp16 (where
+    a vector depends slightly on its batch neighbours) appending poison later gives the same vectors as a full
+    rebuild with the shards, and the clean vectors never change. `start` must be a chunk boundary (resume).
+    """
+    bounds = []
+    s = start
+    while s < n:
+        limit = n_clean if s < n_clean else n
+        e = min(limit, s + size)
+        bounds.append((s, e))
+        s = e
+    return bounds
+
+
+def load_shard_documents(extra_shards: Sequence[Path]) -> tuple[list[str], list[str]]:
+    """(doc_ids, texts) of the poison shards only, in index order (shards sorted by name), validated."""
+    doc_ids: list[str] = []
+    texts: list[str] = []
+    for shard in extra_shards:
+        for rec in iter_jsonl(shard, PoisonRecord):
+            doc_ids.append(rec.doc_id)
+            texts.append(doc_text(rec.title, rec.text))
+    return doc_ids, texts
