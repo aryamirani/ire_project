@@ -339,12 +339,63 @@ def _rules_a4(report: dict[str, Any]) -> list[Check]:
     return checks
 
 
-# ---------------------------------------------------------------- A5-A9 (stubs; filled in with each step)
+# ---------------------------------------------------------------- A5 (fields written by scripts/build_cache.py)
+
+A5_RETRIEVERS: tuple[str, ...] = ("bm25", "dense", "splade", "rrf")
+A5_FIELDS: tuple[str, ...] = ("ok", "checks", "questions", "depth", "retrievers")
+
+
+def _rules_a5(report: dict[str, Any]) -> list[Check]:
+    checks = []
+    missing = [k for k in A5_FIELDS if k not in report]
+    checks.append(Check("build_cache fields present", not missing, f"missing: {missing}" if missing else ""))
+    if missing:
+        return checks
+    checks.append(Check("build_cache RESULT OK", report["ok"] is True,
+                        str({k: v for k, v in report["checks"].items() if not v}) if not report["ok"] else ""))
+    exp = load_experiment()
+    depth = exp["top_k_cache"]
+    n_final = exp["questions"]["n_target"] + exp["questions"]["n_clean"]
+    n_q = report["questions"].get("n")
+    checks.append(Check(f"cache depth is {depth}", report["depth"] == depth, f"depth={report['depth']}"))
+    checks.append(Check(f"question set has {n_final} questions", n_q == n_final, f"n={n_q}"))
+    rs = report["retrievers"]
+    for name in A5_RETRIEVERS:
+        r = rs.get(name)
+        if r is None or "error" in r:
+            checks.append(Check(f"{name}: cache built", False, (r or {}).get("error", "not in the report")))
+            continue
+        checks.append(Check(f"{name}: row count = number of questions", r.get("rows") == n_q == r.get("n_questions"),
+                            f"rows={r.get('rows')}, questions={n_q}"))
+        rl = r.get("row_length") or {}
+        if name == "dense":
+            checks.append(Check(f"dense: every row exactly {depth} entries",
+                                rl.get("min") == rl.get("max") == depth, str(rl)))
+        else:
+            checks.append(Check(f"{name}: rows at most {depth} entries", (rl.get("max") or 0) <= depth, str(rl)))
+        checks.append(Check(f"{name}: all rows sorted (score desc, doc_id)", r.get("all_rows_sorted") is True))
+        sc = r.get("spot_check") or {}
+        checks.append(Check(f"{name}: random-row spot check vs fresh search passed",
+                            sc.get("passed") is True and (sc.get("n") or 0) >= 10,
+                            f"{sc.get('ids_and_order_equal')}/{sc.get('n')} rows equal, "
+                            f"{sc.get('score_docs_agree')}/{sc.get('n')} scores agree"))
+        checks.append(Check(f"{name}: sidecar fingerprint matches the index manifest",
+                            r.get("fingerprint_matches_index") is True))
+        n_poison = r.get("index_n_poison")
+        values = n_poison.values() if isinstance(n_poison, dict) else [n_poison]
+        checks.append(Check(f"{name}: index contains poison documents (A6 done)",
+                            all(isinstance(v, int) and v > 0 for v in values),
+                            f"index_n_poison={n_poison}: a cache without poison is only a timing test",
+                            fatal=False))
+    if "rrf" in rs and "error" not in rs["rrf"]:
+        checks.append(Check("rrf: marked as unmasked reference", rs["rrf"].get("unmasked_reference") is True))
+    return checks
+
+
+# ---------------------------------------------------------------- A6-A9 (stubs; filled in with each step)
 
 STUBS: dict[str, tuple[int, str]] = {
     # job: (step that fills in the rules, acceptance check from IMPLEMENTATION_PLAN.md section 5)
-    "A5": (7, "row count = number of questions; every row has 150 sorted entries; 10 random rows match a "
-              "fresh search"),
     "A6": (8, "a poison passage for question X is in X's top-10 for >= 1 retriever; index sizes reported"),
     "A7": (9, "throughput (requests/min) and projected hours for 60,000 requests; cache hit on repeat; "
               "greedy determinism on 20 prompts"),
@@ -353,7 +404,7 @@ STUBS: dict[str, tuple[int, str]] = {
 }
 
 RULES: dict[str, Callable[[dict[str, Any]], list[Check]]] = {"A0": _rules_a0, "A1": _rules_a1, "A2": _rules_a2,
-                                                          "A3": _rules_a3, "A4": _rules_a4}
+                                                          "A3": _rules_a3, "A4": _rules_a4, "A5": _rules_a5}
 
 
 def check_report(job: str, report: dict[str, Any], allow_local: bool = False) -> ReportResult:

@@ -26,6 +26,7 @@ Claude Code appends a section below for every job as its step is finished. Check
 | A2 bm25 | `ada/run_index.sh bm25` | REQUESTED | Arya |
 | A3 dense | `ada/run_index.sh dense` | REQUESTED | Vansh |
 | A4 splade | `ada/run_index.sh splade` | REQUESTED | Vansh |
+| A5 cache | `ada/run_cache.sh all` | REQUESTED | Vansh |
 
 ### A0 setup
 ```
@@ -169,6 +170,32 @@ Details for a non-expert:
 4. Safe to re-run after success: the build is skipped and only the checks run. `--force` rebuilds.
 5. A2 and A3 do not have to be finished first; if they are, the report also lists their recall on the same
    questions.
+
+### A5 cache
+```
+ADA REQUEST A5
+Owner: Vansh          Needs: A2, A3, A4, and A6 (poison ingested) and Arya's final questions.jsonl
+Run:   git pull && bash ada/run_cache.sh all            (in a GPU job; no internet needed)
+Time:  10-30 min (estimate: 400 questions x 3 retrievers over 2.68M passages, exact search, + spot checks)
+Disk:  ~10 MB under $IRE_DATA_DIR/caches/ada (about 2 MB per retriever for 400 questions, measured locally)
+RAM:   ask for 48 GB (the exact dense Flat index alone is ~8.2 GB; SPLADE and BM25 are memory-mapped)
+Success looks like: "RESULT: OK" and "SUMMARY A5: OK"; 400 rows per retriever, dense rows exactly 150, every
+       spot check 20/20, and NO "index contains poison documents" warning from check_ada_report.py.
+Send back: $IRE_DATA_DIR/reports/A5.json (paste it in the team chat or commit it to reports/)
+If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A5_cache.log and the report file if one exists.
+IMPORTANT: a cache built before A6 (poison in the indexes) or before Arya's final question set is only a
+timing test and must be rebuilt. The loader refuses such a cache automatically once the index fingerprint or
+the questions file changes (StaleCacheError), so a stale cache cannot be used by mistake.
+```
+Details for a non-expert:
+1. Run it as a GPU batch job, e.g.
+   `sbatch -p <partition> --gres=gpu:1 -c 10 --mem=48G -t 02:00:00 -o $IRE_DATA_DIR/logs/%x-%j.log --wrap "bash ada/run_cache.sh all"`.
+2. It writes `top150_bm25.jsonl`, `top150_dense.jsonl`, `top150_splade.jsonl` and `top150_rrf.jsonl` (+ a
+   `.manifest.json` next to each) to `$IRE_DATA_DIR/caches/ada/`. The rrf file is fused from the bm25 and dense
+   files; it is a no-poison reference only (experiments fuse the masked bm25 and dense lists themselves).
+3. If it is killed, run the same command again: each cache continues after the last question it wrote, and
+   finished caches are skipped. `--force` rebuilds.
+4. You may run it earlier (before A6 / the final questions) as a timing test; just run it again afterwards.
 
 ## Division of labour (suggested; adjust freely)
 - Arya: data (A1), BM25 (A2), poison ingestion (A6). She already owns the poison shards.

@@ -214,3 +214,15 @@ def test_e5_index_reencode_matches_and_ranks_sensibly(e5: E5Encoder, corpus: Pat
     ids = [d for d, _, _ in DOCS]
     fresh = e5.encode_passages([doc_text(t, x) for _, t, x in DOCS[::-1]])[::-1]  # other batch order
     assert np.min(np.sum(r.get_doc_vector(ids) * fresh, axis=1)) > 0.999
+
+
+def test_ties_ordered_by_doc_id_even_beyond_the_fetch_margin(tmp_path: Path) -> None:
+    """40 identical passages (more than k + margin): FAISS must widen its candidate list until every tie is in."""
+    path = tmp_path / "ties.jsonl"
+    ids = [f"t{i:02d}" for i in range(39, -1, -1)]  # index order is the reverse of doc_id order
+    write_jsonl(path, [CorpusRecord(doc_id=d, title="", text="identical text", is_poison=False) for d in ids]
+                + [CorpusRecord(doc_id="other", title="", text="volcano tanzania", is_poison=False)])
+    build_dense_index(path, tmp_path / "ties", FakeEncoder(), SETTINGS)
+    r = DenseRetriever(tmp_path / "ties", encoder=FakeEncoder(), mmap=False)
+    assert [d for d, _ in r.search(["identical text"], k=2)[0]] == ["t00", "t01"]
+    assert [d for d, _ in r.search(["identical text"], k=41)[0]] == sorted(ids) + ["other"]

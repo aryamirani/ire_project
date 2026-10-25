@@ -34,6 +34,7 @@ import numpy as np
 from ire.retrieval.common import (
     MANIFEST,
     dir_size,
+    doc_id_ranks,
     index_dir_for,
     inputs_fingerprint,
     load_documents,
@@ -299,6 +300,7 @@ class DenseRetriever:
         self._encoder = encoder
         self._cfg = cfg
         self._row_of: dict[str, int] | None = None
+        self._id_rank: np.ndarray | None = None
 
     @classmethod
     def from_config(cls, cfg: Any, encoder: Encoder | None = None) -> DenseRetriever:
@@ -345,18 +347,44 @@ class DenseRetriever:
         return self.encoder.encode_queries(list(texts))
 
     def search(self, queries: Sequence[str], k: int) -> list[list[tuple[str, float]]]:
-        """Top-k (doc_id, inner product) per query, score descending."""
+        """Top-k (doc_id, inner product) per query, score descending, ties by doc_id."""
         if not queries or k <= 0:
             return [[] for _ in queries]
         return self.search_vectors(self.get_query_vector(queries), k)
 
-    def search_vectors(self, query_vectors: np.ndarray, k: int) -> list[list[tuple[str, float]]]:
+    @property
+    def id_rank(self) -> np.ndarray:
+        if self._id_rank is None:
+            self._id_rank = doc_id_ranks(self.doc_ids)
+        return self._id_rank
+
+    def search_vectors(self, query_vectors: np.ndarray, k: int, margin: int = 16) -> list[list[tuple[str, float]]]:
+        """Exact top-k with ties by doc_id: FAISS fetches k + margin candidates, widened (doubling) until the k-th
+        score is strictly above the last fetched one, so every document tied at the k-th place is a candidate."""
         k = min(k, self.n_docs)
+        qv = np.ascontiguousarray(query_vectors, dtype=np.float32)
+        if k <= 0:
+            return [[] for _ in range(len(qv))]
+        fetch = min(self.n_docs, k + margin)
         if self.settings.index_type == "hnsw":
-            self.index.hnsw.efSearch = max(k, self.ef_search or 0)
-        scores, rows = self.index.search(np.ascontiguousarray(query_vectors, dtype=np.float32), k)
-        return [[(self.doc_ids[int(r)], float(s)) for r, s in zip(row, score) if r >= 0]
-                for row, score in zip(rows, scores)]
+            self.index.hnsw.efSearch = max(fetch, self.ef_search or 0)
+        scores, rows = self.index.search(qv, fetch)
+        out = []
+        for i in range(len(qv)):
+            s, r, f = scores[i], rows[i], fetch
+            while f < self.n_docs and s[f - 1] >= s[k - 1]:  # a tie may continue past what was fetched
+                f = min(self.n_docs, 2 * f)
+                if self.settings.index_type == "hnsw":
+                    self.index.hnsw.efSearch = max(f, self.ef_search or 0)
+                s2, r2 = self.index.search(qv[i:i + 1], f)
+                s, r = s2[0], r2[0]
+            valid = r >= 0
+            s, r = s[valid], r[valid]
+            keep = s >= s[k - 1] if len(s) >= k else np.ones(len(s), dtype=bool)
+            s, r = s[keep], r[keep]
+            order = np.lexsort((self.id_rank[r], -s))[:k]
+            out.append([(self.doc_ids[int(r[j])], float(s[j])) for j in order])
+        return out
 
     def score_docs(self, query: str, doc_ids: Sequence[str]) -> np.ndarray:
         """Inner product of the query with each stored passage vector (what an exact search would return)."""

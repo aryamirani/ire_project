@@ -1,6 +1,6 @@
 # HANDOFF -- Samarth's lane (indexes, retrievers, cache, generation, cluster + perplexity filters)
 
-Last updated: 2026-10-25 (after step 6)
+Last updated: 2026-10-25 (after step 7)
 
 ## Status board
 | Step | Title | Status | Date | Suggested message |
@@ -11,8 +11,8 @@ Last updated: 2026-10-25 (after step 6)
 | 3 | BM25 index and retriever | DONE-LOCAL | 2026-10-16 | `step 3: BM25 index and retriever` (committed) |
 | 4 | Dense index and retriever (+ get_doc_vector) | DONE-LOCAL | 2026-10-17 | `step 4: dense index and retriever + vector API` (committed) |
 | 5 | SPLADE index and retriever | DONE-LOCAL | 2026-10-25 | `step 5: SPLADE index and exact sparse retriever` (committed) |
-| 6 | RRF hybrid retriever | DONE-LOCAL (no Ada job: RRF needs no index; it becomes real once A2 + A3 exist) | 2026-10-25 | `step 6: RRF hybrid retriever (fuse masked component lists)` |
-| 7 | Top-150 cache builder | TODO | | |
+| 6 | RRF hybrid retriever | DONE-LOCAL (no Ada job: RRF needs no index; it becomes real once A2 + A3 exist) | 2026-10-25 | `step 6: RRF hybrid retriever (fuse masked component lists)` (committed) |
+| 7 | Top-150 cache builder | DONE-LOCAL | 2026-10-25 | `step 7: top-150 cache builder with fingerprinted sidecars` |
 | 8 | Poison ingestion hook (index poison shards) | TODO | | |
 | 9 | Generation harness and cache | TODO | | |
 | 10 | Cluster filter | TODO | | |
@@ -30,7 +30,7 @@ Status values: TODO, IN PROGRESS, DONE-LOCAL (passes on tiny local profile), DON
 | A2 bm25 | 3 | Arya | `bash ada/run_index.sh bm25` (CPU job, 48 GB RAM) | REQUESTED | `$IRE_DATA_DIR/reports/A2.json` |
 | A3 dense | 4 | Vansh | `bash ada/run_index.sh dense` (GPU job, 48 GB RAM) | REQUESTED | `$IRE_DATA_DIR/reports/A3.json` |
 | A4 splade | 5 | Vansh | `bash ada/run_index.sh splade` (GPU job, 48 GB RAM) | REQUESTED | `$IRE_DATA_DIR/reports/A4.json` |
-| A5 cache | 7 | Vansh | | not yet requested | |
+| A5 cache | 7 | Vansh | `bash ada/run_cache.sh all` (GPU job, 48 GB RAM; after A2-A4, A6 and the final questions) | REQUESTED | `$IRE_DATA_DIR/reports/A5.json` |
 | A6 poison | 8 | Arya | | not yet requested | |
 | A7 generate | 9 | Vansh | | not yet requested | |
 | A8 perplexity | 11 | Vansh | | not yet requested | |
@@ -108,6 +108,22 @@ If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A4_splade.log and the 
 If the job is killed (time limit), submit the same command again: encoding resumes from the last checkpoint.
 ```
 
+```
+ADA REQUEST A5
+Owner: Vansh          Needs: A2, A3, A4, and A6 (poison ingested) and Arya's final questions.jsonl
+Run:   git pull && bash ada/run_cache.sh all            (in a GPU job; no internet needed)
+Time:  10-30 min (estimate: 400 questions x 3 retrievers over 2.68M passages, exact search, + spot checks)
+Disk:  ~10 MB under $IRE_DATA_DIR/caches/ada (about 2 MB per retriever for 400 questions, measured locally)
+RAM:   ask for 48 GB (the exact dense Flat index alone is ~8.2 GB; SPLADE and BM25 are memory-mapped)
+Success looks like: "RESULT: OK" and "SUMMARY A5: OK"; 400 rows per retriever, dense rows exactly 150, every
+       spot check 20/20, and NO "index contains poison documents" warning from check_ada_report.py.
+Send back: $IRE_DATA_DIR/reports/A5.json (paste it in the team chat or commit it to reports/)
+If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A5_cache.log and the report file if one exists.
+IMPORTANT: a cache built before A6 (poison in the indexes) or before Arya's final question set is only a
+timing test and must be rebuilt. The loader refuses such a cache automatically once the index fingerprint or
+the questions file changes (StaleCacheError), so a stale cache cannot be used by mistake.
+```
+
 ## What teammates can use right now
 - `python scripts/check_env.py [--report JOB]` -- prints Python/torch/CUDA/GPU, free disk under `$IRE_DATA_DIR`, library
   versions, Java, and whether the profile's models are cached; `--report JOB` also writes `$IRE_DATA_DIR/reports/JOB.json`.
@@ -125,8 +141,8 @@ If the job is killed (time limit), submit the same command again: encoding resum
   Arya/Vansh: validate your files with e.g. `read_jsonl("poison_fact.jsonl", PoisonRecord)`; errors name the line.
 - `ire.utils.log.get_logger(name)` -- console + `$IRE_DATA_DIR/logs/<name>.log`, every line tagged `env=<IRE_ENV>`.
 - `python scripts/check_ada_report.py <A0..A9> [--file PATH] [--allow-local]` -- checks a returned Ada report
-  (looks in `reports/<job>.json`, then `$IRE_DATA_DIR/reports/<job>.json`). Exit 0 = PASS. Rules exist for A0-A4;
-  A5-A9 print NOT_IMPLEMENTED until their step adds the rules.
+  (looks in `reports/<job>.json`, then `$IRE_DATA_DIR/reports/<job>.json`). Exit 0 = PASS. Rules exist for A0-A5;
+  A6-A9 print NOT_IMPLEMENTED until their step adds the rules.
 - `python scripts/prepare_data.py [--corpus-mode full|random] [--dev-subset] [--source hf|ukp] [--force]` -- builds
   `$IRE_DATA_DIR/data/{corpus,questions_all,questions}.jsonl` (step 2; details in the step log). Local files exist now:
   5,000 passages, 2,255 pool questions, 400 placeholder questions.
@@ -174,6 +190,18 @@ If the job is killed (time limit), submit the same command again: encoding resum
   dense = [(d, s) for d, s in cache["dense"][qid] if not (is_poison_id(d) and not is_active(d, attack, rate))]
   pool  = fuse(bm25, dense, k=cfg["rrf.k"], depth=cfg["rrf.depth"])[:pool_size]
   ```
+- `python scripts/build_cache.py --retriever {bm25,dense,splade,rrf,all} [--questions PATH] [--force]` -- top-150
+  caches in `$IRE_DATA_DIR/caches/<env>/top150_<r>.jsonl` + `.manifest.json` sidecars; A5 report. Local caches
+  for all four exist now (400 placeholder questions).
+- **Vansh: loading the cache** (`ire.retrieval.cache`):
+  ```python
+  from ire.retrieval.cache import load_cache
+  cache = load_cache(["bm25", "dense", "splade"])   # {retriever: {qid: [(doc_id, score), ...150]}}
+  ```
+  It checks every sidecar against the CURRENT index manifests and questions file and raises `StaleCacheError`
+  if they differ (e.g. after poison ingestion or a new question set). `load_cache(["rrf"])` raises
+  `UnmaskedReferenceError` unless `allow_unmasked_reference=True`: for RRF, load bm25 + dense, mask, `fuse()`.
+  Pass `questions_path=` if the cache was built with `--questions`.
 - `ire.retrieval.eval`: `recall_at_k(results, gold, ks)`, `questions_with_gold_in_index`, `sample_eval_set`
   (retrieval sanity only; the project metrics stay with Vansh).
 - **Arya**: `questions.jsonl` is a PLACEHOLDER (200 target + 200 clean, seed 13, folds A/B 100 each). Your final
@@ -213,6 +241,19 @@ None to the data contracts. Layout notes (not contract changes):
   `[]`. So a `top150_bm25.jsonl` row can have fewer than 150 entries even when the index is larger (section 2 said
   "fewer only if the index is smaller"). On the local corpus all 400 placeholder questions still get 100+ hits.
   Ties are ordered by position in the index, so results are deterministic.
+- (Step 7) **Cache files**: `<cache_dir>/<env>/top150_<retriever>.jsonl` (one RetrievalCacheRecord per question,
+  in questions-file order) + `top150_<retriever>.jsonl.manifest.json`. The sidecar's `key` = retriever,
+  cache format version, questions sha256, depth and the index `fingerprint` copied from the index manifest
+  (corpus sha256, poison shard hashes, settings, model revision); for rrf the keys of both component caches plus
+  rrf k/depth, and `"unmasked_reference": true`. The loader compares the key with the current state.
+- (Step 7) **Ties are now ordered by doc_id in every retriever** (BM25, dense, SPLADE, RRF), also at the k-th
+  place: a tie that straddles position 150 is resolved by doc_id, never by index position or by FAISS's internal
+  order. The local corpus already has identical passages (exact dense ties). BM25 `search` now scores every
+  document with bm25s `get_scores` (the numbers `score_docs` returns) instead of bm25s `retrieve`; dense
+  fetches k + 16 candidates from FAISS and widens until the k-th score is strictly above the last fetched one.
+  Recall numbers of steps 3-6 are unchanged (re-checked).
+- (Step 7) BM25 and SPLADE cache rows may be shorter than 150 (only score > 0, never padded); dense rows are
+  exactly 150 (the builder enforces it).
 - (Step 6) **RRF config**: the top-level `rrf_k: 60` became an `rrf:` section in `experiment.yaml` (`k: 60`,
   `depth: 150`, `components: [bm25, dense]`); read it as `cfg["rrf.k"]`, `cfg["rrf.depth"]`.
 - (Step 6) **RRF must fuse masked component lists.** `fuse()` takes lists that are already masked. Masking after
@@ -256,6 +297,56 @@ None to the data contracts. Layout notes (not contract changes):
 
 ## Step log
 (Newest first. Per step: what was built, files, how to run, verify results with actual numbers, open issues.)
+
+### Step 7 -- Top-150 cache builder -- DONE-LOCAL (2026-10-25, env=local)
+**Built**
+- `src/ire/retrieval/cache.py`: cache keys (`base_key`, `rrf_key`, `current_key` from the current index manifests
+  and questions file), `write_cache` (validates every row against the section-2 contract and sort order; appends
+  per question to `<file>.partial`; resumes after the last complete line, dropping a half-written one; renames into
+  place, then writes the sidecar; skips when the finished file has the current key), `load_cache` /
+  `load_cache_file` (StaleCacheError on a key mismatch, UnmaskedReferenceError for rrf without the flag),
+  `rrf_component_rows` (rrf only from current bm25 + dense caches), `fuse_rows`.
+- `src/ire/retrieval/common.py`: `doc_id_ranks`, `top_k_rows` (score desc, ties by doc_id, every tie at the cut
+  considered); BM25 / dense / SPLADE `search` use them (see "Interface changes").
+- `scripts/build_cache.py` (all four, spot checks, A5 report), `ada/run_cache.sh` (job A5), A5 rules in
+  `scripts/check_ada_report.py`.
+- Tests: `tests/test_cache.py` (9: build + load, no-op re-run and byte-identical --force, killed build resumed to a
+  byte-identical file incl. a half-written line, partial with another key restarts, stale questions / stale index
+  fingerprint refused, missing cache / index, rrf built only from cached components + loader guard, rrf stale when
+  a component index changes, row rules), doc_id tie tests for BM25 / dense (40 identical passages, beyond the
+  fetch margin) / SPLADE, A5 rule cases.
+
+**How to run (PowerShell, repo root)**
+```
+.\.venv\Scripts\python.exe scripts/build_cache.py --retriever all
+.\.venv\Scripts\python.exe scripts/check_ada_report.py A5 --file <IRE_DATA_DIR>/reports/A5_local.json --allow-local
+```
+
+**Verify results (env=local)** -- 400 placeholder questions, 5,000-passage indexes, 0 poison.
+- Rows: 400 for every retriever. Row length min / median / max = 150 / 150 / 150 for bm25, dense, splade and
+  rrf; 0 short rows (no BM25 / SPLADE question matched fewer than 150 passages locally).
+- Spot check, 20 seeded random questions per retriever: cached list == fresh `search()` (ids, order and scores)
+  20/20 for bm25, dense, splade; cached scores == `score_docs` 20/20 (bm25 and splade exactly, max difference
+  0.0; dense max difference 1.8e-7, within rtol 1e-5); rrf cached row == `fuse()` of the cached bm25 and dense
+  rows 20/20.
+- Build time, env=local (first build): bm25 0.2 s, dense 14.0 s, splade 5.4 s, rrf 0.35 s (fused from the
+  caches); --force rebuild: 0.2 / 11.9 / 4.9 / 0.3 s. Files: bm25 2.01 MiB, dense 2.03 MiB, splade 1.99 MiB, rrf
+  2.11 MiB. Loading all four with validation: 0.8-1.0 s (each 0.13-0.32 s).
+- No-op: a second `--retriever all` run did nothing ("cache is current") and left all four files byte-identical.
+- Determinism: `--force` rebuild of all four gave byte-identical files (sha256 compared).
+- Resume: simulated kill after 6 of 10 questions plus a half-written line; the restart searched only the last 4
+  and produced a file byte-identical to a clean build (test).
+- Stale detection (temporary copies only, real caches untouched): a questions file with one question edited ->
+  `StaleCacheError: top150_bm25.jsonl is stale: questions_sha256 differs ...`; an index fingerprint with an added
+  poison shard -> `... index_fingerprint differs ...`; rrf goes stale when a component index changes (test).
+- rrf guard: `load_cache(["rrf"])` -> `UnmaskedReferenceError: ... mask the bm25 and dense lists and call fuse()
+  instead ...`; with `allow_unmasked_reference=True` it loads 400 rows.
+- After the tie-order change, steps 3-6 checks were re-run: all pass, recall unchanged (BM25 0.9383 / 0.9912,
+  dense 0.9979 / 1.0, SPLADE 0.9925 / 1.0, RRF 0.9888 / 1.0).
+- `check_ada_report.py A5 --allow-local` on the real report: every A5 rule passes; warnings: dirty tree and, for
+  each retriever, "index contains 0 poison documents" (expected before A6), `STATUS: LOCAL_DRY_RUN`.
+- `pytest -q`: 290 passed (94 Ada report, 21 bm25, 9 cache, 13 config, 13 data, 15 dense, 1 log, 10 rrf,
+  88 schemas, 7 skeleton, 19 splade).
 
 ### Step 6 -- RRF hybrid retriever -- DONE-LOCAL (2026-10-25, env=local; no Ada job)
 **Built**
@@ -594,6 +685,11 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
 - BM25 on the full corpus (job A2): peak RAM is an estimate (16-32 GB; the token ids are Python lists). If A2
   runs out of memory, switch tokenisation to streaming (`Tokenizer.streaming_tokenize`) before re-running.
 - Resolved: the Ada dense index is exact Flat (see "Interface changes").
+- **A5 order matters**: the caches must be built after A2-A4, after A6 (poison ingested into every index) and
+  on Arya's final questions.jsonl. Anything earlier is a timing test only; the loader will refuse it (stale
+  fingerprint / questions sha256) and `check_ada_report.py A5` warns if the indexes hold 0 poison documents.
+- The questions file is fingerprinted by its bytes: re-saving it with other line endings (e.g. CRLF on Windows)
+  makes the caches stale, which is the safe behaviour but worth knowing.
 - Local GPU/CPU speed looks power-throttled (see step 4 log); plug in / use a performance power plan before
   timing-sensitive local runs (step 9 generation throughput).
 - The BM25 masking check (plan 2.1, "max rank difference on a 50-question check") is not run yet: it needs poison

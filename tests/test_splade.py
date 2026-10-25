@@ -252,3 +252,12 @@ def test_real_splade_ranks_sensibly(splade: SpladeEncoder, corpus: Path, tmp_pat
     assert r.search(["mountain in tanzania"], k=1)[0][0][0] == "d6"
     assert splade.has_content(["", "  ", "the", "?"]) == [False, False, True, True]
     assert r.search([""], k=5) == [[]]
+
+
+def test_ties_ordered_by_doc_id_not_index_position(tmp_path: Path) -> None:
+    path = tmp_path / "ties2.jsonl"
+    write_jsonl(path, [CorpusRecord(doc_id=d, title="", text="same words", is_poison=False) for d in ["z", "a", "m", "b"]])
+    build_splade_index(path, tmp_path / "t2", FakeSparseEncoder(), SETTINGS)
+    r = SpladeRetriever(tmp_path / "t2", encoder=FakeSparseEncoder(), mmap=False)
+    assert [d for d, _ in r.search(["same"], k=4)[0]] == ["a", "b", "m", "z"]
+    assert [d for d, _ in r.search(["same"], k=2)[0]] == ["a", "b"]

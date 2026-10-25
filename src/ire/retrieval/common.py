@@ -11,6 +11,8 @@ from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from ire.schemas import CorpusRecord, PoisonRecord, SchemaError, iter_jsonl
 
 MANIFEST = "manifest.json"
@@ -120,3 +122,25 @@ def setup_device(device: str, fp16: bool, max_vram_gb: float | None) -> tuple[st
         total = torch.cuda.get_device_properties(0).total_memory
         torch.cuda.set_per_process_memory_fraction(min(1.0, max_vram_gb * 2**30 / total))
     return device, fp16 and device == "cuda"
+
+
+def doc_id_ranks(doc_ids: Sequence[str]) -> np.ndarray:
+    """rank[i] = position of doc_ids[i] in sorted (string) order; used to break score ties by doc_id."""
+    order = np.argsort(np.asarray(doc_ids), kind="stable")
+    ranks = np.empty(len(doc_ids), dtype=np.int64)
+    ranks[order] = np.arange(len(doc_ids))
+    return ranks
+
+
+def top_k_rows(scores: np.ndarray, k: int, id_rank: np.ndarray, positive_only: bool = True) -> np.ndarray:
+    """Rows of the k best scores: score descending, ties by doc_id (via id_rank), every tie at the cut considered.
+
+    With positive_only, rows scoring <= 0 are never returned (no shared term for BM25 / SPLADE).
+    """
+    cand = np.flatnonzero(scores > 0) if positive_only else np.arange(len(scores))
+    if k <= 0 or len(cand) == 0:
+        return cand[:0]
+    if len(cand) > k:
+        kth = np.partition(scores[cand], len(cand) - k)[len(cand) - k]  # k-th largest score
+        cand = cand[scores[cand] >= kth]                                # keeps every tie at the boundary
+    return cand[np.lexsort((id_rank[cand], -scores[cand]))[:k]]

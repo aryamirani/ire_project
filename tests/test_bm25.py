@@ -185,3 +185,13 @@ def test_recall_and_eval_helpers() -> None:
     assert len(s) == 10 and s == sorted(s) and s == sample_eval_set(list(range(100)), 10, seed=13)
     with pytest.raises(ValueError):
         recall_at_k([], [], [10])
+
+
+def test_ties_ordered_by_doc_id_not_index_position(tmp_path: Path) -> None:
+    path = tmp_path / "ties2.jsonl"
+    ids = ["z", "a", "m", "b"]  # index order differs from doc_id order
+    write_jsonl(path, [CorpusRecord(doc_id=d, title="", text="identical words here", is_poison=False) for d in ids])
+    build_index(path, tmp_path / "t2")
+    r = BM25Retriever(tmp_path / "t2")
+    assert [d for d, _ in r.search(["identical"], k=4)[0]] == ["a", "b", "m", "z"]
+    assert [d for d, _ in r.search(["identical"], k=2)[0]] == ["a", "b"]  # tie at the cut: smallest doc_ids win

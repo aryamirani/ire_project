@@ -14,7 +14,7 @@ Design notes
   ids, float32 weights > 0) and its transpose (an inverted index: rows = vocabulary ids), each as three .npy files
   opened memory-mapped, plus doc_ids.npy and manifest.json. No document terms are pruned.
 - Search is exact: score(q, d) = sum_j q_j * d_j, computed by summing the posting lists of the query's terms.
-  Only documents sharing at least one term (score > 0) are returned; ties are ordered by index position. A query
+  Only documents sharing at least one term (score > 0) are returned; ties are ordered by doc_id. A query
   with no real tokens (empty or whitespace-only) returns [] instead of the model's expansion of [CLS]/[SEP]
   alone; stopword- or punctuation-only queries are encoded normally.
 - Encoding is written in checkpoints (dense.py pattern) so an interrupted build resumes.
@@ -37,6 +37,7 @@ import scipy.sparse as sp
 from ire.retrieval.common import (
     MANIFEST,
     dir_size,
+    doc_id_ranks,
     index_dir_for,
     inputs_fingerprint,
     load_documents,
@@ -44,6 +45,7 @@ from ire.retrieval.common import (
     resolve_model,
     setup_device,
     swap_in,
+    top_k_rows,
 )
 from ire.schemas import is_poison_id
 
@@ -319,6 +321,13 @@ class SpladeRetriever:
         self._encoder = encoder
         self._cfg = cfg
         self._row_of: dict[str, int] | None = None
+        self._id_rank: np.ndarray | None = None
+
+    @property
+    def id_rank(self) -> np.ndarray:
+        if self._id_rank is None:
+            self._id_rank = doc_id_ranks(self.doc_ids)
+        return self._id_rank
 
     @classmethod
     def from_config(cls, cfg: Any, encoder: SparseEncoder | None = None) -> SpladeRetriever:
@@ -363,7 +372,7 @@ class SpladeRetriever:
         return q.tocsr()
 
     def search(self, queries: Sequence[str], k: int) -> list[list[tuple[str, float]]]:
-        """Top-k (doc_id, score) per query, exact dot product, score descending, ties by index; only score > 0."""
+        """Top-k (doc_id, score) per query, exact dot product, score descending, ties by doc_id; only score > 0."""
         if not queries:
             return []
         return self.search_vectors(self.query_vectors(queries), k)
@@ -376,12 +385,7 @@ class SpladeRetriever:
                 out.append([])
                 continue
             scores = np.asarray(self.inverted[terms].T @ weights.astype(np.float32)).ravel()  # exact, [n_docs]
-            cand = np.flatnonzero(scores > 0)
-            if len(cand) > k:
-                kth = np.partition(scores[cand], len(cand) - k)[len(cand) - k]  # k-th largest score
-                cand = cand[scores[cand] >= kth]                                # keeps every tie at the boundary
-            order = np.lexsort((cand, -scores[cand]))[:k]                       # score desc, then index position
-            out.append([(self.doc_ids[int(j)], float(scores[j])) for j in cand[order]])
+            out.append([(self.doc_ids[int(j)], float(scores[j])) for j in top_k_rows(scores, k, self.id_rank)])
         return out
 
     def score_docs(self, query: str, doc_ids: Sequence[str]) -> np.ndarray:

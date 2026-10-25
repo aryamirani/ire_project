@@ -12,7 +12,8 @@ Design notes
   index manifest; loading checks them, so local and Ada indexes are built the same way.
 - Results use the original string doc_ids. Only documents sharing at least one query term are returned (score > 0),
   so a row can be shorter than k when few documents match; a query with no indexable terms (empty, only stopwords,
-  only unknown words) returns []. Ties are ordered by position in the index, so output is fully deterministic.
+  only unknown words) returns []. Ties are ordered by doc_id (also at the k-th place), so output is fully
+  deterministic and the same for every build of the same corpus.
 - `score_docs` scores any documents under the *current* index statistics (IDF, average length); comparing it with
   an index built without poison measures the "mask after scoring" approximation from the plan (section 2.1).
 - Poison status is never stored: it is `is_poison_id(doc_id)` (the `poison_` prefix).
@@ -37,6 +38,7 @@ from bm25s.tokenization import Tokenizer
 from ire.retrieval.common import (  # noqa: F401  (doc_text, find_poison_shards, iter_documents re-exported)
     MANIFEST,
     dir_size,
+    doc_id_ranks,
     doc_text,
     find_poison_shards,
     index_dir_for,
@@ -45,6 +47,7 @@ from ire.retrieval.common import (  # noqa: F401  (doc_text, find_poison_shards,
     load_documents,
     read_manifest,
     swap_in,
+    top_k_rows,
 )
 from ire.schemas import is_poison_id
 
@@ -157,6 +160,7 @@ class BM25Retriever:
         self.tokenizer.load_stopwords(str(self.index_dir))
         self.doc_ids: list[str] = json.loads((self.index_dir / DOC_IDS).read_text(encoding="utf-8"))
         self._row_of: dict[str, int] | None = None  # doc_id -> row, built on first score_docs call
+        self._id_rank: np.ndarray | None = None     # doc_id sort order, built on first search
 
     @classmethod
     def from_config(cls, cfg: Any) -> BM25Retriever:
@@ -174,18 +178,25 @@ class BM25Retriever:
         ids = self.tokenizer.tokenize(list(queries), update_vocab=False, return_as="ids", show_progress=False)
         return [[t for t in q if t != EMPTY_TOKEN_ID] for q in ids]  # unknown words and stopwords vanish
 
+    @property
+    def id_rank(self) -> np.ndarray:
+        if self._id_rank is None:
+            self._id_rank = doc_id_ranks(self.doc_ids)
+        return self._id_rank
+
     def search(self, queries: Sequence[str], k: int) -> list[list[tuple[str, float]]]:
-        """Top-k (doc_id, score) per query, score descending, ties by index position; only score > 0."""
-        token_ids = self._query_token_ids(queries)
-        out: list[list[tuple[str, float]]] = [[] for _ in queries]
-        todo = [i for i, q in enumerate(token_ids) if q]
-        if not todo or k <= 0:
-            return out
-        rows, scores = self.model.retrieve([token_ids[i] for i in todo], k=min(k, self.n_docs),
-                                           show_progress=False, n_threads=0)
-        for i, row, score in zip(todo, rows, scores):
-            order = np.lexsort((row, -score))  # score descending, then index position ascending
-            out[i] = [(self.doc_ids[int(row[j])], float(score[j])) for j in order if score[j] > 0]
+        """Top-k (doc_id, score) per query, score descending, ties by doc_id; only score > 0.
+
+        Scores every document (bm25s get_scores, the same numbers score_docs returns), so ties at the k-th place
+        are resolved by doc_id too, not by whatever bm25s's partial sort kept.
+        """
+        out: list[list[tuple[str, float]]] = []
+        for tokens in self._query_token_ids(queries):
+            if not tokens or k <= 0:
+                out.append([])
+                continue
+            scores = np.asarray(self.model.get_scores(tokens))
+            out.append([(self.doc_ids[int(r)], float(scores[r])) for r in top_k_rows(scores, k, self.id_rank)])
         return out
 
     def score_docs(self, query: str, doc_ids: Sequence[str]) -> np.ndarray:

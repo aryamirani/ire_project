@@ -67,7 +67,7 @@ def test_local_report_is_only_a_dry_run() -> None:
     assert check_report("A0", dict(a0_report(), job="A0_local")).status == "FAIL"  # suffix only in dry runs
 
 
-@pytest.mark.parametrize("job", [j for j in JOBS if j not in ("A0", "A1", "A2", "A3", "A4")])
+@pytest.mark.parametrize("job", [j for j in JOBS if j not in ("A0", "A1", "A2", "A3", "A4", "A5")])
 def test_other_jobs_are_stubs(job: str) -> None:
     result = check_report(job, {"job": job, "env": "ada"})
     assert result.status == "NOT_IMPLEMENTED"
@@ -288,3 +288,55 @@ def test_a4_empty_doc_vectors_only_warn() -> None:
     report["sparsity"]["doc"]["empty_rows"] = 3
     result = check_report("A4", report)
     assert result.status == "PASS" and any(not c.passed and not c.fatal for c in result.checks)
+
+
+def a5_report() -> dict:
+    """A report with the structure scripts/build_cache.py writes (synthetic, for testing the rules only)."""
+    def r(name, length, n_poison):
+        return {"rows": 400, "n_questions": 400, "row_length": {"min": length[0], "median": 150, "max": length[1],
+                                                                 "short_rows": 0 if length[0] == 150 else 3},
+                "all_rows_sorted": True, "fingerprint_matches_index": True, "index_n_poison": n_poison,
+                "spot_check": {"n": 20, "ids_and_order_equal": 20, "score_docs_agree": 20, "passed": True},
+                "unmasked_reference": name == "rrf"}
+    return {"job": "A5", "env": "ada", "git_commit": "abc1234", "timestamp_utc": "2026-10-25T10:00:00+00:00",
+            "ok": True, "checks": {"dense_spot_check": True}, "questions": {"path": "data/questions.jsonl", "n": 400},
+            "depth": 150, "retrievers": {"bm25": r("bm25", (40, 150), 3000), "dense": r("dense", (150, 150), 3000),
+                                         "splade": r("splade", (150, 150), 3000),
+                                         "rrf": r("rrf", (150, 150), {"bm25": 3000, "dense": 3000})}}
+
+
+def test_a5_passes() -> None:
+    result = check_report("A5", a5_report())
+    assert result.status == "PASS", [c for c in result.failed]
+
+
+@pytest.mark.parametrize("breaker", [
+    lambda r: r.update(ok=False),
+    lambda r: r.update(depth=100),
+    lambda r: r["questions"].update(n=399),
+    lambda r: r["retrievers"].pop("splade"),
+    lambda r: r["retrievers"].update(rrf={"error": "refusing to build rrf"}),
+    lambda r: r["retrievers"]["bm25"].update(rows=399),
+    lambda r: r["retrievers"]["dense"]["row_length"].update(min=149),           # dense rows must be exactly 150
+    lambda r: r["retrievers"]["splade"]["row_length"].update(max=151),
+    lambda r: r["retrievers"]["bm25"].update(all_rows_sorted=False),
+    lambda r: r["retrievers"]["dense"]["spot_check"].update(passed=False),
+    lambda r: r["retrievers"]["splade"]["spot_check"].update(n=5),             # fewer than 10 random rows
+    lambda r: r["retrievers"]["bm25"].update(fingerprint_matches_index=False),
+    lambda r: r["retrievers"]["rrf"].update(unmasked_reference=False),
+    lambda r: r.pop("retrievers"),
+], ids=["not-ok", "depth", "n-questions", "missing-retriever", "rrf-error", "row-count", "dense-length",
+        "too-long", "unsorted", "spot-check", "spot-check-small", "fingerprint", "rrf-flag", "field-missing"])
+def test_a5_fails(breaker) -> None:
+    report = copy.deepcopy(a5_report())
+    breaker(report)
+    assert check_report("A5", report).status == "FAIL"
+
+
+def test_a5_no_poison_in_index_only_warns() -> None:
+    report = a5_report()
+    for name in ("bm25", "dense", "splade"):
+        report["retrievers"][name]["index_n_poison"] = 0
+    result = check_report("A5", report)
+    assert result.status == "PASS"
+    assert sum(1 for c in result.checks if not c.passed and not c.fatal) == 3
