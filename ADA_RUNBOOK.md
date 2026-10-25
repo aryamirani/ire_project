@@ -28,6 +28,7 @@ Claude Code appends a section below for every job as its step is finished. Check
 | A4 splade | `ada/run_index.sh splade` | REQUESTED | Vansh |
 | A5 cache | `ada/run_cache.sh all` | REQUESTED | Vansh |
 | A6 poison | `ada/run_index_poison.sh` | REQUESTED | Arya |
+| A7 generate | `ada/run_generate_benchmark.sh` | REQUESTED | Vansh |
 
 ### A0 setup
 ```
@@ -224,6 +225,31 @@ Details for a non-expert:
    temporary clean copy to get the masking reference.
 5. **Afterwards run A5** (`bash ada/run_cache.sh all`): every cache built before A6 is stale and the loader
    refuses it.
+
+### A7 generate
+```
+ADA REQUEST A7
+Owner: Vansh          Needs: A0 (environment + Qwen/Qwen2.5-3B-Instruct downloaded) and A1 (data)
+FIRST: confirm the Ada GPU fits the 3B model in fp16: about 7 GB of weights (2 bytes x ~3.1B parameters) plus a
+       few GB for batches; check `nvidia-smi` in your GPU session (16 GB or more is comfortable).
+Run:   git pull && bash ada/run_generate_benchmark.sh   (in a GPU job; no internet needed)
+Time:  15-30 min (estimate: model load, ~100 generations for the tests, 24 prompts x 4 batch sizes)
+Disk:  the document text store $IRE_DATA_DIR/data/text_store.sqlite (~2 GB for 2.68M passages, built on first
+       use, reused afterwards) + a temporary cache that is deleted at the end
+Success looks like: "RESULT: OK" and "SUMMARY A7: OK"; throughput in requests/min for batch sizes 1, 8, 16, 32,
+       the projected hours for 60,000 and 30,000 requests, cache hit + greedy determinism 20/20, the batch
+       independence counts, and a smoke EM/F1 on 50 clean questions.
+Send back: $IRE_DATA_DIR/reports/A7.json (paste it in the team chat or commit it to reports/)
+If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A7_generate_benchmark.log and the report file if one exists.
+```
+Details for a non-expert:
+1. Submit it as a GPU job, e.g.
+   `sbatch -p <partition> --gres=gpu:1 -c 8 --mem=32G -t 01:00:00 -o $IRE_DATA_DIR/logs/%x-%j.log --wrap "bash ada/run_generate_benchmark.sh"`.
+2. If the GPU runs out of memory, the batch size halves itself; to test other batch sizes:
+   `bash ada/run_generate_benchmark.sh --batch-sizes 1,4,8`.
+3. It does not touch the real generation cache (`caches/generation.sqlite`); the benchmark uses a temporary one.
+4. If no current dense cache exists yet (A3/A5 not done), the prompts use each question's gold passages plus random
+   passages; the report says which contexts were used.
 
 ## Division of labour (suggested; adjust freely)
 - Arya: data (A1), BM25 (A2), poison ingestion (A6). She already owns the poison shards.

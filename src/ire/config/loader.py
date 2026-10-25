@@ -26,7 +26,7 @@ from ire.config.env import CONFIG_DIR, REPO_ROOT, get_data_dir, get_env_name, lo
 
 # Keys every paths.yaml must define (the code relies on them).
 REQUIRED_PATH_KEYS: tuple[str, ...] = (
-    "data_dir", "raw_dir", "corpus", "questions_all", "questions", "dev_data_dir", "poison_dir", "indexes_dir",
+    "data_dir", "raw_dir", "corpus", "questions_all", "questions", "text_store", "dev_data_dir", "poison_dir", "indexes_dir",
     "vectors_dir", "cache_dir", "generation_cache", "perplexity_cache", "logs_dir", "reports_dir",
     "reports_repo", "perplexity_thresholds", "heldout_dir",
 )

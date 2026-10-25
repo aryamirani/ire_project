@@ -67,7 +67,7 @@ def test_local_report_is_only_a_dry_run() -> None:
     assert check_report("A0", dict(a0_report(), job="A0_local")).status == "FAIL"  # suffix only in dry runs
 
 
-@pytest.mark.parametrize("job", [j for j in JOBS if j not in ("A0", "A1", "A2", "A3", "A4", "A5", "A6")])
+@pytest.mark.parametrize("job", [j for j in JOBS if j not in ("A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7")])
 def test_other_jobs_are_stubs(job: str) -> None:
     result = check_report(job, {"job": job, "env": "ada"})
     assert result.status == "NOT_IMPLEMENTED"
@@ -396,4 +396,55 @@ def test_a6_fixture_sized_or_non_adaptive_shards_only_warn() -> None:
     for r in report["retrievers"].values():
         r["n_poison_after"] = 10
     result = check_report("A6", report)
+    assert result.status == "PASS" and sum(1 for c in result.checks if not c.passed and not c.fatal) == 2
+
+
+def a7_report() -> dict:
+    """A report with the structure scripts/generate_benchmark.py writes (synthetic, for testing the rules only)."""
+    return {"job": "A7", "env": "ada", "git_commit": "abc1234", "timestamp_utc": "2026-10-25T10:00:00+00:00",
+            "ok": True, "checks": {"greedy_determinism_20_of_20": True}, "gpu": "NVIDIA A100",
+            "model": "Qwen/Qwen2.5-3B-Instruct", "model_revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+            "vram_gib": {"weights": 5.8, "peak": 9.0, "cap": None},
+            "throughput": {"1": {"requests_per_min": 40.0}, "16": {"requests_per_min": 400.0}},
+            "projection": {"hours_for_60000": 2.5, "hours_for_30000": 1.25, "at_requests_per_min": 400.0},
+            "cache_tests": {"first_call_cached": False, "second_call_cached": True, "same_answer": True,
+                            "reversed_ids_cached": False, "other_max_new_tokens_cached": False},
+            "determinism": {"n": 20, "identical": 20},
+            "batch_independence": {"n": 20, "batch8_mixed_shuffled": 20, "batch8_reversed_order": 20,
+                                   "batch8_length_sorted": 20, "all_identical": True},
+            "smoke_em_f1": {"n": 50, "em": 0.4, "f1": 0.55, "contexts": "dense top-150 cache (no poison)"}}
+
+
+def test_a7_passes() -> None:
+    result = check_report("A7", a7_report())
+    assert result.status == "PASS", [c for c in result.failed]
+
+
+@pytest.mark.parametrize("breaker", [
+    lambda r: r.update(ok=False),
+    lambda r: r.update(model="Qwen/Qwen2.5-1.5B-Instruct"),                  # the local stand-in, not the real model
+    lambda r: r.update(model_revision="unknown"),
+    lambda r: r.update(gpu="cpu"),
+    lambda r: r.update(throughput={"1": {"requests_per_min": 40.0}}),        # one batch size only
+    lambda r: r["projection"].pop("hours_for_30000"),
+    lambda r: r["cache_tests"].update(second_call_cached=False),
+    lambda r: r["cache_tests"].update(reversed_ids_cached=True),
+    lambda r: r["cache_tests"].update(other_max_new_tokens_cached=True),
+    lambda r: r["determinism"].update(identical=19),
+    lambda r: r["batch_independence"].pop("all_identical"),
+    lambda r: r["smoke_em_f1"].update(n=10),
+    lambda r: r.pop("throughput"),
+], ids=["not-ok", "wrong-model", "no-revision", "cpu", "one-batch-size", "no-30k", "no-cache-hit", "order-hit",
+        "namespace-hit", "not-deterministic", "independence-missing", "smoke-n", "field-missing"])
+def test_a7_fails(breaker) -> None:
+    report = copy.deepcopy(a7_report())
+    breaker(report)
+    assert check_report("A7", report).status == "FAIL"
+
+
+def test_a7_batch_differences_and_low_f1_only_warn() -> None:
+    report = a7_report()
+    report["batch_independence"].update(all_identical=False, batch8_reversed_order=19)
+    report["smoke_em_f1"].update(f1=0.1)
+    result = check_report("A7", report)
     assert result.status == "PASS" and sum(1 for c in result.checks if not c.passed and not c.fatal) == 2

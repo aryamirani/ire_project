@@ -454,19 +454,70 @@ def _rules_a6(report: dict[str, Any]) -> list[Check]:
     return checks
 
 
-# ---------------------------------------------------------------- A7-A9 (stubs; filled in with each step)
+# ---------------------------------------------------------------- A7 (fields written by scripts/generate_benchmark.py)
+
+A7_FIELDS: tuple[str, ...] = ("ok", "checks", "gpu", "model", "model_revision", "vram_gib", "throughput", "projection",
+                              "cache_tests", "determinism", "batch_independence", "smoke_em_f1")
+
+
+def _rules_a7(report: dict[str, Any]) -> list[Check]:
+    checks = []
+    missing = [k for k in A7_FIELDS if k not in report]
+    checks.append(Check("generate_benchmark fields present", not missing, f"missing: {missing}" if missing else ""))
+    if missing:
+        return checks
+    checks.append(Check("generate_benchmark RESULT OK", report["ok"] is True,
+                        str({k: v for k, v in report["checks"].items() if not v}) if not report["ok"] else ""))
+    profile = "local" if report.get("env") == "local" else "ada"  # local only reaches here as a dry run
+    want = load_env_profile(profile)["models"]["llm"]
+    checks.append(Check(f"model is env_{profile}.yaml models.llm", report["model"] == want,
+                        f"{report['model']} (expected {want})"))
+    checks.append(Check("model revision recorded", report["model_revision"] not in ("", "unknown", None),
+                        str(report["model_revision"])))
+    checks.append(Check("ran on a GPU", report["gpu"] not in ("cpu", "", None),
+                        f"{report['gpu']}, VRAM {report['vram_gib']}"))
+    tp = report["throughput"]
+    rpm_ok = len(tp) >= 2 and all((v.get("requests_per_min") or 0) > 0 for v in tp.values())
+    checks.append(Check("throughput (requests/min) at >= 2 batch sizes", rpm_ok,
+                        ", ".join(f"bs {k}: {v.get('requests_per_min')}" for k, v in tp.items())))
+    pr = report["projection"]
+    checks.append(Check("projected hours for 60,000 and 30,000 requests",
+                        all(isinstance(pr.get(k), (int, float)) for k in ("hours_for_60000", "hours_for_30000")),
+                        f"60k: {pr.get('hours_for_60000')} h, 30k: {pr.get('hours_for_30000')} h"))
+    ct = report["cache_tests"]
+    cache_ok = (ct.get("first_call_cached") is False and ct.get("second_call_cached") is True
+                and ct.get("same_answer") is True and ct.get("reversed_ids_cached") is False
+                and ct.get("other_max_new_tokens_cached") is False)
+    checks.append(Check("cache hit on repeat; new key for reordered ids; new namespace for new settings", cache_ok,
+                        str(ct)))
+    det = report["determinism"]
+    checks.append(Check("greedy determinism on 20 prompts", det.get("n") == 20 and det.get("identical") == 20,
+                        f"{det.get('identical')}/{det.get('n')} identical"))
+    bi = report["batch_independence"]
+    checks.append(Check("batch independence measured on 20 prompts", bi.get("n") == 20 and "all_identical" in bi,
+                        f"mixed {bi.get('batch8_mixed_shuffled')}, reversed {bi.get('batch8_reversed_order')}, "
+                        f"sorted {bi.get('batch8_length_sorted')} of {bi.get('n')}"))
+    checks.append(Check("batches give the same answers as one-by-one generation", bi.get("all_identical") is True,
+                        "if not: decide batch size 1 vs throughput (see HANDOFF)", fatal=False))
+    sm = report["smoke_em_f1"]
+    checks.append(Check("smoke EM/F1 on 50 clean questions", sm.get("n") == 50 and isinstance(sm.get("f1"), float),
+                        f"EM {sm.get('em')}, F1 {sm.get('f1')} ({sm.get('contexts')})"))
+    checks.append(Check("smoke F1 >= 0.2 (the model answers sensibly)", (sm.get("f1") or 0) >= 0.2,
+                        f"F1 {sm.get('f1')}", fatal=False))
+    return checks
+
+
+# ---------------------------------------------------------------- A8-A9 (stubs; filled in with each step)
 
 STUBS: dict[str, tuple[int, str]] = {
     # job: (step that fills in the rules, acceptance check from IMPLEMENTATION_PLAN.md section 5)
-    "A7": (9, "throughput (requests/min) and projected hours for 60,000 requests; cache hit on repeat; "
-              "greedy determinism on 20 prompts"),
     "A8": (11, "flag rate on 1,000 held-out clean passages close to alpha; cache size; fraction too_short"),
     "A9": (13, "all four retrievers and both filters run end to end on 20 questions"),
 }
 
 RULES: dict[str, Callable[[dict[str, Any]], list[Check]]] = {"A0": _rules_a0, "A1": _rules_a1, "A2": _rules_a2,
                                                           "A3": _rules_a3, "A4": _rules_a4, "A5": _rules_a5,
-                                                          "A6": _rules_a6}
+                                                          "A6": _rules_a6, "A7": _rules_a7}
 
 
 def check_report(job: str, report: dict[str, Any], allow_local: bool = False) -> ReportResult:
