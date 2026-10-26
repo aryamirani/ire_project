@@ -130,7 +130,9 @@ def main() -> int:
     cache_path = cfg.path("perplexity_cache")
     n_cached = scores.cache.count(scores.scorer.namespace())
     a = alpha_key(anchor)
-    tol = 2.58 * (anchor * (1 - anchor) / max(len(held), 1)) ** 0.5   # ~99% binomial interval
+    # ~99% interval for the held-out flag rate: the cutoffs are themselves quantiles estimated from len(cal)
+    # passages, so both samples add variance, alpha (1 - alpha) (1 / n_cal + 1 / n_held)
+    tol = 2.58 * (anchor * (1 - anchor) * (1 / max(len(cal), 1) + 1 / max(len(held), 1))) ** 0.5
     checks = {
         "thresholds_written": th_path.is_file(),
         "heldout_pd_rate_close_to_alpha": abs(heldout[a]["pd"] - anchor) <= tol,
