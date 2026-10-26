@@ -1,0 +1,332 @@
+{
+  "job": "A5",
+  "env": "ada",
+  "ok": true,
+  "checks": {
+    "bm25_rows_equal_questions": true,
+    "bm25_rows_sorted": true,
+    "bm25_row_length_ok": true,
+    "bm25_spot_check": true,
+    "dense_rows_equal_questions": true,
+    "dense_rows_sorted": true,
+    "dense_row_length_ok": true,
+    "dense_spot_check": true,
+    "splade_rows_equal_questions": true,
+    "splade_rows_sorted": true,
+    "splade_row_length_ok": true,
+    "splade_spot_check": true,
+    "rrf_rows_equal_questions": true,
+    "rrf_rows_sorted": true,
+    "rrf_row_length_ok": true,
+    "rrf_spot_check": true
+  },
+  "git_commit": "6ddefa31d5f30f26f9efd0733ab274cf2da9a4f6",
+  "timestamp_utc": "2026-10-26T04:33:02+00:00",
+  "questions": {
+    "path": "data/questions.jsonl",
+    "n": 400
+  },
+  "depth": 150,
+  "rrf": {
+    "k": 60,
+    "depth": 150
+  },
+  "retrievers": {
+    "bm25": {
+      "built_now": true,
+      "build_time_s": 4.02,
+      "resumed_from_question": 0,
+      "rows": 400,
+      "n_questions": 400,
+      "row_length": {
+        "min": 150,
+        "median": 150.0,
+        "max": 150,
+        "short_rows": 0
+      },
+      "all_rows_sorted": true,
+      "dense_rows_exactly_depth": null,
+      "spot_check": {
+        "n": 20,
+        "ids_and_order_equal": 20,
+        "scores_equal_fresh_search": 20,
+        "score_docs_agree": 20,
+        "max_abs_diff_score_docs": 0.0,
+        "score_docs_rule": "exact (float32)",
+        "passed": true
+      },
+      "fingerprint_matches_index": true,
+      "index_n_poison": 4500,
+      "unmasked_reference": false,
+      "file_bytes": 2162341,
+      "file_mib": 2.062,
+      "load_time_s": 0.296,
+      "key": {
+        "retriever": "bm25",
+        "cache_version": 1,
+        "questions_sha256": "0365180a6070be2f17e5b555027535cbd0659b12d2f0a8c5f6d055d844590c0e",
+        "depth": 150,
+        "index_fingerprint": {
+          "corpus_sha256": "92c5881c32ec9430202a6de38f1335fcb1bbb5b42aad5290b457cf17d2566c2a",
+          "shards": [
+            {
+              "name": "poison_adaptive.jsonl",
+              "sha256": "8d12d06d3bf6b85efaca35b60b134053a339f899fc34bd40b0bd6c852d1d574e"
+            },
+            {
+              "name": "poison_main.jsonl",
+              "sha256": "d7249afffe9f5c2f4f564edce344f35281715d74541d2000b3fb9088506fde10"
+            }
+          ],
+          "settings": {
+            "method": "lucene",
+            "k1": 0.9,
+            "b": 0.4,
+            "lower": true,
+            "token_pattern": "(?u)\\b\\w\\w+\\b",
+            "stopwords": "en",
+            "stemmer": "english"
+          },
+          "bm25s_version": "0.3.13"
+        }
+      }
+    },
+    "dense": {
+      "built_now": true,
+      "build_time_s": 156.1,
+      "resumed_from_question": 0,
+      "rows": 400,
+      "n_questions": 400,
+      "row_length": {
+        "min": 150,
+        "median": 150.0,
+        "max": 150,
+        "short_rows": 0
+      },
+      "all_rows_sorted": true,
+      "dense_rows_exactly_depth": true,
+      "spot_check": {
+        "n": 20,
+        "ids_and_order_equal": 20,
+        "scores_equal_fresh_search": 20,
+        "score_docs_agree": 20,
+        "max_abs_diff_score_docs": 4.76837158203125e-07,
+        "score_docs_rule": "float tolerance (rtol 1e-5)",
+        "passed": true
+      },
+      "fingerprint_matches_index": true,
+      "index_n_poison": 4500,
+      "unmasked_reference": false,
+      "file_bytes": 2187491,
+      "file_mib": 2.086,
+      "load_time_s": 0.208,
+      "key": {
+        "retriever": "dense",
+        "cache_version": 1,
+        "questions_sha256": "0365180a6070be2f17e5b555027535cbd0659b12d2f0a8c5f6d055d844590c0e",
+        "depth": 150,
+        "index_fingerprint": {
+          "corpus_sha256": "92c5881c32ec9430202a6de38f1335fcb1bbb5b42aad5290b457cf17d2566c2a",
+          "shards": [
+            {
+              "name": "poison_adaptive.jsonl",
+              "sha256": "8d12d06d3bf6b85efaca35b60b134053a339f899fc34bd40b0bd6c852d1d574e"
+            },
+            {
+              "name": "poison_main.jsonl",
+              "sha256": "d7249afffe9f5c2f4f564edce344f35281715d74541d2000b3fb9088506fde10"
+            }
+          ],
+          "settings": {
+            "model": "intfloat/e5-base-v2",
+            "query_prefix": "query: ",
+            "passage_prefix": "passage: ",
+            "pooling": "mean",
+            "max_length": 512,
+            "store_dtype": "float16",
+            "index_type": "flat",
+            "hnsw_m": 32,
+            "hnsw_ef_construction": 200
+          },
+          "model_revision": "f52bf8ec8c7124536f0efb74aca902b2995e5bcd",
+          "faiss_version": "1.15.1"
+        }
+      }
+    },
+    "splade": {
+      "built_now": true,
+      "build_time_s": 25.31,
+      "resumed_from_question": 0,
+      "rows": 400,
+      "n_questions": 400,
+      "row_length": {
+        "min": 150,
+        "median": 150.0,
+        "max": 150,
+        "short_rows": 0
+      },
+      "all_rows_sorted": true,
+      "dense_rows_exactly_depth": null,
+      "spot_check": {
+        "n": 20,
+        "ids_and_order_equal": 20,
+        "scores_equal_fresh_search": 20,
+        "score_docs_agree": 20,
+        "max_abs_diff_score_docs": 0.0,
+        "score_docs_rule": "exact (float32)",
+        "passed": true
+      },
+      "fingerprint_matches_index": true,
+      "index_n_poison": 4500,
+      "unmasked_reference": false,
+      "file_bytes": 2178192,
+      "file_mib": 2.077,
+      "load_time_s": 0.212,
+      "key": {
+        "retriever": "splade",
+        "cache_version": 1,
+        "questions_sha256": "0365180a6070be2f17e5b555027535cbd0659b12d2f0a8c5f6d055d844590c0e",
+        "depth": 150,
+        "index_fingerprint": {
+          "corpus_sha256": "92c5881c32ec9430202a6de38f1335fcb1bbb5b42aad5290b457cf17d2566c2a",
+          "shards": [
+            {
+              "name": "poison_adaptive.jsonl",
+              "sha256": "8d12d06d3bf6b85efaca35b60b134053a339f899fc34bd40b0bd6c852d1d574e"
+            },
+            {
+              "name": "poison_main.jsonl",
+              "sha256": "d7249afffe9f5c2f4f564edce344f35281715d74541d2000b3fb9088506fde10"
+            }
+          ],
+          "settings": {
+            "model": "naver/splade-cocondenser-ensembledistil",
+            "doc_max_length": 256,
+            "query_max_length": 64,
+            "pooling": "max_log1p_relu",
+            "encode_dtype": "float16"
+          },
+          "model_revision": "49cf4c7b0db5b870a401ddf5e2669993ef3699c7"
+        }
+      }
+    },
+    "rrf": {
+      "built_now": true,
+      "build_time_s": 0.36,
+      "resumed_from_question": 0,
+      "rows": 400,
+      "n_questions": 400,
+      "row_length": {
+        "min": 150,
+        "median": 150.0,
+        "max": 150,
+        "short_rows": 0
+      },
+      "all_rows_sorted": true,
+      "dense_rows_exactly_depth": null,
+      "spot_check": {
+        "n": 20,
+        "ids_and_order_equal": 20,
+        "scores_equal_fresh_search": 20,
+        "score_docs_agree": 20,
+        "max_abs_diff_score_docs": 0.0,
+        "score_docs_rule": "fuse() of cached components",
+        "passed": true
+      },
+      "fingerprint_matches_index": true,
+      "index_n_poison": {
+        "bm25": 4500,
+        "dense": 4500
+      },
+      "unmasked_reference": true,
+      "file_bytes": 2279030,
+      "file_mib": 2.173,
+      "load_time_s": 0.205,
+      "key": {
+        "retriever": "rrf",
+        "cache_version": 1,
+        "questions_sha256": "0365180a6070be2f17e5b555027535cbd0659b12d2f0a8c5f6d055d844590c0e",
+        "components": {
+          "bm25": {
+            "retriever": "bm25",
+            "cache_version": 1,
+            "questions_sha256": "0365180a6070be2f17e5b555027535cbd0659b12d2f0a8c5f6d055d844590c0e",
+            "depth": 150,
+            "index_fingerprint": {
+              "corpus_sha256": "92c5881c32ec9430202a6de38f1335fcb1bbb5b42aad5290b457cf17d2566c2a",
+              "shards": [
+                {
+                  "name": "poison_adaptive.jsonl",
+                  "sha256": "8d12d06d3bf6b85efaca35b60b134053a339f899fc34bd40b0bd6c852d1d574e"
+                },
+                {
+                  "name": "poison_main.jsonl",
+                  "sha256": "d7249afffe9f5c2f4f564edce344f35281715d74541d2000b3fb9088506fde10"
+                }
+              ],
+              "settings": {
+                "method": "lucene",
+                "k1": 0.9,
+                "b": 0.4,
+                "lower": true,
+                "token_pattern": "(?u)\\b\\w\\w+\\b",
+                "stopwords": "en",
+                "stemmer": "english"
+              },
+              "bm25s_version": "0.3.13"
+            }
+          },
+          "dense": {
+            "retriever": "dense",
+            "cache_version": 1,
+            "questions_sha256": "0365180a6070be2f17e5b555027535cbd0659b12d2f0a8c5f6d055d844590c0e",
+            "depth": 150,
+            "index_fingerprint": {
+              "corpus_sha256": "92c5881c32ec9430202a6de38f1335fcb1bbb5b42aad5290b457cf17d2566c2a",
+              "shards": [
+                {
+                  "name": "poison_adaptive.jsonl",
+                  "sha256": "8d12d06d3bf6b85efaca35b60b134053a339f899fc34bd40b0bd6c852d1d574e"
+                },
+                {
+                  "name": "poison_main.jsonl",
+                  "sha256": "d7249afffe9f5c2f4f564edce344f35281715d74541d2000b3fb9088506fde10"
+                }
+              ],
+              "settings": {
+                "model": "intfloat/e5-base-v2",
+                "query_prefix": "query: ",
+                "passage_prefix": "passage: ",
+                "pooling": "mean",
+                "max_length": 512,
+                "store_dtype": "float16",
+                "index_type": "flat",
+                "hnsw_m": 32,
+                "hnsw_ef_construction": 200
+              },
+              "model_revision": "f52bf8ec8c7124536f0efb74aca902b2995e5bcd",
+              "faiss_version": "1.15.1"
+            }
+          }
+        },
+        "rrf": {
+          "k": 60,
+          "depth": 150
+        }
+      }
+    }
+  },
+  "total_load_time_s": 0.818,
+  "libraries": {
+    "python": "3.13.17",
+    "platform": "Linux-5.15.0-194-generic-x86_64-with-glibc2.35",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "bm25s": "0.3.13",
+    "faiss-cpu": "1.15.1",
+    "torch": "2.6.0+cu124",
+    "transformers": "5.19.0"
+  },
+  "runtime_s": 211.5,
+  "rerun": "python scripts/build_cache.py --retriever all --report A5 --batch-size 1 --force"
+}
