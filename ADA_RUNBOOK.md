@@ -272,8 +272,9 @@ Details for a non-expert:
   that touches an index or a cache is submitted to that node through `ada/pinned_node.sh`:
   `sbatch -p u22 -w gnode056 --gres=gpu:1 -c 10 --mem=29G -t <time> -o ~/ire_data_dir/logs/%x-%j.log --wrap "bash $HOME/ire_project/ada/pinned_node.sh ada/<job>.sh <args>"`.
   `pinned_node.sh` syncs the code to `~/ire_node`, stages data + models in from home, runs the job, and copies
-  reports, logs, caches and poison shards back to home (indexes stay on the node). It does NOT copy repo files back
-  (e.g. a thresholds file written under `configs/` must be taken from `~/ire_node/configs/`). Do not symlink
+  reports, logs, caches and poison shards back to home (indexes stay on the node). Repo files are not synced
+  back, except the two threshold files (`query_phrase_thresholds.json`, `perplexity_thresholds.json`), which are
+  copied to `~/ire_data_dir/reports/thresholds/` (commit them from there). Do not symlink
   `indexes/`: `build_index.py` needs it to be a real folder under `IRE_DATA_DIR`. If gnode056's `/scratch` is ever
   wiped, rebuild A2-A4 and A6, then A5 (about 2.5 h of jobs); moving to another node is described in
   `HANDOFF_ARYA.md` ("Pinned node moved").

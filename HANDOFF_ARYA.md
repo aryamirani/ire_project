@@ -1,10 +1,13 @@
 # HANDOFF -- Arya's lane (question set, phrase list, poison, query-and-phrase filter; Ada jobs A0 / A1 / A2 / A6)
 
 Last updated: 2026-10-26. Design source: `docs/IRE_Final_Project_Plan.pdf` sections 3.1, 3.2, 4.1 and 9.
-Samarth's progress is in `HANDOFF.md`. None of his code was changed. The only edits to existing files are:
+Samarth's progress is in `HANDOFF.md`. Edits to files that already existed before this lane:
 - `ada/common.sh`: the SLURM values (he asked the first teammate on Ada to fill them in) and a storage note;
 - new sections appended to `configs/experiment.yaml` (`poison:`, `query_phrase:`) and one new key in
-  `configs/paths.yaml` (`query_phrase_thresholds`).
+  `configs/paths.yaml` (`query_phrase_thresholds`);
+- small fixes in Samarth's code found while running Ada (commits 56d807f, 273e784, 78cbd66, 0214e48, 872c238),
+  reviewed and kept by Samarth (see "Steps 10-13" below and `HANDOFF.md`, "Interface changes");
+- steps 10-13, taken over with Samarth's agreement (section "Steps 10-13").
 
 ## Status board
 | Item | Status | Files |
