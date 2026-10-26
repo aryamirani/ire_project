@@ -1,0 +1,299 @@
+{
+  "job": "query_phrase",
+  "env": "ada",
+  "time_utc": "2026-10-26T04:37:00+00:00",
+  "git_commit": "6ddefa31d5f30f26f9efd0733ab274cf2da9a4f6-dirty",
+  "thresholds_file": "configs/query_phrase_thresholds.json",
+  "cutoffs": {
+    "bm25": {
+      "A": {
+        "0.01": 0.8850007164478303,
+        "0.025": 0.8755888029932976,
+        "0.05": 0.864715439081192,
+        "0.1": 0.8490110754966735
+      },
+      "B": {
+        "0.01": 0.8834376418590546,
+        "0.025": 0.8702228158712386,
+        "0.05": 0.8592937648296356,
+        "0.1": 0.845115602016449
+      }
+    },
+    "dense": {
+      "A": {
+        "0.01": 0.8856612181663513,
+        "0.025": 0.8782556414604187,
+        "0.05": 0.8704521656036377,
+        "0.1": 0.8607492268085479
+      },
+      "B": {
+        "0.01": 0.8858667194843293,
+        "0.025": 0.8752870708703995,
+        "0.05": 0.8664803594350815,
+        "0.1": 0.85742267370224
+      }
+    },
+    "splade": {
+      "A": {
+        "0.01": 0.8856612181663513,
+        "0.025": 0.8781539678573608,
+        "0.05": 0.8697328060865402,
+        "0.1": 0.8590607345104218
+      },
+      "B": {
+        "0.01": 0.8858667194843293,
+        "0.025": 0.8742143899202346,
+        "0.05": 0.8656012922525406,
+        "0.1": 0.8549898386001586
+      }
+    },
+    "rrf": {
+      "A": {
+        "0.01": 0.8856614542007447,
+        "0.025": 0.8781270191073418,
+        "0.05": 0.8697328060865402,
+        "0.1": 0.8586932480335236
+      },
+      "B": {
+        "0.01": 0.8858667194843293,
+        "0.025": 0.8752870708703995,
+        "0.05": 0.8659266829490662,
+        "0.1": 0.8561668872833252
+      }
+    }
+  },
+  "cross_fold_flag_rate": {
+    "bm25": {
+      "A": {
+        "0.01": 0.0118,
+        "0.025": 0.0374,
+        "0.05": 0.0648,
+        "0.1": 0.1166
+      },
+      "B": {
+        "0.01": 0.009,
+        "0.025": 0.0182,
+        "0.05": 0.0344,
+        "0.1": 0.0832
+      }
+    },
+    "dense": {
+      "A": {
+        "0.01": 0.01,
+        "0.025": 0.0328,
+        "0.05": 0.0664,
+        "0.1": 0.1236
+      },
+      "B": {
+        "0.01": 0.0104,
+        "0.025": 0.0186,
+        "0.05": 0.0358,
+        "0.1": 0.0808
+      }
+    },
+    "splade": {
+      "A": {
+        "0.01": 0.01,
+        "0.025": 0.0356,
+        "0.05": 0.0642,
+        "0.1": 0.121
+      },
+      "B": {
+        "0.01": 0.0104,
+        "0.025": 0.018,
+        "0.05": 0.0356,
+        "0.1": 0.0796
+      }
+    },
+    "rrf": {
+      "A": {
+        "0.01": 0.01,
+        "0.025": 0.0318,
+        "0.05": 0.063,
+        "0.1": 0.1158
+      },
+      "B": {
+        "0.01": 0.0104,
+        "0.025": 0.0186,
+        "0.05": 0.0362,
+        "0.1": 0.085
+      }
+    }
+  },
+  "phrase_rule": {
+    "patterns": 24,
+    "clean_pool_passages": 21037,
+    "clean_pool_fpr": 0.00109,
+    "corpus_sample": 20000,
+    "corpus_sample_fpr": 0.0013,
+    "corpus_hits_by_pattern": {
+      "new_instructions": 7,
+      "as_an_ai": 6,
+      "role_marker": 5,
+      "include_link": 3,
+      "jailbreak_terms": 2,
+      "answer_with_only": 1,
+      "always_answer": 1,
+      "do_not_mention": 1
+    }
+  },
+  "detection_sanity_rate5_anchor": {
+    "diverse": {
+      "bm25": {
+        "questions_with_poison_in_pool": 102,
+        "poison_in_pools": 343,
+        "tpr": 0.6093,
+        "fpr_clean": 0.029
+      },
+      "dense": {
+        "questions_with_poison_in_pool": 100,
+        "poison_in_pools": 367,
+        "tpr": 0.5068,
+        "fpr_clean": 0.0322
+      },
+      "splade": {
+        "questions_with_poison_in_pool": 100,
+        "poison_in_pools": 350,
+        "tpr": 0.54,
+        "fpr_clean": 0.0327
+      },
+      "rrf": {
+        "questions_with_poison_in_pool": 101,
+        "poison_in_pools": 368,
+        "tpr": 0.5054,
+        "fpr_clean": 0.0318
+      }
+    },
+    "fact": {
+      "bm25": {
+        "questions_with_poison_in_pool": 200,
+        "poison_in_pools": 1024,
+        "tpr": 0.6221,
+        "fpr_clean": 0.0314
+      },
+      "dense": {
+        "questions_with_poison_in_pool": 200,
+        "poison_in_pools": 1007,
+        "tpr": 0.567,
+        "fpr_clean": 0.0324
+      },
+      "splade": {
+        "questions_with_poison_in_pool": 200,
+        "poison_in_pools": 1002,
+        "tpr": 0.5808,
+        "fpr_clean": 0.0321
+      },
+      "rrf": {
+        "questions_with_poison_in_pool": 200,
+        "poison_in_pools": 1017,
+        "tpr": 0.5624,
+        "fpr_clean": 0.0324
+      }
+    },
+    "hijack": {
+      "bm25": {
+        "questions_with_poison_in_pool": 200,
+        "poison_in_pools": 1023,
+        "tpr": 0.7879,
+        "fpr_clean": 0.0314
+      },
+      "dense": {
+        "questions_with_poison_in_pool": 198,
+        "poison_in_pools": 967,
+        "tpr": 0.7725,
+        "fpr_clean": 0.0317
+      },
+      "splade": {
+        "questions_with_poison_in_pool": 198,
+        "poison_in_pools": 980,
+        "tpr": 0.7796,
+        "fpr_clean": 0.0299
+      },
+      "rrf": {
+        "questions_with_poison_in_pool": 200,
+        "poison_in_pools": 1012,
+        "tpr": 0.7747,
+        "fpr_clean": 0.0325
+      }
+    },
+    "repeat": {
+      "bm25": {
+        "questions_with_poison_in_pool": 101,
+        "poison_in_pools": 506,
+        "tpr": 0.3874,
+        "fpr_clean": 0.0295
+      },
+      "dense": {
+        "questions_with_poison_in_pool": 97,
+        "poison_in_pools": 475,
+        "tpr": 0.3453,
+        "fpr_clean": 0.0318
+      },
+      "splade": {
+        "questions_with_poison_in_pool": 100,
+        "poison_in_pools": 500,
+        "tpr": 0.336,
+        "fpr_clean": 0.0336
+      },
+      "rrf": {
+        "questions_with_poison_in_pool": 101,
+        "poison_in_pools": 504,
+        "tpr": 0.3254,
+        "fpr_clean": 0.0326
+      }
+    },
+    "stealth": {
+      "bm25": {
+        "questions_with_poison_in_pool": 68,
+        "poison_in_pools": 245,
+        "tpr": 0.0122,
+        "fpr_clean": 0.0304
+      },
+      "dense": {
+        "questions_with_poison_in_pool": 59,
+        "poison_in_pools": 163,
+        "tpr": 0.0061,
+        "fpr_clean": 0.0355
+      },
+      "splade": {
+        "questions_with_poison_in_pool": 77,
+        "poison_in_pools": 255,
+        "tpr": 0.0039,
+        "fpr_clean": 0.0348
+      },
+      "rrf": {
+        "questions_with_poison_in_pool": 77,
+        "poison_in_pools": 255,
+        "tpr": 0.0039,
+        "fpr_clean": 0.0309
+      }
+    },
+    "url": {
+      "bm25": {
+        "questions_with_poison_in_pool": 200,
+        "poison_in_pools": 1020,
+        "tpr": 0.8549,
+        "fpr_clean": 0.0314
+      },
+      "dense": {
+        "questions_with_poison_in_pool": 199,
+        "poison_in_pools": 967,
+        "tpr": 0.8449,
+        "fpr_clean": 0.0321
+      },
+      "splade": {
+        "questions_with_poison_in_pool": 200,
+        "poison_in_pools": 978,
+        "tpr": 0.8425,
+        "fpr_clean": 0.032
+      },
+      "rrf": {
+        "questions_with_poison_in_pool": 200,
+        "poison_in_pools": 1005,
+        "tpr": 0.8388,
+        "fpr_clean": 0.0325
+      }
+    }
+  },
+  "runtime_s": 232.0
+}

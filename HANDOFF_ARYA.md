@@ -26,7 +26,7 @@ Samarth's progress is in `HANDOFF.md`. None of his code was changed. The only ed
 | P1 poison (new, mine) | **PASSED** (`reports/poison_ada.json`, `reports/questions_ada.json`) | 3,000 main + 1,500 adaptive; main shard byte-identical to the local one; codeword / URL in 0 of 2.68M clean passages; stealth cap met for 428 / 500 (241 keyword-anchored, 259 title-only; mean cos 0.801 vs mean cap 0.823); targets equal the frozen file |
 | A6 poison ingestion | **PASSED** (`reports/A6.json`, checker PASS) | 574 s; 4,500 poison passages in all three indexes. Masking: dense / SPLADE exact (50/50); BM25 max rank diff 32, mean 0.40, top-5 unchanged 96%, Jaccard@50 0.995. Clean questions whose top-5 changed: BM25 2%, dense 0%, SPLADE 1%. Poison in its target's top-10: fact 0.92 / 0.75 / 0.87 (BM25 / dense / SPLADE), hijack 0.61 / 0.24 / 0.28, url 0.08 / 0.31 / 0.16, diverse 0.56 / 0.43 / 0.12, repeat 0.00 / 0.28 / 0.74, stealth 0.00 / 0.00 / 0.01 |
 | A5 caches | **PASSED** (`reports/A5.json`, checker PASS) | 400 final questions x bm25 / dense / splade / rrf over the poisoned indexes (4,500 poison each), spot checks 20/20 everywhere. Built with `bash ada/run_cache.sh all --batch-size 1 --force`: the first run (default batch 32) failed the dense spot check (17/20 rows equal, scores differ by ~2e-7), because FAISS uses a BLAS path for batches of >= 20 queries and a direct path for single queries, so near-ties reorder. Samarth: consider making batch size 1 the default for dense, or comparing with a tolerance. |
-| P2 query-phrase calibration | RUNNING | `ada/run_query_phrase.sh` |
+| P2 query-phrase calibration | **DONE** (`reports/query_phrase_ada.json`, `configs/query_phrase_thresholds.json` = Ada values) | e5-base-v2, 232 s. Anchor cutoffs (tail 2.5%): 0.870-0.878 for every retriever and fold. Cross-fold flag rate on clean pools 1.8-3.7% (target 2.5%; 100 clean questions per fold, so some fold-to-fold variation). Phrase-rule FPR: 0.0011 on 21,037 clean pool passages, 0.0013 on 20,000 random corpus passages. Detection sanity at rate 5 (TPR, BM25 / dense / SPLADE / RRF): url 0.85 / 0.84 / 0.84 / 0.84, hijack 0.79 / 0.77 / 0.78 / 0.77, fact 0.62 / 0.57 / 0.58 / 0.56, diverse 0.61 / 0.51 / 0.54 / 0.51, repeat 0.39 / 0.35 / 0.34 / 0.33, stealth 0.01 / 0.01 / 0.00 / 0.00; clean-passage FPR 0.030-0.036. NOTE: pinned_node.sh does not copy repo files back, so the thresholds file was taken from `~/ire_node/configs/`. |
 | A2 bm25 | **PASSED** (`reports/A2.json`, checker PASS, clean tree) | 2,681,468 docs, 1.0 GiB, built in 334 s on gnode004 (10 CPUs, 29 GB); recall@10 0.444, recall@100 0.744 on 1,000 questions (BEIR BM25 on NQ: 0.76) |
 
 ### Ada facts found on 2026-10-26 (Samarth: please fold these into ADA_RUNBOOK.md)
@@ -100,8 +100,8 @@ Samarth's progress is in `HANDOFF.md`. None of his code was changed. The only ed
   `explain(pool, question, ctx)` gives per-passage similarity, phrase pattern ids and the centroid-distance ablation.
   Sweep tails: `query_phrase.tail_sweep` = 1 / 2.5 / 5 / 10 %.
 - **Calibration**: `python scripts/calibrate_query_phrase.py [--detection]` (needs current caches + dense index)
-  writes `configs/query_phrase_thresholds.json`. The committed file holds LOCAL values (env=local); it must be
-  regenerated on Ada after A5 and committed before the sweeps.
+  writes `configs/query_phrase_thresholds.json`. The committed file holds the **Ada** values (env=ada, e5-base-v2,
+  final questions, poisoned indexes); re-run P2 only if the caches are rebuilt.
 
 ## How it works (design decisions)
 **Question set** (`select_question_set`): from questions_all (2,255 questions with gold + nq_open answer).
@@ -185,4 +185,4 @@ Ada: `bash ada/run_make_poison.sh` (P1) after A1 + A3, then A6, then A5, then th
 ## Open issues
 - Ada storage (above): waiting for home space; A2 / P1 / A6 not run yet.
 - Stealth similarity cap: met for 428 / 500 stealth passages on Ada (e5-base), 113 / 500 locally (e5-small).
-- `configs/query_phrase_thresholds.json` currently holds local values; regenerate on Ada after A5.
+- `configs/query_phrase_thresholds.json` now holds the Ada values (calibrated on the final caches).
