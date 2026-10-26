@@ -1,0 +1,200 @@
+{
+  "job": "A4",
+  "env": "ada",
+  "ok": true,
+  "git_commit": "63d1d83f74c32a35d0042cf60de8e4fee0107316",
+  "timestamp_utc": "2026-10-26T04:15:08+00:00",
+  "retriever": "splade",
+  "checks": {
+    "n_docs_matches_corpus_plus_poison": true,
+    "recall_reported": true,
+    "same_query_twice_identical": true,
+    "edge_queries_no_crash_empty_returns_nothing": true,
+    "weights_non_negative": true,
+    "search_exact_and_score_docs_agree": true,
+    "self_retrieval_top1_ge_0.9": true
+  },
+  "built_now": true,
+  "index_dir": "indexes/ada/splade",
+  "model": "naver/splade-cocondenser-ensembledistil",
+  "model_revision": "49cf4c7b0db5b870a401ddf5e2669993ef3699c7",
+  "device": "cuda",
+  "encode_dtype": "float16",
+  "encode_batch_size_final": 128,
+  "build_time_s": 3261.46,
+  "build_timings_s": {
+    "read": 31.93,
+    "encode": 3177.17,
+    "index": 30.85,
+    "total": 3261.46
+  },
+  "encode_passages_per_s": 844.0,
+  "resumed_from_row": 0,
+  "vram_peak_gib": {
+    "build": 2.178,
+    "overall": 2.178,
+    "cap": null
+  },
+  "index_bytes": 6403859381,
+  "index_mib": 6107.2,
+  "load_time_s": 0.139,
+  "model_load_time_s": 16.98,
+  "corpus": {
+    "path": "data/corpus.jsonl",
+    "rows": 2681468,
+    "sha256": "92c5881c32ec9430202a6de38f1335fcb1bbb5b42aad5290b457cf17d2566c2a"
+  },
+  "n_docs": 2681468,
+  "n_clean": 2681468,
+  "n_poison": 0,
+  "nnz": 392859415,
+  "poison_shards": [],
+  "settings": {
+    "model": "naver/splade-cocondenser-ensembledistil",
+    "doc_max_length": 256,
+    "query_max_length": 64,
+    "pooling": "max_log1p_relu",
+    "encode_dtype": "float16"
+  },
+  "eval": {
+    "ks": [
+      10,
+      100
+    ],
+    "placeholder_questions": {
+      "n_questions": 400,
+      "recall@10": 0.7171,
+      "hit@10": 0.765,
+      "recall@100": 0.9342,
+      "hit@100": 0.9525,
+      "batch_ms_per_query": 62.275
+    },
+    "questions_all_sample": {
+      "n_questions": 1000,
+      "recall@10": 0.7327,
+      "hit@10": 0.768,
+      "recall@100": 0.927,
+      "hit@100": 0.938,
+      "batch_ms_per_query": 59.466,
+      "n_available": 2255
+    },
+    "bm25_same_questions": {
+      "placeholder_questions": {
+        "n_questions": 400,
+        "recall@10": 0.4496,
+        "hit@10": 0.495,
+        "recall@100": 0.7533,
+        "hit@100": 0.7825,
+        "batch_ms_per_query": 10.295
+      },
+      "questions_all_sample": {
+        "n_questions": 1000,
+        "recall@10": 0.4442,
+        "hit@10": 0.473,
+        "recall@100": 0.7442,
+        "hit@100": 0.768,
+        "batch_ms_per_query": 9.324
+      }
+    },
+    "dense_same_questions": {
+      "placeholder_questions": {
+        "n_questions": 400,
+        "recall@10": 0.7438,
+        "hit@10": 0.79,
+        "recall@100": 0.9333,
+        "hit@100": 0.9475,
+        "batch_ms_per_query": 23.185
+      },
+      "questions_all_sample": {
+        "n_questions": 1000,
+        "recall@10": 0.7807,
+        "hit@10": 0.819,
+        "recall@100": 0.9409,
+        "hit@100": 0.949,
+        "batch_ms_per_query": 20.981
+      }
+    }
+  },
+  "latency_ms": {
+    "single_query_median_ms": 73.814,
+    "batch_ms_per_query": 59.466,
+    "note": "includes encoding the query"
+  },
+  "determinism": {
+    "same_query_twice": true,
+    "rebuild_identical": null
+  },
+  "edge_queries": {
+    "''": {
+      "hits": 0,
+      "error": null
+    },
+    "'the of and is'": {
+      "hits": 10,
+      "error": null
+    },
+    "'qwertzuiopasdfghjk'": {
+      "hits": 10,
+      "error": null
+    }
+  },
+  "sparsity": {
+    "doc": {
+      "mean": 146.51,
+      "max": 400,
+      "min": 13,
+      "empty_rows": 0
+    },
+    "query": {
+      "mean": 45.6,
+      "max": 95,
+      "min": 20,
+      "n": 400
+    },
+    "vocab_size": 30522,
+    "vocab_terms_used_by_docs": 28714
+  },
+  "non_negative": {
+    "doc_min_weight": 5.960464477539063e-08,
+    "query_min_weight": 2.8609820219571702e-05,
+    "passed": true
+  },
+  "exactness": {
+    "n_queries": 20,
+    "n_pairs": 2000,
+    "max_rel_diff_search_vs_manual": 2.6071491086497277e-07,
+    "max_abs_diff_score_docs_vs_search": 0.0,
+    "passed": true
+  },
+  "self_retrieval": {
+    "n": 100,
+    "top1_rate": 0.95,
+    "passed": true,
+    "misses": [
+      "doc1810179",
+      "doc2539645",
+      "doc1659926",
+      "doc1536960",
+      "doc2531262"
+    ]
+  },
+  "scale_estimate_full_corpus": {
+    "n_docs": 2681468,
+    "nnz_per_doc": 146.5,
+    "nnz_total": 392861876,
+    "index_disk_gib": 5.87,
+    "build_peak_ram_gib": 11.8,
+    "note": "estimate scaled from the local corpus, not measured on Ada"
+  },
+  "libraries": {
+    "python": "3.13.17",
+    "platform": "Linux-5.15.0-194-generic-x86_64-with-glibc2.35",
+    "torch": "2.6.0+cu124",
+    "transformers": "5.19.0",
+    "scipy": "1.18.1",
+    "numpy": "2.5.4",
+    "huggingface_hub": "1.33.0"
+  },
+  "runtime_s": 3487.1,
+  "rerun": "python scripts/build_index.py --retriever splade --report A4"
+}
