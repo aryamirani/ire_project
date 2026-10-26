@@ -11,7 +11,7 @@ Claude Code appends a section below for every job as its step is finished. Check
 4. Send Samarth the output of `python scripts/check_env.py` (GPU type and free disk).
 
 ## How to run any job
-- Short jobs: run the command in an interactive GPU session (e.g. `srun` with a GPU) or as a batch job. Use whichever your Ada account normally uses; the scripts read `ada/common.sh`, where the SLURM header (partition, GPU count, time limit) is kept in one place. Fill in the real values once and commit them.
+- Submit it as described in "How jobs run on Ada" below (pinned node gnode056 through `ada/pinned_node.sh`, `-c 10 --mem=29G` for big jobs). The SLURM defaults live in `ada/common.sh`.
 - Jobs are **resumable**: if one dies or times out, run the same command again.
 - When it finishes, it prints `REPORT: <path>`. Send Samarth that JSON file (paste in the team chat or commit under `reports/`).
 - If it fails: send the last 50 lines of the log plus the report file if one exists. Do not try to fix the code yourself; Samarth's Claude Code will fix it and ask you to re-run.
@@ -19,9 +19,7 @@ Claude Code appends a section below for every job as its step is finished. Check
 ## Job list
 (Claude Code: add one block per job using the request template in IMPLEMENTATION_PLAN.md section 5. Keep the table in sync with HANDOFF.md.)
 
-**Update 2026-10-26:** on Ada the jobs below are submitted through `ada/pinned_node.sh` on one node (gnode056)
-with the memory our QOS allows, not with the `--mem=48G` / login-node commands further down. The working setup,
-limits and commands are in `HANDOFF_ARYA.md` ("Ada facts") and `VANSH_START.md` section 2.
+The submit commands in the job blocks below follow "How jobs run on Ada" (next section).
 
 | Job | Script | Status | Owner |
 |---|---|---|---|
@@ -99,7 +97,7 @@ ADA REQUEST A2
 Owner: Arya          Needs: A1 done (data/corpus.jsonl and questions exist)
 Run:   git pull && bash ada/run_index.sh bm25        (in a CPU job or interactive session; no GPU, no internet)
 Time:  15-45 min (estimate: tokenising + indexing 2.68M passages, then ~1,400 test searches)
-Disk:  ~1.5-3 GB under $IRE_DATA_DIR/indexes/ada/bm25 (estimate)   RAM: ask for 48 GB (estimate: peak 16-32 GB)
+Disk:  ~1.5-3 GB under $IRE_DATA_DIR/indexes/ada/bm25 (estimate)   RAM: 29 GB (the QOS maximum; it built in 334 s on Ada)
 Success looks like: "RESULT: OK" and "SUMMARY A2: OK"; the report shows ~2.68M docs, Recall@10/@100 on
        1,000 questions, and the unique-token passage at rank 1.
 Send back: $IRE_DATA_DIR/reports/A2.json (paste it in the team chat or commit it to reports/)
@@ -107,9 +105,9 @@ If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A2_bm25.log and the re
 ```
 Details for a non-expert:
 1. Do not run it on the login node (it needs several CPU cores and lots of memory for ~15-45 min). Either open an
-   interactive session (`srun -p <partition> -c 10 --mem=48G -t 02:00:00 --pty bash`, then the Run command), or
-   submit it: `sbatch -p <partition> -c 10 --mem=48G -t 02:00:00 -o $IRE_DATA_DIR/logs/%x-%j.log --wrap "bash ada/run_index.sh bm25"`.
-   Use the partition from the top of `ada/common.sh`. A GPU is not needed.
+   interactive session (`srun -p u22 -w gnode056 -c 10 --mem=29G -t 02:00:00 --pty bash`, then the Run command), or
+   submit it: `sbatch -p u22 -w gnode056 -c 10 --mem=29G -t 02:00:00 -o ~/ire_data_dir/logs/%x-%j.log --wrap "bash $HOME/ire_project/ada/pinned_node.sh ada/run_index.sh bm25"`.
+   A GPU is not needed (BM25 does not import transformers).
 2. It indexes `$IRE_DATA_DIR/data/corpus.jsonl` plus every `poison_*.jsonl` in `$IRE_DATA_DIR/data/poison/`
    (none yet, which is fine). Poison is added afterwards by job A6 (`ada/run_index_poison.sh`).
 3. Then it measures Recall@10/@100 of gold passages (1,000 seeded questions from `questions_all.jsonl` plus the
@@ -117,7 +115,7 @@ Details for a non-expert:
    index (the real index is never modified by the test).
 4. Safe to re-run: if the index is already built from the same corpus and settings, the build is skipped and only
    the checks run again. `bash ada/run_index.sh bm25 --force` rebuilds.
-5. If it runs out of memory, re-submit with `--mem=96G` and tell Samarth the peak memory from the job accounting.
+5. 29 GB is the most our QOS allows; A2 fitted (see "How jobs run on Ada").
 
 ### A3 dense
 ```
@@ -127,7 +125,7 @@ Run:   git pull && bash ada/run_index.sh dense        (in a GPU job; no internet
 Time:  1-2 h (estimate: encoding 2.68M passages with e5-base-v2 on one GPU; the exact Flat index adds minutes)
 Disk:  ~13 GB under $IRE_DATA_DIR/indexes/ada/dense (estimate: float16 vectors 2.68M x 768 x 2 B = 4.1 GB +
        Flat index in float32 2.68M x 768 x 4 B = 8.2 GB)
-RAM:   ask for 48 GB (estimate: peak ~12-16 GB = 8.2 GB Flat index + ~1.5 GB passage texts + model/overhead)
+RAM:   29 GB (QOS maximum; peak ~12-16 GB = 8.2 GB Flat index + ~1.5 GB passage texts + model/overhead)
 Success looks like: "RESULT: OK" and "SUMMARY A3: OK"; the report shows ~2.68M docs, Recall@10/@100 on 1,000
        questions (next to BM25's on the same questions), stored-vs-re-encoded cosine > 0.999 and norms 1 +/- 1e-3.
 Send back: $IRE_DATA_DIR/reports/A3.json (paste it in the team chat or commit it to reports/)
@@ -135,8 +133,8 @@ If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A3_dense.log and the r
 ```
 Details for a non-expert:
 1. Run it as a GPU batch job, e.g.
-   `sbatch -p <partition> --gres=gpu:1 -c 10 --mem=48G -t 06:00:00 -o $IRE_DATA_DIR/logs/%x-%j.log --wrap "bash ada/run_index.sh dense"`
-   (partition from the top of `ada/common.sh`), or the same command inside an interactive `srun ... --gres=gpu:1 --pty bash`.
+   `sbatch -p u22 -w gnode056 --gres=gpu:1 -c 10 --mem=29G -t 06:00:00 -o ~/ire_data_dir/logs/%x-%j.log --wrap "bash $HOME/ire_project/ada/pinned_node.sh ada/run_index.sh dense"`
+   or the same command inside an interactive `srun -p u22 -w gnode056 --gres=gpu:1 -c 10 --mem=29G -t 04:00:00 --pty bash`.
 2. It encodes every passage of `$IRE_DATA_DIR/data/corpus.jsonl` (+ any `poison_*.jsonl` in `data/poison/`) with
    `intfloat/e5-base-v2` (`passage: ` prefix, fp16), stores the vectors and builds an exact FAISS Flat
    inner-product index (settings in `configs/env_ada.yaml`).
@@ -156,7 +154,7 @@ Time:  1-3 h (estimate: SPLADE encoding of 2.68M passages; 260 passages/s on Sam
 Disk:  ~6 GB final + ~3 GB temporary checkpoint files while building, under $IRE_DATA_DIR/indexes/ada/splade
        (estimate scaled from the local index: 147.8 non-zeros per passage -> ~396M non-zeros; 8 bytes each,
        stored twice: document matrix + inverted index)
-RAM:   ask for 48 GB (estimate: peak ~12-16 GB while the two matrices are assembled)
+RAM:   29 GB (QOS maximum; peak ~12-16 GB while the two matrices are assembled)
 VRAM:  ~1.2 GB at batch 64 locally (fp16); the batch halves itself on out-of-memory
 Success looks like: "RESULT: OK" and "SUMMARY A4: OK"; the report shows ~2.68M docs, non-zeros per document
        and per query, Recall@10/@100 on 1,000 questions (next to BM25 and dense if their indexes exist), the
@@ -167,8 +165,8 @@ If the job is killed (time limit), submit the same command again: encoding resum
 ```
 Details for a non-expert:
 1. Run it as a GPU batch job, e.g.
-   `sbatch -p <partition> --gres=gpu:1 -c 10 --mem=48G -t 06:00:00 -o $IRE_DATA_DIR/logs/%x-%j.log --wrap "bash ada/run_index.sh splade"`
-   (partition from the top of `ada/common.sh`), or inside an interactive `srun ... --gres=gpu:1 --pty bash`.
+   `sbatch -p u22 -w gnode056 --gres=gpu:1 -c 10 --mem=29G -t 06:00:00 -o ~/ire_data_dir/logs/%x-%j.log --wrap "bash $HOME/ire_project/ada/pinned_node.sh ada/run_index.sh splade"`
+   or inside an interactive `srun -p u22 -w gnode056 --gres=gpu:1 -c 10 --mem=29G -t 04:00:00 --pty bash`.
 2. It encodes every passage of `$IRE_DATA_DIR/data/corpus.jsonl` (+ any `poison_*.jsonl` in `data/poison/`)
    with `naver/splade-cocondenser-ensembledistil` (256 tokens per passage, 64 per query, fp16) and stores the
    sparse vectors without pruning, so search is exact.
@@ -185,7 +183,7 @@ Owner: Vansh          Needs: A2, A3, A4, and A6 (poison ingested) and Arya's fin
 Run:   git pull && bash ada/run_cache.sh all            (in a GPU job; no internet needed)
 Time:  10-30 min (estimate: 400 questions x 3 retrievers over 2.68M passages, exact search, + spot checks)
 Disk:  ~10 MB under $IRE_DATA_DIR/caches/ada (about 2 MB per retriever for 400 questions, measured locally)
-RAM:   ask for 48 GB (the exact dense Flat index alone is ~8.2 GB; SPLADE and BM25 are memory-mapped)
+RAM:   29 GB (QOS maximum; the exact dense Flat index alone is ~8.2 GB; SPLADE and BM25 are memory-mapped)
 Success looks like: "RESULT: OK" and "SUMMARY A5: OK"; 400 rows per retriever, dense rows exactly 150, every
        spot check 20/20, and NO "index contains poison documents" warning from check_ada_report.py.
 Send back: $IRE_DATA_DIR/reports/A5.json (paste it in the team chat or commit it to reports/)
@@ -196,7 +194,7 @@ the questions file changes (StaleCacheError), so a stale cache cannot be used by
 ```
 Details for a non-expert:
 1. Run it as a GPU batch job, e.g.
-   `sbatch -p <partition> --gres=gpu:1 -c 10 --mem=48G -t 02:00:00 -o $IRE_DATA_DIR/logs/%x-%j.log --wrap "bash ada/run_cache.sh all"`.
+   `sbatch -p u22 -w gnode056 --gres=gpu:1 -c 10 --mem=29G -t 02:00:00 -o ~/ire_data_dir/logs/%x-%j.log --wrap "bash $HOME/ire_project/ada/pinned_node.sh ada/run_cache.sh all"`.
 2. It writes `top150_bm25.jsonl`, `top150_dense.jsonl`, `top150_splade.jsonl` and `top150_rrf.jsonl` (+ a
    `.manifest.json` next to each) to `$IRE_DATA_DIR/caches/ada/`. The rrf file is fused from the bm25 and dense
    files; it is a no-poison reference only (experiments fuse the masked bm25 and dense lists themselves).
@@ -213,7 +211,7 @@ Run:   git pull && bash ada/run_index_poison.sh        (in a GPU job; no interne
 Time:  30-90 min (estimate: BM25 is rebuilt with the shards; dense/SPLADE copy their clean rows and encode only
        the poison passages; 400 questions are searched before and after on each index)
 Disk:  free space of about the largest index while it is swapped (~13 GB for dense); indexes grow by the poison
-RAM:   ask for 48 GB                   Order: A5 (caches) must run AFTER A6.
+RAM:   29 GB (QOS maximum)          Order: A5 (caches) must run AFTER A6.
 Success looks like: "RESULT: OK" and "SUMMARY A6: OK"; dense and SPLADE masking exactly equivalent, BM25 rank
        differences reported, and poison in its target's top-10 for at least one retriever.
 Send back: $IRE_DATA_DIR/reports/A6.json (paste it in the team chat or commit it to reports/)
@@ -224,7 +222,7 @@ Details for a non-expert:
    `$IRE_DATA_DIR/data/poison/`. Each record must pass `PoisonRecord` (see HANDOFF "Interface changes") and
    its qid must be in `data/questions.jsonl`; the job stops and lists the problems otherwise.
 2. Submit it as a GPU job, e.g.
-   `sbatch -p <partition> --gres=gpu:1 -c 10 --mem=48G -t 04:00:00 -o $IRE_DATA_DIR/logs/%x-%j.log --wrap "bash ada/run_index_poison.sh"`.
+   `sbatch -p u22 -w gnode056 --gres=gpu:1 -c 10 --mem=29G -t 04:00:00 -o ~/ire_data_dir/logs/%x-%j.log --wrap "bash $HOME/ire_project/ada/pinned_node.sh ada/run_index_poison.sh"`.
 3. Re-running with the same shards does nothing; if you change or add a shard, run it again and only the poison
    part is redone (BM25 is rebuilt). Removing all shards and re-running gives back the clean indexes.
 4. It does not matter whether the shards were already in `data/poison/` when A2-A4 ran: the job then builds a
@@ -250,12 +248,43 @@ If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A7_generate_benchmark.
 ```
 Details for a non-expert:
 1. Submit it as a GPU job, e.g.
-   `sbatch -p <partition> --gres=gpu:1 -c 8 --mem=32G -t 01:00:00 -o $IRE_DATA_DIR/logs/%x-%j.log --wrap "bash ada/run_generate_benchmark.sh"`.
+   `sbatch -p u22 -w gnode056 --gres=gpu:1 -c 4 --mem=11G -t 01:00:00 -o ~/ire_data_dir/logs/%x-%j.log --wrap "bash $HOME/ire_project/ada/pinned_node.sh ada/run_generate_benchmark.sh"`
+   (the 3B model loads straight onto the GPU; the text store is built by streaming, so 11 GB of RAM is plenty).
 2. If the GPU runs out of memory, the batch size halves itself; to test other batch sizes:
    `bash ada/run_generate_benchmark.sh --batch-sizes 1,4,8`.
 3. It does not touch the real generation cache (`caches/generation.sqlite`); the benchmark uses a temporary one.
 4. If no current dense cache exists yet (A3/A5 not done), the prompts use each question's gold passages plus random
    passages; the report says which contexts were used.
+
+## How jobs run on Ada (found by Arya on 2026-10-26; this replaces the older generic advice)
+- **Account and limits (QOS `low`)**: at most 10 CPUs, 1 GPU and 32,000 MB RAM per user, and at most 5 queued +
+  running jobs. Memory is tied to CPUs (~3 GB each): `--mem=32G` (32,768 MB) is over the cap and `--mem=31G -c 10`
+  is bumped to 11 CPUs and blocked, so **use `-c 10 --mem=29G`** for big jobs. Partition `u22`; leave
+  `ADA_ACCOUNT` empty (`-A research` is rejected on `u22-cpu`).
+- **GPUs**: most `u22` nodes have an RTX 2080 Ti (11 GB, feature `2080ti`); some are older (gnode004: GTX 1080 Ti,
+  whose fp16 is slow: A3 there was on track for ~10 h vs ~1 h on a 2080 Ti). Use a 2080 Ti node.
+- **Storage**: `/share1/<user>` is visible only on the login node and has a 25 GB / 3,000-file quota (no Python
+  environment fits). Compute nodes see home (`/home2/<user>`, 50 GB) and node-local `/scratch` (~1.7 TB) and
+  `/ssd_scratch` (~480 GB), which are not shared between nodes. The environment lives in home
+  (`IRE_ENV_DIR=/home2/arya.mirani/ire_env` in `.env`, `PIP_NO_CACHE_DIR=1`); `IRE_DATA_DIR` and `HF_HOME` point to
+  `/home2/arya.mirani/ire_data_dir`.
+- **One pinned node**: all indexes (~19 GB) live on gnode056's `/scratch/arya.mirani/ire_data_dir`, so every job
+  that touches an index or a cache is submitted to that node through `ada/pinned_node.sh`:
+  `sbatch -p u22 -w gnode056 --gres=gpu:1 -c 10 --mem=29G -t <time> -o ~/ire_data_dir/logs/%x-%j.log --wrap "bash $HOME/ire_project/ada/pinned_node.sh ada/<job>.sh <args>"`.
+  `pinned_node.sh` syncs the code to `~/ire_node`, stages data + models in from home, runs the job, and copies
+  reports, logs, caches and poison shards back to home (indexes stay on the node). It does NOT copy repo files back
+  (e.g. a thresholds file written under `configs/` must be taken from `~/ire_node/configs/`). Do not symlink
+  `indexes/`: `build_index.py` needs it to be a real folder under `IRE_DATA_DIR`. If gnode056's `/scratch` is ever
+  wiped, rebuild A2-A4 and A6, then A5 (about 2.5 h of jobs); moving to another node is described in
+  `HANDOFF_ARYA.md` ("Pinned node moved").
+- **Check what the node has free before submitting** (other users' CPU jobs can hold the CPUs even when a GPU is
+  free): `scontrol show node gnode056 | grep -E "CfgTRES|AllocTRES"`. Small jobs (GPT-2, filters, generation:
+  the FAISS index is only loaded for searches and the LLM loads straight onto the GPU) fit in `-c 2 --mem=5G`;
+  anything that searches the dense index (8.2 GB in RAM) plus a model needs `-c 8 --mem=23G` or more.
+- **No GPU, no transformers**: with torch 2.6 + transformers 5.19, `import transformers` fails on a node without a
+  GPU (`Cannot access accelerator device when none is available`). BM25 (A2) and data preparation (A1) do not
+  import it; every job that loads a model must run in a GPU job.
+- **Do not start two jobs that write the same index or cache at the same time.**
 
 ## Division of labour (suggested; adjust freely)
 - Arya: data (A1), BM25 (A2), poison ingestion (A6). She already owns the poison shards.
