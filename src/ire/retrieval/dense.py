@@ -352,7 +352,9 @@ def ingest_poison(index_dir: Path, corpus_path: Path, encoder: Encoder, settings
 class DenseRetriever:
     """Search a dense index and serve stored vectors (implements the VectorAPI of IMPLEMENTATION_PLAN.md s.2).
 
-    The encoder is only loaded when queries have to be encoded (search / get_query_vector).
+    The encoder is only loaded when queries have to be encoded (search / get_query_vector), and the FAISS index
+    only when a search runs: the vector API (get_doc_vector) reads the memory-mapped vectors alone, so filters
+    and the smoke test do not hold the ~8 GiB exact index in RAM.
     mmap=False loads the vectors into RAM (use it for throw-away indexes deleted in the same process on Windows).
     """
 
@@ -365,7 +367,7 @@ class DenseRetriever:
         self.settings = DenseSettings(**self.manifest["settings"])
         self.doc_ids: list[str] = np.load(self.index_dir / DOC_IDS).tolist()
         self.vectors = np.load(self.index_dir / VECTORS, mmap_mode="r" if mmap else None)
-        self.index = faiss.read_index(str(self.index_dir / FAISS_INDEX))
+        self._index: faiss.Index | None = None
         self.ef_search = ef_search
         self._encoder = encoder
         self._cfg = cfg
@@ -387,6 +389,12 @@ class DenseRetriever:
                 raise ValueError(f"index built with {self.settings.model}@{self.manifest['model_revision']}, "
                                  f"loaded {self._encoder.revision}; rebuild with --force")
         return self._encoder
+
+    @property
+    def index(self) -> faiss.Index:
+        if self._index is None:
+            self._index = faiss.read_index(str(self.index_dir / FAISS_INDEX))
+        return self._index
 
     @property
     def n_docs(self) -> int:
