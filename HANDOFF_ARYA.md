@@ -24,7 +24,8 @@ Samarth's progress is in `HANDOFF.md`. None of his code was changed. The only ed
 | A3 dense | **PASSED** (`reports/A3.json`, checker PASS) | e5-base-v2 on an RTX 2080 Ti (gnode061), 2,936 s; recall@10 0.781, recall@100 0.941 on 1,000 questions; re-encode min cos 0.99997 |
 | A4 splade | **PASSED** (`reports/A4.json`, checker PASS) | 3,487 s on gnode061; 146.5 non-zeros per doc, 45.6 per query; recall@10 0.733, recall@100 0.927 |
 | P1 poison (new, mine) | **PASSED** (`reports/poison_ada.json`, `reports/questions_ada.json`) | 3,000 main + 1,500 adaptive; main shard byte-identical to the local one; codeword / URL in 0 of 2.68M clean passages; stealth cap met for 428 / 500 (241 keyword-anchored, 259 title-only; mean cos 0.801 vs mean cap 0.823); targets equal the frozen file |
-| A6 / A5 / P2 | QUEUED (A6, A5) / to submit (P2, 5-job limit) | P2 = `ada/run_query_phrase.sh` |
+| A6 poison ingestion | **PASSED** (`reports/A6.json`, checker PASS) | 574 s; 4,500 poison passages in all three indexes. Masking: dense / SPLADE exact (50/50); BM25 max rank diff 32, mean 0.40, top-5 unchanged 96%, Jaccard@50 0.995. Clean questions whose top-5 changed: BM25 2%, dense 0%, SPLADE 1%. Poison in its target's top-10: fact 0.92 / 0.75 / 0.87 (BM25 / dense / SPLADE), hijack 0.61 / 0.24 / 0.28, url 0.08 / 0.31 / 0.16, diverse 0.56 / 0.43 / 0.12, repeat 0.00 / 0.28 / 0.74, stealth 0.00 / 0.00 / 0.01 |
+| A5 caches / P2 calibration | RUNNING / QUEUED | P2 = `ada/run_query_phrase.sh` |
 | A2 bm25 | **PASSED** (`reports/A2.json`, checker PASS, clean tree) | 2,681,468 docs, 1.0 GiB, built in 334 s on gnode004 (10 CPUs, 29 GB); recall@10 0.444, recall@100 0.744 on 1,000 questions (BEIR BM25 on NQ: 0.76) |
 
 ### Ada facts found on 2026-10-26 (Samarth: please fold these into ADA_RUNBOOK.md)
