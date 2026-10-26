@@ -438,10 +438,14 @@ class DenseRetriever:
         fetch = min(self.n_docs, k + margin)
         if self.settings.index_type == "hnsw":
             self.index.hnsw.efSearch = max(fetch, self.ef_search or 0)
-        scores, rows = self.index.search(qv, fetch)
         out = []
         for i in range(len(qv)):
-            s, r, f = scores[i], rows[i], fetch
+            # one query per FAISS call: FAISS computes inner products with BLAS for batches of >= 20 queries and
+            # with a direct loop for fewer, and the two round differently (~1e-7), which reorders near-ties. Searching
+            # one at a time makes a query's results independent of how many queries are searched together (the A5
+            # spot check on Ada failed 3/20 with batches of 32). Same rule as for query encoding (step 5).
+            scores, rows = self.index.search(qv[i:i + 1], fetch)
+            s, r, f = scores[0], rows[0], fetch
             while f < self.n_docs and s[f - 1] >= s[k - 1]:  # a tie may continue past what was fetched
                 f = min(self.n_docs, 2 * f)
                 if self.settings.index_type == "hnsw":

@@ -108,6 +108,16 @@ def test_search_and_storage(index: DenseRetriever, tmp_path: Path) -> None:
     assert stored.dtype == np.float16 and stored.shape == (len(DOCS), FakeEncoder.dim)
 
 
+def test_search_independent_of_query_batch(index: DenseRetriever) -> None:
+    """A query's results must not depend on how many queries are searched together (FAISS uses BLAS for >= 20)."""
+    rng = np.random.default_rng(0)
+    qv = rng.normal(size=(25, FakeEncoder.dim)).astype(np.float32)
+    qv /= np.linalg.norm(qv, axis=1, keepdims=True)
+    batched = index.search_vectors(qv, k=5)
+    single = [index.search_vectors(qv[i:i + 1], k=5)[0] for i in range(len(qv))]
+    assert batched == single
+
+
 def test_get_doc_vector_reads_stored_rows(index: DenseRetriever) -> None:
     ids = ["d3", "d0", "d6"]
     vecs = index.get_doc_vector(ids)
