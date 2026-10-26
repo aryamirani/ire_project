@@ -8,9 +8,13 @@
 
 set -euo pipefail
 
-# ---- SLURM settings (TODO for the first teammate: set real values for your Ada account) ----
-ADA_PARTITION="${ADA_PARTITION:-TODO_partition}"   # e.g. the GPU partition you normally use
-ADA_ACCOUNT="${ADA_ACCOUNT:-}"                      # leave empty if not needed
+# ---- SLURM settings (filled in by Arya on 2026-10-26 from `sinfo` / `sacctmgr show assoc`) ----
+ADA_PARTITION="${ADA_PARTITION:-u22}"               # default GPU partition (u22-cpu = CPU-only nodes)
+ADA_ACCOUNT="${ADA_ACCOUNT:-}"                      # empty: u22 accepts the default account (-A research is
+                                                    # rejected on u22-cpu)
+# Storage on Ada (checked 2026-10-26): /share1/<user> has a 25 GB / 3,000-FILE quota, so the Python environment
+# (tens of thousands of files) must live in home (set IRE_ENV_DIR in .env); GPU nodes have node-local /scratch
+# (~1.7 TB) and /ssd_scratch (~480 GB) that are not shared between nodes.
 ADA_GPUS="${ADA_GPUS:-1}"
 ADA_CPUS="${ADA_CPUS:-10}"
 ADA_MEM="${ADA_MEM:-48G}"
