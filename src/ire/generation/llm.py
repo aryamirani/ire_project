@@ -150,7 +150,9 @@ class Generator:
 
             self.device, fp16 = setup_device(self._device_req, self.settings.dtype == "float16", self._max_vram)
             dtype = torch.float16 if fp16 else torch.float32
-            self._model = AutoModelForCausalLM.from_pretrained(self.path, dtype=dtype).to(self.device).eval()
+            # device_map loads the weights straight onto the device: .to(device) after a CPU load held a full copy
+            # of the 3B model in host RAM (A9 was OOM-killed on a node with only 5 GB of RAM free)
+            self._model = AutoModelForCausalLM.from_pretrained(self.path, dtype=dtype, device_map=self.device).eval()
         return self._model
 
     def generate_raw(self, prompts: Sequence[str], batch_size: int | None = None,
