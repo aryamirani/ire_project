@@ -116,10 +116,12 @@ def check_models(model_ids: list[str]) -> dict[str, bool]:
     """Whether each model in the active profile is already in the HF cache (no network access)."""
     from huggingface_hub import snapshot_download
 
+    from ire.retrieval.common import MODEL_SKIP_PATTERNS
+
     cached: dict[str, bool] = {}
     for repo_id in model_ids:
         try:
-            snapshot_download(repo_id, local_files_only=True)
+            snapshot_download(repo_id, local_files_only=True, ignore_patterns=MODEL_SKIP_PATTERNS)
             cached[repo_id] = True
         except Exception:  # noqa: BLE001 - not cached (or partial) either way
             cached[repo_id] = False

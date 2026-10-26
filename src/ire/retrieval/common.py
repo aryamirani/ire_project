@@ -16,6 +16,11 @@ import numpy as np
 from ire.schemas import CorpusRecord, PoisonRecord, SchemaError, iter_jsonl
 
 MANIFEST = "manifest.json"
+# Weights for other frameworks / runtimes we never load (saves several GB per model). Used by
+# scripts/download_models.py, resolve_model and scripts/check_env.py: with huggingface_hub 1.x a snapshot
+# downloaded with these patterns is "incomplete" (IncompleteSnapshotError) unless the lookup skips them too.
+MODEL_SKIP_PATTERNS: list[str] = ["onnx/*", "openvino/*", "*.onnx", "*.h5", "*.msgpack", "*.ot", "tf_model*",
+                                  "flax_model*", "rust_model*", "coreml/*", "*.mlmodel", "*.tflite", "*.gguf"]
 
 
 def doc_text(title: str, text: str) -> str:
@@ -107,9 +112,9 @@ def resolve_model(model: str) -> tuple[Path, str]:
     from huggingface_hub import snapshot_download
 
     try:
-        path = Path(snapshot_download(model, local_files_only=True))
+        path = Path(snapshot_download(model, local_files_only=True, ignore_patterns=MODEL_SKIP_PATTERNS))
     except Exception:  # noqa: BLE001 - not cached yet
-        path = Path(snapshot_download(model))
+        path = Path(snapshot_download(model, ignore_patterns=MODEL_SKIP_PATTERNS))
     return path, path.name
 
 

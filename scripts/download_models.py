@@ -19,9 +19,7 @@ if str(REPO_ROOT / "src") not in sys.path:
 
 from ire.config import get_env_name, load_dotenv_file, load_env_profile  # noqa: E402
 
-# Weights for other frameworks / runtimes we never load (saves several GB per model).
-SKIP_PATTERNS = ["onnx/*", "openvino/*", "*.onnx", "*.h5", "*.msgpack", "*.ot", "tf_model*",
-                 "flax_model*", "rust_model*", "coreml/*", "*.mlmodel", "*.tflite", "*.gguf"]
+from ire.retrieval.common import MODEL_SKIP_PATTERNS as SKIP_PATTERNS  # noqa: E402  (shared with resolve_model)
 
 
 def main() -> int:
@@ -36,7 +34,7 @@ def main() -> int:
     failed = []
     for role, repo_id in profile["models"].items():
         try:
-            path = snapshot_download(repo_id, local_files_only=True)
+            path = snapshot_download(repo_id, local_files_only=True, ignore_patterns=SKIP_PATTERNS)
             print(f"[cached]     {role:<11} {repo_id}  -> {Path(path).as_posix()}")
             continue
         except Exception:  # noqa: BLE001 - not cached yet
