@@ -94,3 +94,13 @@ perplexity:                # plan section 4.3
   n_calibration: 1000      # random clean corpus passages used for the percentile thresholds
   min_tokens: 20           # shorter passages are not flagged (recorded as too_short)
   rule: either             # pd | pm | either (default: flag if either rule fires)
+
+poison:                    # Arya; scripts/make_poison.py (templates in src/ire/poison/templates.py)
+  per_question: 5          # passages per (question, attack); rate r keeps poison_<qid>_<attack>_1..r
+  adaptive_per_fold: 50    # diverse / repeat / stealth on 50 target questions per fold (100 in total)
+  stealth_cap: clean_pool_median   # stealth cos(q, p) <= median cos of the question's clean top-50 dense pool
+
+query_phrase:              # plan section 4.1 (Arya); src/ire/defenses/query_phrase.py
+  rule: either             # either | similarity | phrase
+  anchor_tail: 0.025       # similarity cutoff = (1 - tail) percentile of s(q, p) over clean pools, opposite fold
+  tail_sweep: [0.01, 0.025, 0.05, 0.10]
