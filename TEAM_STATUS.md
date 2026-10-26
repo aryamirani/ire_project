@@ -22,7 +22,7 @@ write-up 26 Oct - 1 Nov, buffer 2-5 Nov, submission before 6 Nov.
 | Step 11: perplexity filter, score cache, calibration | Samarth | Arya (reassigned) | `src/ire/defenses/perplexity.py`, `configs/perplexity_thresholds.json` (Ada values) |
 | Step 12 tooling: held-out template + validator (phrasings NOT written) | Samarth | Arya (reassigned) | `scripts/heldout_template.py`, `scripts/validate_heldout.py`, `heldout/phrasings_template.jsonl` |
 | Step 13: end-to-end smoke test + `candidate_pool` stub | Samarth | Arya (reassigned) | `scripts/smoke_test.py`, `src/ire/stubs.py` |
-| Ada A0 setup, A1 data, A2 BM25, A6 poison ingestion | Arya | Arya | `reports/A1.json`, `A2.json`, `A6.json` |
+| Ada A0 setup, A1 data, A2 BM25, A6 poison ingestion | Arya | Arya | `reports/A0.json`, `A1.json`, `A2.json`, `A6.json` |
 | Ada A3 dense, A4 SPLADE, A5 caches | Vansh (runner) | Arya (on Arya's account, to unblock the chain) | `reports/A3.json`, `A4.json`, `A5.json` |
 | Ada A8 perplexity (step 11's thresholds + score cache) | Vansh (runner) | Arya (as part of finishing step 11) | `reports/A8.json` |
 | Ada A9 smoke test | Arya or Vansh | Arya | `reports/A9.json` |

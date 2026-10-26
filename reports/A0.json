@@ -1,0 +1,115 @@
+{
+  "job": "A0",
+  "env": "ada",
+  "ok": true,
+  "timestamp_utc": "2026-10-26T06:59:09+00:00",
+  "git_commit": "872c238c7ece6aa898d7b2f3337125d4be82eb5a",
+  "python": "3.13.17",
+  "platform": "Linux-5.15.0-194-generic-x86_64-with-glibc2.35",
+  "torch": {
+    "importable": true,
+    "version": "2.6.0+cu124",
+    "cuda_available": true,
+    "cuda_version": "12.4",
+    "gpus": [
+      {
+        "index": 0,
+        "name": "NVIDIA GeForce GTX 1080 Ti",
+        "total_gib": 10.9,
+        "free_gib": 10.77
+      }
+    ]
+  },
+  "disk": {
+    "path": "/home2/arya.mirani/ire_data_dir",
+    "free_gib": 18.5,
+    "total_gib": 50.0,
+    "writable": true
+  },
+  "libraries": {
+    "numpy": {
+      "importable": true,
+      "required": true,
+      "version": "2.5.4"
+    },
+    "scipy": {
+      "importable": true,
+      "required": true,
+      "version": "1.18.1"
+    },
+    "scikit-learn": {
+      "importable": true,
+      "required": true,
+      "version": "1.9.1"
+    },
+    "pyyaml": {
+      "importable": true,
+      "required": true,
+      "version": "6.0.3"
+    },
+    "python-dotenv": {
+      "importable": true,
+      "required": true,
+      "version": "1.2.4"
+    },
+    "transformers": {
+      "importable": true,
+      "required": true,
+      "version": "5.19.0"
+    },
+    "sentence-transformers": {
+      "importable": true,
+      "required": true,
+      "version": "6.1.0"
+    },
+    "faiss": {
+      "importable": true,
+      "required": true,
+      "version": "1.15.1"
+    },
+    "bm25s": {
+      "importable": true,
+      "required": true,
+      "version": "0.3.13"
+    },
+    "PyStemmer": {
+      "importable": true,
+      "required": true,
+      "version": "3.1.0"
+    },
+    "datasets": {
+      "importable": true,
+      "required": true,
+      "version": "5.1.0"
+    },
+    "huggingface_hub": {
+      "importable": true,
+      "required": true,
+      "version": "1.33.0"
+    },
+    "pytest": {
+      "importable": true,
+      "required": true,
+      "version": "9.1.1"
+    },
+    "pyserini": {
+      "importable": false,
+      "required": false,
+      "error": "ModuleNotFoundError: No module named 'pyserini'"
+    }
+  },
+  "java": {
+    "found": true,
+    "required": false,
+    "version": "openjdk version \"11.0.32.1\" 2026-08-18"
+  },
+  "models_cached": {
+    "intfloat/e5-base-v2": true,
+    "naver/splade-cocondenser-ensembledistil": true,
+    "Qwen/Qwen2.5-3B-Instruct": true,
+    "openai-community/gpt2": true
+  },
+  "hf_token_set": false,
+  "runtime_s": 22.9,
+  "rerun": "python scripts/check_env.py --report A0"
+}
