@@ -24,3 +24,4 @@ reports_dir: ${IRE_DATA_DIR}/reports                   # JSON reports written by
 reports_repo: reports                                  # Ada reports committed by teammates
 perplexity_thresholds: configs/perplexity_thresholds.json
 heldout_dir: heldout
+query_phrase_thresholds: configs/query_phrase_thresholds.json   # Arya: similarity cutoffs per retriever and fold
