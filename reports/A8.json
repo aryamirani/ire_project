@@ -1,0 +1,114 @@
+{
+  "job": "A8",
+  "env": "ada",
+  "git_commit": "ae42e2ebb5e619cca859d3fecd770aabe22b3e70-dirty",
+  "timestamp_utc": "2026-10-26T06:34:43+00:00",
+  "ok": true,
+  "checks": {
+    "thresholds_written": true,
+    "heldout_pd_rate_close_to_alpha": true,
+    "heldout_pm_rate_close_to_alpha": true,
+    "gibberish_sanity": true,
+    "cache_populated": true
+  },
+  "model": "openai-community/gpt2",
+  "model_revision": "607a30d783dfa663caf39e06633721c8d4cfcd7e",
+  "device": "cuda",
+  "alpha_anchor": 0.025,
+  "rule": "either",
+  "n_calibration": 1000,
+  "n_heldout": 1000,
+  "heldout_tolerance": 0.018,
+  "heldout_flag_rate": {
+    "0.01": {
+      "pd": 0.0214,
+      "pm": 0.0075,
+      "either": 0.0225
+    },
+    "0.025": {
+      "pd": 0.0396,
+      "pm": 0.0236,
+      "either": 0.0493
+    },
+    "0.05": {
+      "pd": 0.0632,
+      "pm": 0.0546,
+      "either": 0.091
+    },
+    "0.1": {
+      "pd": 0.1039,
+      "pm": 0.1092,
+      "either": 0.1531
+    }
+  },
+  "thresholds": {
+    "0.01": {
+      "pd_low": -2.442179629802704,
+      "pd_high": 1.8038140821456885,
+      "pm_high": 6.964100270271299
+    },
+    "0.025": {
+      "pd_low": -1.9279330670833588,
+      "pd_high": 1.565777567029,
+      "pm_high": 6.501932060718536
+    },
+    "0.05": {
+      "pd_low": -1.6160545587539672,
+      "pd_high": 1.356769263744354,
+      "pm_high": 5.995899486541747
+    },
+    "0.1": {
+      "pd_low": -1.3724334478378295,
+      "pd_high": 1.02279359102249,
+      "pm_high": 5.4566226482391365
+    }
+  },
+  "sanity_gibberish": {
+    "doc_id": "doc1977721",
+    "pd_fluent": 0.531,
+    "pd_gibberish": -8.194,
+    "pm_fluent": 3.941,
+    "pm_gibberish": 12.458,
+    "passed": true
+  },
+  "length": {
+    "mean_tokens": 102.8,
+    "median_tokens": 87.0,
+    "frac_too_short": 0.073
+  },
+  "pool_cache": {
+    "n_pool_docs": 36778,
+    "n_poison_docs": 4500,
+    "n_scored_total": 37153,
+    "seconds": 0.4,
+    "passages_scored_by_gpt2_this_run": 2,
+    "frac_too_short_pool": 0.0156
+  },
+  "detection_sanity": {
+    "alpha": 0.025,
+    "rule": "either",
+    "flag_rate_by_attack": {
+      "diverse": 0.1442,
+      "fact": 0.125,
+      "hijack": 0.138,
+      "repeat": 0.054,
+      "stealth": 0.04,
+      "url": 0.064
+    },
+    "flag_rate_clean_pool": 0.0188
+  },
+  "cache": {
+    "path_name": "perplexity.sqlite",
+    "n_records": 39128,
+    "bytes": 14958592
+  },
+  "calibration_seconds": 11.1,
+  "runtime_s": 22.7,
+  "libraries": {
+    "python": "3.13.17",
+    "platform": "Linux-5.15.0-194-generic-x86_64-with-glibc2.35",
+    "torch": "2.6.0+cu124",
+    "transformers": "5.19.0"
+  },
+  "rerun": "python scripts/calibrate_perplexity.py"
+}

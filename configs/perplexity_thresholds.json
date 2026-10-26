@@ -1,36 +1,36 @@
 {
  "name": "perplexity_thresholds",
- "env": "local",
+ "env": "ada",
  "model": "openai-community/gpt2",
  "revision": "607a30d783dfa663caf39e06633721c8d4cfcd7e",
  "namespace": "7248fb549073b744061cfe173be57b34c5365d65",
  "seed": 13,
  "n_calibration": 1000,
- "n_scorable": 928,
+ "n_scorable": 920,
  "min_tokens": 20,
  "anchor_alpha": 0.025,
  "rule": "either",
  "note": "PD = f(pre) - f(post), PM = max(f(pre), f(post)), f = mean NLL per GPT-2 token of each half",
  "thresholds": {
   "0.01": {
-   "pd_low": -2.3300525534152983,
-   "pd_high": 1.9755223846435557,
-   "pm_high": 6.958119521141053
+   "pd_low": -2.442179629802704,
+   "pd_high": 1.8038140821456885,
+   "pm_high": 6.964100270271299
   },
   "0.025": {
-   "pd_low": -2.037593883275986,
-   "pd_high": 1.5577644526958483,
-   "pm_high": 6.482963740825647
+   "pd_low": -1.9279330670833588,
+   "pd_high": 1.565777567029,
+   "pm_high": 6.501932060718536
   },
   "0.05": {
-   "pd_low": -1.6716089725494385,
-   "pd_high": 1.275089681148528,
-   "pm_high": 5.939807105064392
+   "pd_low": -1.6160545587539672,
+   "pd_high": 1.356769263744354,
+   "pm_high": 5.995899486541747
   },
   "0.1": {
-   "pd_low": -1.3171348035335542,
-   "pd_high": 0.9453004360198969,
-   "pm_high": 5.42612681388855
+   "pd_low": -1.3724334478378295,
+   "pd_high": 1.02279359102249,
+   "pm_high": 5.4566226482391365
   }
  }
 }
