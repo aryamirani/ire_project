@@ -22,7 +22,7 @@ Samarth's progress is in `HANDOFF.md`. None of his code was changed. The only ed
 | A0 setup | environment + all 4 models installed; report FAILED only because the check ran on the login node (no GPU) | the GPU re-check needs the storage fix below |
 | A1 data | **PASSED** (`reports/A1.json`, `check_ada_report.py A1` = PASS) | 2,681,468 passages; then `select_questions.py` replaced the placeholder with the final set on Ada |
 | P1 poison (new, mine) | waiting for storage | `bash ada/run_make_poison.sh` after A3 (dense index, for the stealth cap) |
-| A2 bm25 | waiting for storage | |
+| A2 bm25 | **PASSED** (`reports/A2.json`, checker PASS, clean tree) | 2,681,468 docs, 1.0 GiB, built in 334 s on gnode004 (10 CPUs, 29 GB); recall@10 0.444, recall@100 0.744 on 1,000 questions (BEIR BM25 on NQ: 0.76) |
 | A6 poison ingestion | waiting for A2-A4 + P1 | |
 
 ### Ada facts found on 2026-10-26 (Samarth: please fold these into ADA_RUNBOOK.md)
@@ -34,8 +34,11 @@ Samarth's progress is in `HANDOFF.md`. None of his code was changed. The only ed
   `/scratch` (~1.7 TB) / `/ssd_scratch` (~480 GB), which are not shared between nodes.
 - Arya's setup: environment in home via `IRE_ENV_DIR=/home2/arya.mirani/ire_env` in `.env` (common.sh honours it);
   `PIP_NO_CACHE_DIR=1`. Data currently on `/share1` (only usable from the login node, e.g. A1).
-  Plan: free ~37 GB of home by moving old course folders to a laptop, then put `IRE_DATA_DIR` in home so all
-  jobs (Arya's and Vansh's, run from the same account) share one data folder.
+  Arya's old course folders are being copied to her laptop, verified (file count + checksums) and removed from
+  Ada to free ~37 GB of home. `IRE_DATA_DIR` and `HF_HOME` now point to `/home2/arya.mirani/ire_data_dir`, so all
+  jobs (Arya's and Vansh's, run from the same account) share one data folder visible on every node.
+- Memory per job: `--mem=32G` is 32,768 MB > the 32,000 MB cap; and memory is tied to CPUs (~3 GB per CPU), so
+  `--mem=31G -c 10` is bumped to 11 CPUs and blocked. **Use `-c 10 --mem=29G`.**
 - **With torch 2.6 + transformers 5.19, `import transformers` fails on a node without a GPU**
   (`RuntimeError: Cannot access accelerator device when none is available`, from `torch.accelerator`). So
   `check_env.py` reports sentence-transformers as NOT IMPORTABLE on the login node. BM25 (A2) and prepare_data

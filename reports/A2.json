@@ -1,0 +1,107 @@
+{
+  "job": "A2",
+  "env": "ada",
+  "ok": true,
+  "git_commit": "d3785731c5e8a18ac8d70318279152338218038d",
+  "timestamp_utc": "2026-10-26T02:00:41+00:00",
+  "retriever": "bm25",
+  "checks": {
+    "n_docs_matches_corpus_plus_poison": true,
+    "recall_reported": true,
+    "same_query_twice_identical": true,
+    "edge_queries_no_crash_no_hits": true,
+    "unique_token_rank_1": true
+  },
+  "built_now": true,
+  "index_dir": "indexes/ada/bm25",
+  "build_time_s": 333.9,
+  "build_timings_s": {
+    "read": 34.92,
+    "tokenize_and_index": 282.5,
+    "total": 333.9
+  },
+  "index_bytes": 1051758707,
+  "index_mib": 1003.04,
+  "load_time_s": 3.382,
+  "corpus": {
+    "path": "data/corpus.jsonl",
+    "rows": 2681468,
+    "sha256": "92c5881c32ec9430202a6de38f1335fcb1bbb5b42aad5290b457cf17d2566c2a"
+  },
+  "n_docs": 2681468,
+  "n_clean": 2681468,
+  "n_poison": 0,
+  "n_vocab": 892751,
+  "poison_shards": [],
+  "settings": {
+    "method": "lucene",
+    "k1": 0.9,
+    "b": 0.4,
+    "lower": true,
+    "token_pattern": "(?u)\\b\\w\\w+\\b",
+    "stopwords": "en",
+    "stemmer": "english"
+  },
+  "eval": {
+    "ks": [
+      10,
+      100
+    ],
+    "placeholder_questions": {
+      "n_questions": 400,
+      "recall@10": 0.4496,
+      "hit@10": 0.495,
+      "recall@100": 0.7533,
+      "hit@100": 0.7825,
+      "batch_ms_per_query": 14.246
+    },
+    "questions_all_sample": {
+      "n_questions": 1000,
+      "recall@10": 0.4442,
+      "hit@10": 0.473,
+      "recall@100": 0.7442,
+      "hit@100": 0.768,
+      "batch_ms_per_query": 13.113,
+      "n_available": 2255
+    }
+  },
+  "latency_ms": {
+    "single_query_median_ms": 12.506,
+    "batch_ms_per_query": 13.113
+  },
+  "determinism": {
+    "same_query_twice": true,
+    "rebuild_identical": null
+  },
+  "edge_queries": {
+    "''": {
+      "hits": 0,
+      "error": null
+    },
+    "'the of and is'": {
+      "hits": 0,
+      "error": null
+    },
+    "'qwertzuiopasdfghjk'": {
+      "hits": 0,
+      "error": null
+    }
+  },
+  "unique_token": {
+    "token": "zorblaxquintavel",
+    "rank": 1,
+    "passed": true,
+    "n_hits": 1,
+    "n_docs_in_test_index": 50001
+  },
+  "libraries": {
+    "python": "3.13.17",
+    "platform": "Linux-5.15.0-198-generic-x86_64-with-glibc2.35",
+    "bm25s": "0.3.13",
+    "PyStemmer": "3.1.0",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1"
+  },
+  "runtime_s": 368.7,
+  "rerun": "python scripts/build_index.py --retriever bm25 --report A2"
+}
