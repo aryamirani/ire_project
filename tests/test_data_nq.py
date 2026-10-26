@@ -220,3 +220,20 @@ def test_parquet_source_matches_zip(raw, tmp_path: Path) -> None:
     for a, b in zip((out_zip.corpus, out_zip.questions, out_zip.questions_all),
                     (out_hf.corpus, out_hf.questions, out_hf.questions_all)):
         assert a.read_bytes() == b.read_bytes()
+
+
+def test_prepare_uses_frozen_question_set(raw, tmp_path: Path) -> None:
+    """With Arya's frozen selection, questions.jsonl is that set (in its order) and the random corpus holds its gold."""
+    full, _ = _prepare(raw, tmp_path / "full", "full")
+    pool = read_jsonl(full.questions_all, QuestionAllRecord)
+    picked = list(reversed(pool))[:8]
+    cells = [("target", "A"), ("target", "B"), ("clean", "A"), ("clean", "B")]
+    frozen = {"questions_all_sha256": "x", "entries": [
+        {"qid": q.qid, "role": cells[i % 4][0], "fold": cells[i % 4][1], "answer_type": "other"}
+        for i, q in enumerate(picked)]}
+    out, build = _prepare(raw, tmp_path / "frozen", "random", n_passages=20, question_set=frozen)
+    qs = read_jsonl(out.questions, QuestionRecord)
+    assert [q.qid for q in qs] == [q.qid for q in picked]
+    assert [(q.role, q.fold) for q in qs] == [cells[i % 4] for i in range(8)]
+    assert build["questions_source"] == "frozen question_set"
+    assert verify_outputs(out, "random", 20, n_target=4, n_clean=4, pool_gold_required=False)["ok"]

@@ -51,11 +51,14 @@ class OutputPaths:
 def prepare(src: BeirSource | Path, nq_open_paths: Mapping[str, Path], out: OutputPaths, mode: str,
             n_passages: int | None = None, seed: int = 13, n_target: int = 200, n_clean: int = 200,
             folds: Sequence[str] = ("A", "B"), dev_questions: int | None = None,
-            log: logging.Logger | None = None) -> dict[str, Any]:
+            log: logging.Logger | None = None, question_set: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Join, select and write the three files. Returns build counts (join stats, scan, selection).
 
-    dev_questions: if set, questions_all.jsonl holds only that many questions (the placeholder set plus seeded
+    dev_questions: if set, questions_all.jsonl holds only that many questions (the selected set plus seeded
     extra ones) and the random corpus covers all their gold passages (the --dev-subset layout).
+    question_set: Arya's frozen selection (configs/frozen/question_set.json, read with
+    ire.data.question_set.read_frozen). If given, questions.jsonl is that set instead of the seeded placeholder,
+    and the random corpus is built around its gold passages.
     """
     log = log or _log
     if mode not in CORPUS_MODES:
@@ -80,7 +83,12 @@ def prepare(src: BeirSource | Path, nq_open_paths: Mapping[str, Path], out: Outp
         raise ValueError(f"clean corpus has ids starting with 'poison_': {scan.poison_like_ids[:5]}")
 
     pool, join = build_question_pool(queries, qrels, answers, scan.gold_positions, split_of)
-    placeholder = select_placeholder(pool, n_target, n_clean, folds, seed)
+    if question_set is not None:
+        from ire.data.question_set import build_questions
+
+        placeholder = build_questions(question_set, pool)  # the final set (name kept: it replaces the placeholder)
+    else:
+        placeholder = select_placeholder(pool, n_target, n_clean, folds, seed)
     if dev_questions:
         chosen = {q.qid for q in placeholder}
         as_pool = [QuestionAllRecord(qid=q.qid, question=q.question, answers=q.answers, gold_doc_ids=q.gold_doc_ids)
@@ -119,6 +127,7 @@ def prepare(src: BeirSource | Path, nq_open_paths: Mapping[str, Path], out: Outp
         "eligible_questions": len(pool),
         "questions_all_written": len(questions_all),
         "questions_written": len(placeholder),
+        "questions_source": "frozen question_set" if question_set is not None else "seeded placeholder",
         "corpus_written": n_written,
         "corpus_gold_passages": n_gold_kept,
         "corpus_random_passages": None if n_gold_kept is None else n_written - n_gold_kept,

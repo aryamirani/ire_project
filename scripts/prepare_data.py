@@ -52,6 +52,7 @@ from ire.data.download import (  # noqa: E402
 )
 from ire.data.nq import BeirParquet, BeirSource, BeirZip  # noqa: E402
 from ire.data.prepare import CORPUS_MODES, OutputPaths, prepare, sample_records, verify_outputs  # noqa: E402
+from ire.data.question_set import read_frozen  # noqa: E402
 from ire.utils.log import get_logger  # noqa: E402
 
 GIB = 2**30
@@ -172,8 +173,11 @@ def main() -> int:
     nq_paths = nq_open_paths(raw_dir)
 
     # ---- build (skipped if an identical build is already on disk) ----
+    frozen_qs = REPO_ROOT / "configs" / "frozen" / "question_set.json"
+    question_set = read_frozen(frozen_qs) if frozen_qs.is_file() else None
     params = {"source": args.source, "mode": mode, "n_passages": n_passages, "dev_questions": dev_questions,
-              "seed": seed, "n_target": n_target, "n_clean": n_clean, "folds": folds}
+              "seed": seed, "n_target": n_target, "n_clean": n_clean, "folds": folds,
+              "question_set_sha256": sha256_file(frozen_qs) if question_set is not None else None}
     stamp_path = out.corpus.parent / STAMP
     stamp = json.loads(stamp_path.read_text(encoding="utf-8")) if stamp_path.is_file() else {}
     outputs_exist = all(p.is_file() for p in (out.corpus, out.questions_all, out.questions))
@@ -183,7 +187,7 @@ def main() -> int:
         build = stamp["build"]
     else:
         build = prepare(beir_src, nq_paths, out, mode, n_passages, seed, n_target, n_clean, folds,
-                        dev_questions, log)
+                        dev_questions, log, question_set=question_set)
         stamp_path.write_text(json.dumps({"params": params, "build": build}, indent=2), encoding="utf-8")
 
     # ---- verify ----
@@ -223,7 +227,8 @@ def main() -> int:
         "env": cfg.env, "corpus_mode": mode, "dev_subset": args.dev_subset, "seed": seed,
         "n_passages_requested": n_passages, "counts": {**build, **verify["counts"]}, "rates": rates,
         "files": files, "raw_files": raw_files, "raw_deleted": raw_deleted, "sources": sources,
-        "note": "questions.jsonl is a PLACEHOLDER (200 target + 200 clean, seed 13); Arya's final set replaces it.",
+        "note": ("questions.jsonl is the FINAL set from configs/frozen/question_set.json (Arya)" if question_set
+                 is not None else "questions.jsonl is a PLACEHOLDER (200 target + 200 clean, seed 13)"),
         "git_commit": git_commit(), "timestamp_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     report = {"job": report_name, **card, "checks": verify["checks"], "required_checks": verify["required_checks"],
