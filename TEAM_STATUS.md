@@ -34,7 +34,7 @@ Each row can start once the rows it depends on are done. Rows with the same numb
 | 1 | Ada A7: LLM throughput benchmark (`ada/run_generate_benchmark.sh`) + decide generation batch size (HANDOFF.md open issue) | **Vansh** | -- | Run on Arya's account with `pinned_node.sh` on gnode061 (see `HANDOFF_ARYA.md`). |
 | 2 | Step 10: cluster filter | Samarth | -- | |
 | 2 | Step 11: perplexity filter + score cache; then Ada A8 (`run_ppl.sh`) | Samarth (code), **Vansh** (A8 run) | -- | |
-| 3 | Re-run A6 (ingest held-out shard), A5 (caches), P2 (query-phrase calibration) | Arya | row 1 (held-out shard) | ~20 min on gnode061 with the existing indexes. |
+| 3 | Re-run A6 (ingest held-out shard), A5 (caches), P2 (query-phrase calibration) | Arya | row 1 (held-out shard) | ~20 min on gnode056 with the existing indexes. |
 | 4 | Step 13: end-to-end smoke test; Ada A9 | Samarth (code), Arya or Vansh (run) | rows 1-3, cluster + perplexity filters | |
 | 4 | Sweep runner: retrievers x attacks x rates x filter settings -> run records (plan section 8) via the generation cache | **Vansh** | candidate_pool, metrics, all three filters | |
 | 5 | 500-request pilot (throughput, cache hit rate, failure modes) | **Vansh** (+ Arya to run on Ada) | sweep runner, A7 | Plan 6.1; decides the cut order if compute is short. |
@@ -46,7 +46,7 @@ Each row can start once the rows it depends on are done. Rows with the same numb
 | 9 | Report write-up | All | results | Each person writes their lane's method section. |
 
 ## Ada notes for whoever runs a job
-- Everything runs from Arya's account; data in `/home2/arya.mirani/ire_data_dir`, indexes on gnode061's local
-  `/scratch` (submit with `-w gnode061` through `ada/pinned_node.sh`).
+- Everything runs from Arya's account; data in `/home2/arya.mirani/ire_data_dir`, indexes on gnode056's local
+  `/scratch` (submit with `-w gnode056` through `ada/pinned_node.sh`).
 - Limits: 10 CPUs, 1 GPU, `--mem=29G`, at most 5 queued + running jobs.
 - Do not start two jobs that write the same index or cache at the same time.

@@ -34,18 +34,18 @@ python scripts/build_cache.py --retriever all
 On macOS put `OMP_NUM_THREADS=1 KMP_DUPLICATE_LIB_OK=TRUE` in front of every command (faiss + torch can
 deadlock otherwise). After this you have the same file layout as Ada, just small.
 
-**On Ada (Arya's account; everything big is on node gnode061):**
+**On Ada (Arya's account; everything big is on node gnode056):**
 - Code: `~/ire_project`. To get your latest code there, `git pull` with your own GitHub HTTPS token (never
   write the token into a file in the repo), or ask Arya to sync it.
-- Jobs: `sbatch -p u22 -w gnode061 --gres=gpu:1 -c 10 --mem=29G -t <time> -o ~/ire_data_dir/logs/<name>-%j.log --wrap "bash \$HOME/ire_project/ada/pinned_node.sh <script> <args>"`.
-  `pinned_node.sh` copies the code to `~/ire_node` (whose `.env` points at gnode061's `/scratch`), runs the
+- Jobs: `sbatch -p u22 -w gnode056 --gres=gpu:1 -c 10 --mem=29G -t <time> -o ~/ire_data_dir/logs/<name>-%j.log --wrap "bash \$HOME/ire_project/ada/pinned_node.sh <script> <args>"`.
+  `pinned_node.sh` copies the code to `~/ire_node` (whose `.env` points at gnode056's `/scratch`), runs the
   script there, and copies reports, logs, caches and poison back to `~/ire_data_dir`.
 - Interactive work on the node:
-  `srun -p u22 -w gnode061 --gres=gpu:1 -c 10 --mem=29G -t 04:00:00 --pty bash`, then
+  `srun -p u22 -w gnode056 --gres=gpu:1 -c 10 --mem=29G -t 04:00:00 --pty bash`, then
   `cd ~/ire_node && export PATH=$HOME/miniforge3/bin:$PATH && source ada/common.sh && ire_activate`.
   (`~/ire_node` holds the code of the last job; run any job once, or `rsync -a --exclude .env ~/ire_project/ ~/ire_node/`, to refresh it.)
 - Limits: 10 CPUs, 1 GPU, 29 GB RAM, at most 5 queued + running jobs. `/share1` is not visible on compute nodes.
-- `load_cache` checks the caches against the index manifests, which exist only on gnode061, so anything that
+- `load_cache` checks the caches against the index manifests, which exist only on gnode056, so anything that
   reads caches must run there.
 
 ## 3. Your first task: `candidate_pool` (plan section 2.3)

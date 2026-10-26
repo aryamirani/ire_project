@@ -42,11 +42,20 @@ Samarth's progress is in `HANDOFF.md`. None of his code was changed. The only ed
   Ada to free ~37 GB of home. `IRE_DATA_DIR` and `HF_HOME` now point to `/home2/arya.mirani/ire_data_dir`, so all
   jobs (Arya's and Vansh's, run from the same account) share one data folder visible on every node.
 - **How the jobs run now (all from Arya's account, one node):** every index job is submitted with
-  `sbatch -p u22 -w gnode061 [--gres=gpu:1] -c 10 --mem=29G --wrap "bash $HOME/ire_project/ada/pinned_node.sh ada/<job>.sh"`.
+  `sbatch -p u22 -w gnode056 [--gres=gpu:1] -c 10 --mem=29G --wrap "bash $HOME/ire_project/ada/pinned_node.sh ada/<job>.sh"`.
   `pinned_node.sh` keeps `IRE_DATA_DIR` on that node's `/scratch/arya.mirani/ire_data_dir` (all indexes), stages
   data + models in from home and copies reports / logs / caches / poison back to `/home2/arya.mirani/ire_data_dir`.
   A symlinked `indexes/` folder does not work: `build_index.py` calls `index_dir.relative_to(data_dir)` on the
-  resolved path. If gnode061's `/scratch` is ever wiped, the indexes must be rebuilt (A2-A4, A6).
+  resolved path. If gnode056's `/scratch` is ever wiped, the indexes must be rebuilt (A2-A4, A6).
+- **Pinned node moved gnode061 -> gnode056 (2026-10-26)**: gnode061's 4 GPUs were taken by other users (estimated
+  start 5+ h later). The 19 GB of indexes were copied in two rounds through home with CPU-only jobs and verified
+  file by file with sha256 on gnode056 (`/home2/arya.mirani/ire_migrate/{out,in}.sh`). gnode061's `/scratch`
+  still holds the old copy (a backup until it is wiped). To move again: the same two scripts, or rebuild (A2-A4, A6,
+  A5: about 2.5 h of jobs).
+- **Before submitting, check what the node has free** (GPUs alone are not enough; other users' CPU-only jobs can
+  take the CPUs): `scontrol show node gnode056 | grep -E "CfgTRES|AllocTRES"`. Size the job to fit: GPT-2 / small
+  jobs run with `-c 2 --mem=5G`; anything that loads the dense index (8.2 GB in RAM) plus an LLM needs
+  `-c 8 --mem=23G` or more (memory is tied to CPUs at ~3 GB each).
 - GPUs on `u22`: 44 nodes have RTX 2080 Ti (feature `2080ti`), the rest are older (gnode004: GTX 1080 Ti, whose
   fp16 is slow: A3 there was on track for ~10 h vs ~1 h on a 2080 Ti). Pin to a 2080 Ti node.
 - **QOS also limits a user to 5 queued + running jobs** (`QOSMaxSubmitJobPerUserLimit`).

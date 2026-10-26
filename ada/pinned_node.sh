@@ -5,7 +5,7 @@
 # HANDOFF_ARYA.md). The indexes live in /scratch/$USER/ire_data_dir on ONE node, so every index job must be
 # submitted with the same `sbatch -w <node>`. Home keeps the persistent copy of the small files.
 #
-#   sbatch -w gnode061 ... --wrap "bash ~/ire_project/ada/pinned_node.sh ada/run_index.sh dense"
+#   sbatch -w gnode056 ... --wrap "bash ~/ire_project/ada/pinned_node.sh ada/run_index.sh dense"
 #
 # 1. stage in:  $HOME_DATA/{data,hf_cache,caches} -> $NODE_DATA (rsync, only what changed)
 # 2. run:       the job from the node checkout $NODE_REPO (code synced from $HOME_REPO, .env -> $NODE_DATA)
