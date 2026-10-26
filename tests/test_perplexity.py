@@ -125,3 +125,13 @@ def test_gpt2_gibberish_second_half_and_short_text():
     assert broken["ppl_post"] == pytest.approx(np.exp(broken["nll_post"]))
     again = scorer.score_texts([("f", FLUENT)])[0]                 # deterministic
     assert again["pd"] == pytest.approx(fluent["pd"], abs=1e-5)
+
+
+def test_batches_bounded_by_padded_tokens():
+    sc = PerplexityScorer("unused", batch_tokens=100)
+    lengths = [10, 10, 10, 40, 40, 99, 300]
+    order = sorted(range(len(lengths)), key=lambda i: lengths[i])
+    batches = sc._batches(order, lengths)
+    assert sorted(i for b in batches for i in b) == list(range(len(lengths)))
+    for b in batches:   # every batch fits, except a single sequence that is longer than the budget on its own
+        assert len(b) == 1 or len(b) * (max(lengths[i] for i in b) + 1) <= 100

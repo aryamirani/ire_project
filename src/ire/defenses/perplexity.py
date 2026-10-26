@@ -43,10 +43,12 @@ RULES: tuple[str, ...] = ("pd", "pm", "either")
 class PerplexityScorer:
     """GPT-2 half-passage scorer. Loads the model lazily; counts how many passages it actually scored."""
 
-    def __init__(self, model: str, device: str = "cuda", min_tokens: int = 20, batch_size: int = 32,
+    def __init__(self, model: str, device: str = "cuda", min_tokens: int = 20, batch_tokens: int = 8192,
                  max_tokens: int = 1023) -> None:
         self.model_name, self.device_req = model, device
-        self.min_tokens, self.batch_size, self.max_tokens = min_tokens, batch_size, max_tokens
+        # batches are bounded by padded tokens, not passages: the [tokens x 50,257] logits dominate GPU memory
+        # (32 long passages needed > 6 GiB on an 11 GB card); 8,192 tokens keep it near 1.6 GiB
+        self.min_tokens, self.batch_tokens, self.max_tokens = min_tokens, batch_tokens, max_tokens
         self._model = self._tok = None
         self.revision: str | None = None
         self.n_scored = 0
@@ -79,16 +81,29 @@ class PerplexityScorer:
                 "min_tokens": self.min_tokens, "max_tokens": self.max_tokens}
         return hashlib.sha1(json.dumps(spec, sort_keys=True).encode()).hexdigest()
 
+    def _batches(self, order: list[int], lengths: list[int]) -> list[list[int]]:
+        """Consecutive groups of `order` (sorted by length) whose padded size stays within batch_tokens."""
+        out, cur = [], []
+        for i in order:
+            width = lengths[i] + 1
+            if cur and (len(cur) + 1) * width > self.batch_tokens:
+                out.append(cur)
+                cur = []
+            cur.append(i)
+        if cur:
+            out.append(cur)
+        return out
+
     def _mean_nll(self, seqs: list[list[int]]) -> list[float]:
         """Mean NLL per token of each token sequence, each scored after <|endoftext|> (batched, right-padded)."""
         torch = self.torch
         eos = self._tok.eos_token_id
-        out: list[float] = []
-        order = sorted(range(len(seqs)), key=lambda i: len(seqs[i]))
+        seqs = [s[: self.max_tokens] for s in seqs]
+        lengths = [len(s) for s in seqs]
+        order = sorted(range(len(seqs)), key=lambda i: lengths[i])
         res = [0.0] * len(seqs)
-        for start in range(0, len(order), self.batch_size):
-            idx = order[start:start + self.batch_size]
-            rows = [[eos] + seqs[i][: self.max_tokens] for i in idx]
+        for idx in self._batches(order, lengths):
+            rows = [[eos] + seqs[i] for i in idx]
             width = max(len(r) for r in rows)
             ids = torch.full((len(rows), width), eos, dtype=torch.long)
             mask = torch.zeros((len(rows), width), dtype=torch.long)
@@ -97,16 +112,15 @@ class PerplexityScorer:
                 mask[j, : len(r)] = 1
             ids, mask = ids.to(self.device), mask.to(self.device)
             with torch.no_grad():
-                logits = self._model(input_ids=ids, attention_mask=mask).logits.float()
-            logp = torch.log_softmax(logits[:, :-1], dim=-1)
-            tgt = ids[:, 1:]
-            nll = -logp.gather(-1, tgt.unsqueeze(-1)).squeeze(-1)
+                logits = self._model(input_ids=ids, attention_mask=mask).logits
+                nll = torch.nn.functional.cross_entropy(logits[:, :-1].reshape(-1, logits.shape[-1]).float(),
+                                                        ids[:, 1:].reshape(-1), reduction="none").view(len(rows), -1)
+                del logits
             m = mask[:, 1:].float()
             per = (nll * m).sum(1) / m.sum(1)
             for j, i in enumerate(idx):
                 res[i] = float(per[j])
-        out.extend(res)
-        return out
+        return res
 
     def score_texts(self, items: Sequence[tuple[str, str]]) -> list[dict[str, Any]]:
         """[(doc_id, text)] -> score records (see the module docstring)."""
