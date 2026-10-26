@@ -507,17 +507,86 @@ def _rules_a7(report: dict[str, Any]) -> list[Check]:
     return checks
 
 
-# ---------------------------------------------------------------- A8-A9 (stubs; filled in with each step)
+# ---------------------------------------------------------------- A8 (fields written by scripts/calibrate_perplexity.py)
 
-STUBS: dict[str, tuple[int, str]] = {
-    # job: (step that fills in the rules, acceptance check from IMPLEMENTATION_PLAN.md section 5)
-    "A8": (11, "flag rate on 1,000 held-out clean passages close to alpha; cache size; fraction too_short"),
-    "A9": (13, "all four retrievers and both filters run end to end on 20 questions"),
-}
+A8_FIELDS: tuple[str, ...] = ("ok", "checks", "model", "model_revision", "alpha_anchor", "n_calibration", "n_heldout",
+                              "heldout_tolerance", "heldout_flag_rate", "thresholds", "sanity_gibberish", "length",
+                              "pool_cache", "detection_sanity", "cache")
+
+
+def _rules_a8(report: dict[str, Any]) -> list[Check]:
+    checks = []
+    missing = [k for k in A8_FIELDS if k not in report]
+    checks.append(Check("calibrate_perplexity fields present", not missing, f"missing: {missing}" if missing else ""))
+    if missing:
+        return checks
+    checks.append(Check("calibrate_perplexity RESULT OK", report["ok"] is True,
+                        str({k: v for k, v in report["checks"].items() if not v}) if not report["ok"] else ""))
+    profile = "local" if report.get("env") == "local" else "ada"
+    want = load_env_profile(profile)["models"]["perplexity"]
+    checks.append(Check(f"model is env_{profile}.yaml models.perplexity", report["model"] == want,
+                        f"{report['model']} (expected {want})"))
+    checks.append(Check("1,000 calibration + 1,000 held-out clean passages",
+                        report["n_calibration"] == 1000 and report["n_heldout"] == 1000,
+                        f"{report['n_calibration']} + {report['n_heldout']}"))
+    a = report["alpha_anchor"]
+    h = report["heldout_flag_rate"].get(f"{float(a):g}", {})
+    tol = report["heldout_tolerance"]
+    for rule in ("pd", "pm"):
+        checks.append(Check(f"held-out {rule} flag rate close to alpha={a}",
+                            isinstance(h.get(rule), (int, float)) and abs(h[rule] - a) <= tol,
+                            f"{h.get(rule)} (tolerance +/-{tol})"))
+    checks.append(Check("fluent vs gibberish second half: PD drops sharply", report["sanity_gibberish"].get("passed") is True,
+                        str(report["sanity_gibberish"])))
+    checks.append(Check("passage length and fraction too_short reported",
+                        isinstance(report["length"].get("frac_too_short"), (int, float)), str(report["length"])))
+    pc = report["pool_cache"] or {}
+    checks.append(Check("every pool and poison passage scored (score cache)",
+                        pc.get("n_scored_total", 0) > 0 and report["cache"].get("n_records", 0) >= pc.get("n_scored_total", 1),
+                        f"{report['cache'].get('n_records')} cached, {pc.get('n_scored_total')} pool + poison passages, "
+                        f"{report['cache'].get('bytes')} bytes"))
+    return checks
+
+
+# ---------------------------------------------------------------- A9 (fields written by scripts/smoke_test.py)
+
+A9_FIELDS: tuple[str, ...] = ("ok", "checks", "n_questions", "retrievers", "filters", "llm", "errors")
+
+
+def _rules_a9(report: dict[str, Any]) -> list[Check]:
+    checks = []
+    missing = [k for k in A9_FIELDS if k not in report]
+    checks.append(Check("smoke_test fields present", not missing, f"missing: {missing}" if missing else ""))
+    if missing:
+        return checks
+    checks.append(Check("smoke_test RESULT OK", report["ok"] is True,
+                        str({k: v for k, v in report["checks"].items() if not v}) if not report["ok"] else ""))
+    n, rets = report["n_questions"], report["retrievers"]
+    checks.append(Check("20 questions", n == 20, f"n={n}"))
+    checks.append(Check("all four retrievers ran", set(rets) == {"bm25", "dense", "splade", "rrf"}
+                        and all(v.get("questions") == n for v in rets.values()),
+                        ", ".join(f"{r}: {v.get('questions')}" for r, v in rets.items())))
+    need = {"cluster", "perplexity"}
+    checks.append(Check("cluster and perplexity filters ran on every retriever",
+                        need <= set(report["filters"]) and all(
+                            all(v.get("filter_ms_mean", {}).get(f) is not None for f in need) for v in rets.values()),
+                        str({r: v.get("filter_ms_mean") for r, v in rets.items()})))
+    checks.append(Check("every question got a non-empty answer",
+                        all(v.get("answers_nonempty") == n for v in rets.values()),
+                        ", ".join(f"{r}: {v.get('answers_nonempty')}" for r, v in rets.items())))
+    profile = "local" if report.get("env") == "local" else "ada"
+    want = load_env_profile(profile)["models"]["llm"]
+    checks.append(Check(f"LLM is env_{profile}.yaml models.llm", report["llm"] == want, f"{report['llm']} (expected {want})"))
+    checks.append(Check("no errors", not report["errors"], "; ".join(report["errors"][:3])))
+    return checks
+
+
+STUBS: dict[str, tuple[int, str]] = {}  # every job has its rules now (A8: step 11, A9: step 13)
 
 RULES: dict[str, Callable[[dict[str, Any]], list[Check]]] = {"A0": _rules_a0, "A1": _rules_a1, "A2": _rules_a2,
                                                           "A3": _rules_a3, "A4": _rules_a4, "A5": _rules_a5,
-                                                          "A6": _rules_a6, "A7": _rules_a7}
+                                                          "A6": _rules_a6, "A7": _rules_a7, "A8": _rules_a8,
+                                                          "A9": _rules_a9}
 
 
 def check_report(job: str, report: dict[str, Any], allow_local: bool = False) -> ReportResult:

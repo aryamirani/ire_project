@@ -67,11 +67,9 @@ def test_local_report_is_only_a_dry_run() -> None:
     assert check_report("A0", dict(a0_report(), job="A0_local")).status == "FAIL"  # suffix only in dry runs
 
 
-@pytest.mark.parametrize("job", [j for j in JOBS if j not in ("A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7")])
-def test_other_jobs_are_stubs(job: str) -> None:
-    result = check_report(job, {"job": job, "env": "ada"})
-    assert result.status == "NOT_IMPLEMENTED"
-    assert f"step {STUBS[job][0]}" in result.note
+def test_every_job_has_rules() -> None:
+    assert STUBS == {}
+    assert all(check_report(j, {"job": j, "env": "ada"}).status == "FAIL" for j in JOBS)  # empty report fails
 
 
 def test_unknown_job_rejected() -> None:
@@ -448,3 +446,44 @@ def test_a7_batch_differences_and_low_f1_only_warn() -> None:
     report["smoke_em_f1"].update(f1=0.1)
     result = check_report("A7", report)
     assert result.status == "PASS" and sum(1 for c in result.checks if not c.passed and not c.fatal) == 2
+
+
+def a8_report(**over):
+    rep = {"job": "A8", "env": "ada", "git_commit": "abc", "timestamp_utc": "t", "ok": True,
+           "checks": {"thresholds_written": True}, "model": "openai-community/gpt2", "model_revision": "607a30d",
+           "alpha_anchor": 0.025, "n_calibration": 1000, "n_heldout": 1000, "heldout_tolerance": 0.0127,
+           "heldout_flag_rate": {"0.025": {"pd": 0.027, "pm": 0.021, "either": 0.046}},
+           "thresholds": {"0.025": {"pd_low": -1.0, "pd_high": 1.0, "pm_high": 5.0}},
+           "sanity_gibberish": {"passed": True}, "length": {"mean_tokens": 120.0, "frac_too_short": 0.004},
+           "pool_cache": {"n_scored_total": 30000}, "detection_sanity": {}, "cache": {"n_records": 32000, "bytes": 9}}
+    rep.update(over)
+    return rep
+
+
+def test_a8_rules():
+    assert check_report("A8", a8_report()).status == "PASS"
+    bad = a8_report(heldout_flag_rate={"0.025": {"pd": 0.06, "pm": 0.021, "either": 0.07}})
+    assert check_report("A8", bad).status == "FAIL"
+    assert check_report("A8", a8_report(n_heldout=200)).status == "FAIL"
+    assert check_report("A8", a8_report(pool_cache={"n_scored_total": 0})).status == "FAIL"
+    assert check_report("A8", a8_report(model="gpt2-xl")).status == "FAIL"
+
+
+def a9_report(**over):
+    per = {"questions": 20, "answers_nonempty": 20,
+           "filter_ms_mean": {"query_phrase": 3.0, "cluster": 40.0, "perplexity": 2.0}}
+    rep = {"job": "A9", "env": "ada", "git_commit": "abc", "timestamp_utc": "t", "ok": True, "checks": {},
+           "n_questions": 20, "retrievers": {r: dict(per) for r in ("bm25", "dense", "splade", "rrf")},
+           "filters": ["query_phrase", "cluster", "perplexity"], "llm": "Qwen/Qwen2.5-3B-Instruct", "errors": []}
+    rep.update(over)
+    return rep
+
+
+def test_a9_rules():
+    assert check_report("A9", a9_report()).status == "PASS"
+    assert check_report("A9", a9_report(errors=["bm25/q1: boom"])).status == "FAIL"
+    three = a9_report()
+    del three["retrievers"]["rrf"]
+    assert check_report("A9", three).status == "FAIL"
+    no_cluster = a9_report(filters=["query_phrase", "perplexity"])
+    assert check_report("A9", no_cluster).status == "FAIL"

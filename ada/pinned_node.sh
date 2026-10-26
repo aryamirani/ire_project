@@ -45,6 +45,11 @@ rsync -a "$NODE_DATA/reports/" "$HOME_DATA/reports/" 2>/dev/null
 rsync -a "$NODE_DATA/logs/" "$HOME_DATA/logs/node_$(hostname)/" 2>/dev/null
 [[ -d "$NODE_DATA/caches" ]] && rsync -a "$NODE_DATA/caches/" "$HOME_DATA/caches/"
 [[ -d "$NODE_DATA/data/poison" ]] && rsync -a "$NODE_DATA/data/poison/" "$HOME_DATA/data/poison/"
+# threshold files written into the node checkout's configs/ (P2, A8): keep a copy next to the reports (commit them)
+mkdir -p "$HOME_DATA/reports/thresholds"
+for f in query_phrase_thresholds.json perplexity_thresholds.json; do
+  [[ -f "$NODE_REPO/configs/$f" ]] && cp -p "$NODE_REPO/configs/$f" "$HOME_DATA/reports/thresholds/$f"
+done
 # a newly built model snapshot (downloaded on the node) is kept in home too, so the next stage-in is cheap
 rsync -a "$NODE_DATA/hf_cache/" "$HOME_DATA/hf_cache/" 2>/dev/null
 echo "== pinned_node: job exit $STATUS; reports/logs/caches/poison copied back to $HOME_DATA"
