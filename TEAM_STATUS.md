@@ -1,5 +1,10 @@
 # TEAM_STATUS -- who has done what, what is left, and in what order (2026-10-26)
 
+**Reassignment (2026-10-26, agreed with Samarth by phone):** Arya takes over Samarth's remaining steps 10
+(cluster filter), 11 (perplexity filter + A8), the step 12 *tooling* (template + validator) and 13 (smoke test +
+A9). The held-out phrasings themselves (step 12) stay open: they must be written by someone who has not seen the
+frozen phrase list (not Arya). Steps 0-9 remain Samarth's work.
+
 Vansh: start from `VANSH_START.md`. Owners follow the plan's work split (`docs/IRE_Final_Project_Plan.pdf`, section 9). Details: Samarth's lane in
 `HANDOFF.md`, Arya's lane in `HANDOFF_ARYA.md`. Plan dates: report write-up 26 Oct - 1 Nov, buffer 2-5 Nov,
 submission before 6 Nov, so the sweeps have to start within days.
