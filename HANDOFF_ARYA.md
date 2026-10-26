@@ -19,7 +19,7 @@ Samarth's progress is in `HANDOFF.md`. None of his code was changed. The only ed
 ## Ada jobs (Arya)
 | Job | Status | Notes |
 |---|---|---|
-| A0 setup | **PASSED** (`reports/A0.json`, checker PASS) | environment in home, all 4 models cached (after the model-cache lookup fix), RTX 2080 Ti |
+| A0 setup | **PASSED** (`reports/A0.json`, checker PASS) | environment in home, all 4 models cached (after the model-cache lookup fix); this check ran on a GTX 1080 Ti node |
 | A1 data | **PASSED** (`reports/A1.json`, `check_ada_report.py A1` = PASS) | 2,681,468 passages; then `select_questions.py` replaced the placeholder with the final set on Ada |
 | A3 dense | **PASSED** (`reports/A3.json`, checker PASS) | e5-base-v2 on an RTX 2080 Ti (gnode061), 2,936 s; recall@10 0.781, recall@100 0.941 on 1,000 questions; re-encode min cos 0.99997 |
 | A4 splade | **PASSED** (`reports/A4.json`, checker PASS) | 3,487 s on gnode061; 146.5 non-zeros per doc, 45.6 per query; recall@10 0.733, recall@100 0.927 |
