@@ -1,6 +1,6 @@
 # TEAM_STATUS -- who has done what, what is left, and in what order (2026-10-26)
 
-Owners follow the plan's work split (`docs/IRE_Final_Project_Plan.pdf`, section 9). Details: Samarth's lane in
+Vansh: start from `VANSH_START.md`. Owners follow the plan's work split (`docs/IRE_Final_Project_Plan.pdf`, section 9). Details: Samarth's lane in
 `HANDOFF.md`, Arya's lane in `HANDOFF_ARYA.md`. Plan dates: report write-up 26 Oct - 1 Nov, buffer 2-5 Nov,
 submission before 6 Nov, so the sweeps have to start within days.
 
@@ -15,6 +15,7 @@ submission before 6 Nov, so the sweeps have to start within days.
 | Ada A0 setup, A1 data, A2 BM25 | Arya | Arya | `reports/A1.json`, `reports/A2.json` |
 | Ada A3 dense, A4 SPLADE, A5 caches | Vansh | Arya (on Arya's account, to unblock the chain) | `reports/A3.json`, `A4.json`, `A5.json` |
 | Ada A6 poison ingestion | Arya | Arya | `reports/A6.json` |
+| Three small fixes in Samarth's code found while running Ada: `prepare_data.py` builds the frozen question set; dense search one query per FAISS call (A5 spot check); model-cache lookups skip the same files as the downloader (A0) | Samarth | Arya | commits 56d807f, 273e784, 78cbd66 (Samarth: please review) |
 
 ## Left, in order
 Each row can start once the rows it depends on are done. Rows with the same number can run in parallel.
