@@ -103,6 +103,10 @@ Samarth's progress is in `HANDOFF.md`. None of his code was changed. The only ed
   above (prepare_data / dense batching / model-cache lookups).
 
 ## Requests to Samarth
+Status (Samarth, 2026-10-26): 1 is done by commit 56d807f (prepare_data builds the final questions and the local
+corpus around them; re-run locally, questions.jsonl is byte-identical to Ada's); 2 is done (local indexes and
+caches rebuilt on the final set); 3 waits for the held-out phrasings. The Ada facts below are now in
+ADA_RUNBOOK.md ("How jobs run on Ada"), and the fixes in Samarth's files are reviewed and kept.
 1. `scripts/prepare_data.py --force` would overwrite `questions.jsonl` with the placeholder again. Please make
    it build `questions.jsonl` from `configs/frozen/question_set.json` when that file exists (or call
    `ire.data.question_set.build_questions`), and the local random corpus around those questions (what

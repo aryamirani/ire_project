@@ -23,10 +23,11 @@ write-up 26 Oct - 1 Nov, buffer 2-5 Nov, submission before 6 Nov.
 | Step 12 tooling: held-out template + validator (phrasings NOT written) | Samarth | Arya (reassigned) | `scripts/heldout_template.py`, `scripts/validate_heldout.py`, `heldout/phrasings_template.jsonl` |
 | Step 13: end-to-end smoke test + `candidate_pool` stub | Samarth | Arya (reassigned) | `scripts/smoke_test.py`, `src/ire/stubs.py` |
 | Ada A0 setup, A1 data, A2 BM25, A6 poison ingestion | Arya | Arya | `reports/A0.json`, `A1.json`, `A2.json`, `A6.json` |
+| Ada reports A0-A6, A8, A9 re-checked with `scripts/check_ada_report.py` (all PASS); steps 0, 2-5, 7, 8 marked DONE; ADA_RUNBOOK.md updated with the Ada facts; local data rebuilt on the final questions; "Ready for integration" section | Samarth | Samarth | `HANDOFF.md` (2026-10-26) |
 | Ada A3 dense, A4 SPLADE, A5 caches | Vansh (runner) | Arya (on Arya's account, to unblock the chain) | `reports/A3.json`, `A4.json`, `A5.json` |
 | Ada A8 perplexity (step 11's thresholds + score cache) | Vansh (runner) | Arya (as part of finishing step 11) | `reports/A8.json` |
 | Ada A9 smoke test | Arya or Vansh | Arya | `reports/A9.json` |
-| Small fixes in Samarth's code found while running Ada (prepare_data builds the frozen set; dense search one query per FAISS call; model-cache lookups; FAISS index loaded only for search; LLM loaded straight onto the GPU) | Samarth | Arya | commits 56d807f, 273e784, 78cbd66 and the later "DenseRetriever" / "Generator" commits (Samarth: please review) |
+| Small fixes in Samarth's code found while running Ada (prepare_data builds the frozen set; dense search one query per FAISS call; model-cache lookups; FAISS index loaded only for search; LLM loaded straight onto the GPU) | Samarth | Arya | commits 56d807f, 273e784, 78cbd66, 0214e48, 872c238: **reviewed and kept by Samarth (2026-10-26)**; noted in `HANDOFF.md` "Interface changes" |
 
 ## Left, in order
 Each row can start once the rows it depends on are done. Rows with the same number can run in parallel.

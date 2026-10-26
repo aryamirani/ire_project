@@ -1,44 +1,49 @@
 # HANDOFF -- Samarth's lane (indexes, retrievers, cache, generation, cluster + perplexity filters)
 
-Last updated: 2026-10-25 (after step 9)
+Last updated: 2026-10-26 (Ada results checked, local data on the final question set, ready for integration)
 
 ## Status board
 | Step | Title | Status | Date | Suggested message |
 |---|---|---|---|---|
-| 0 | Repo skeleton and environment | DONE-LOCAL | 2026-10-15 | `step 0: repo skeleton and environment` (committed) |
-| 1 | Config, paths, logging, data-contract schemas | DONE-LOCAL | 2026-10-15 | `step 1: config, paths, logging, contract schemas` (committed) |
-| 2 | Load NQ corpus and questions | DONE-LOCAL | 2026-10-16 | `step 2: load NQ corpus and questions` (committed) |
-| 3 | BM25 index and retriever | DONE-LOCAL | 2026-10-16 | `step 3: BM25 index and retriever` (committed) |
-| 4 | Dense index and retriever (+ get_doc_vector) | DONE-LOCAL | 2026-10-17 | `step 4: dense index and retriever + vector API` (committed) |
-| 5 | SPLADE index and retriever | DONE-LOCAL | 2026-10-25 | `step 5: SPLADE index and exact sparse retriever` (committed) |
-| 6 | RRF hybrid retriever | DONE-LOCAL (no Ada job: RRF needs no index; it becomes real once A2 + A3 exist) | 2026-10-25 | `step 6: RRF hybrid retriever (fuse masked component lists)` (committed) |
-| 7 | Top-150 cache builder | DONE-LOCAL | 2026-10-25 | `step 7: top-150 cache builder with fingerprinted sidecars` (committed) |
-| 8 | Poison ingestion hook (index poison shards) | DONE-LOCAL | 2026-10-25 | `step 8: poison ingestion hook with masking-equivalence check` (committed) |
-| 9 | Generation harness and cache | DONE-LOCAL | 2026-10-25 | `step 9: generation harness, text store and answer cache` |
+| 0 | Repo skeleton and environment | DONE (A0 PASS) | 2026-10-15 | `step 0: repo skeleton and environment` (committed) |
+| 1 | Config, paths, logging, data-contract schemas | DONE-LOCAL (no Ada job; used by every Ada job) | 2026-10-15 | `step 1: config, paths, logging, contract schemas` (committed) |
+| 2 | Load NQ corpus and questions | DONE (A1 PASS) | 2026-10-16 | `step 2: load NQ corpus and questions` (committed) |
+| 3 | BM25 index and retriever | DONE (A2 PASS) | 2026-10-16 | `step 3: BM25 index and retriever` (committed) |
+| 4 | Dense index and retriever (+ get_doc_vector) | DONE (A3 PASS) | 2026-10-17 | `step 4: dense index and retriever + vector API` (committed) |
+| 5 | SPLADE index and retriever | DONE (A4 PASS) | 2026-10-25 | `step 5: SPLADE index and exact sparse retriever` (committed) |
+| 6 | RRF hybrid retriever | DONE-LOCAL (no Ada job; fused on Ada in A5 and A9) | 2026-10-25 | `step 6: RRF hybrid retriever (fuse masked component lists)` (committed) |
+| 7 | Top-150 cache builder | DONE (A5 PASS) | 2026-10-25 | `step 7: top-150 cache builder with fingerprinted sidecars` (committed) |
+| 8 | Poison ingestion hook (index poison shards) | DONE (A6 PASS) | 2026-10-25 | `step 8: poison ingestion hook with masking-equivalence check` (committed) |
+| 9 | Generation harness and cache | DONE-LOCAL (A7 not run yet; A9 ran the 3B model through it) | 2026-10-25 | `step 9: generation harness, text store and answer cache` (committed) |
 | 10 | Cluster filter | DONE-LOCAL (by Arya, reassigned with Samarth's agreement; see HANDOFF_ARYA.md) | 2026-10-26 | `step 10: cluster filter (taken over from Samarth, agreed)` (committed) |
 | 11 | Perplexity filter and score cache | DONE (by Arya, reassigned; A8 PASSED; see HANDOFF_ARYA.md) | 2026-10-26 | `step 11: perplexity filter, score cache and A8 calibration` (committed) |
 | 12 | Held-out phrasing tool | TOOLING DONE (by Arya); the phrasings themselves are still to be written by someone who has not seen the phrase list | 2026-10-26 | `step 12 tooling: held-out phrasing template and validator` (committed) |
 | 13 | End-to-end smoke test | DONE (by Arya, reassigned; A9 PASSED; see HANDOFF_ARYA.md) | 2026-10-26 | `step 13: end-to-end smoke test and candidate_pool stub` (committed) |
 
-Steps 10-13 were taken over by Arya on 2026-10-26 (agreed with Samarth); their logs are in HANDOFF_ARYA.md. Ada jobs A1-A6 and A8-A9 PASSED (reports in reports/; details in HANDOFF_ARYA.md).
+Steps 10-13 were taken over by Arya on 2026-10-26 (agreed with Samarth); their logs are in HANDOFF_ARYA.md. Ada jobs
+A0-A6 and A8-A9 PASSED: every report in `reports/` was re-checked by Samarth with `scripts/check_ada_report.py`
+on 2026-10-26 (all PASS; A1 and A8 only warn that the Ada checkout had uncommitted changes). A step is DONE when
+its Ada report passes; steps 1 and 6 have no Ada job of their own.
 
 Status values: TODO, IN PROGRESS, DONE-LOCAL (passes on tiny local profile), DONE (also passed on Ada), REOPENED, BLOCKED.
 
 ## Ada requests (for Arya and Vansh)
 | Job | After step | Owner | Command | Status (REQUESTED / RUNNING / PASSED / FAILED) | Report |
 |---|---|---|---|---|---|
-| A0 setup | 0 | Arya or Vansh (whoever starts first) | `bash ada/setup_env.sh` (login node), then `bash ada/setup_env.sh --check-only` (GPU session) | REQUESTED | `$IRE_DATA_DIR/reports/A0.json` |
-| A1 data | 2 | Arya | `bash ada/run_prepare_data.sh` (login node) | REQUESTED | `$IRE_DATA_DIR/reports/A1.json` + `reports/data_card_ada.json` |
-| A2 bm25 | 3 | Arya | `bash ada/run_index.sh bm25` (CPU job, 48 GB RAM) | REQUESTED | `$IRE_DATA_DIR/reports/A2.json` |
-| A3 dense | 4 | Vansh | `bash ada/run_index.sh dense` (GPU job, 48 GB RAM) | REQUESTED | `$IRE_DATA_DIR/reports/A3.json` |
-| A4 splade | 5 | Vansh | `bash ada/run_index.sh splade` (GPU job, 48 GB RAM) | REQUESTED | `$IRE_DATA_DIR/reports/A4.json` |
-| A5 cache | 7 | Vansh | `bash ada/run_cache.sh all` (GPU job, 48 GB RAM; after A2-A4, A6 and the final questions) | REQUESTED | `$IRE_DATA_DIR/reports/A5.json` |
-| A6 poison | 8 | Arya | `bash ada/run_index_poison.sh` (GPU job, 48 GB RAM; after A2-A4, with the real shards; before A5) | REQUESTED | `$IRE_DATA_DIR/reports/A6.json` |
-| A7 generate | 9 | Vansh | `bash ada/run_generate_benchmark.sh` (GPU job; first check the GPU fits the 3B model) | REQUESTED | `$IRE_DATA_DIR/reports/A7.json` |
+| A0 setup | 0 | Arya | `bash ada/setup_env.sh` (login node), then `bash ada/setup_env.sh --check-only` (GPU session) | PASSED | `reports/A0.json` |
+| A1 data | 2 | Arya | `bash ada/run_prepare_data.sh` (login node) | PASSED | `reports/A1.json` + `reports/data_card_ada.json` |
+| A2 bm25 | 3 | Arya | `bash ada/run_index.sh bm25` (CPU job, `-c 10 --mem=29G`) | PASSED | `reports/A2.json` |
+| A3 dense | 4 | Vansh (run by Arya) | `bash ada/run_index.sh dense` (GPU job, `-c 10 --mem=29G`) | PASSED | `reports/A3.json` |
+| A4 splade | 5 | Vansh (run by Arya) | `bash ada/run_index.sh splade` (GPU job, `-c 10 --mem=29G`) | PASSED | `reports/A4.json` |
+| A5 cache | 7 | Vansh (run by Arya) | `bash ada/run_cache.sh all` (GPU job; after A2-A4, A6 and the final questions) | PASSED; must be re-run once the held-out shard exists | `reports/A5.json` |
+| A6 poison | 8 | Arya | `bash ada/run_index_poison.sh` (GPU job; after A2-A4, with the real shards; before A5) | PASSED; must be re-run once the held-out shard exists | `reports/A6.json` |
+| A7 generate | 9 | Vansh | `bash ada/run_generate_benchmark.sh` (GPU job, `-c 4 --mem=11G`; the 2080 Ti fits the 3B model, A9 ran it) | REQUESTED | `$IRE_DATA_DIR/reports/A7.json` |
 | A8 perplexity | 11 | Vansh (run by Arya with step 11) | `bash ada/run_ppl.sh` (via ada/pinned_node.sh) | PASSED | `reports/A8.json` |
 | A9 smoke | 13 | Arya/Vansh (run by Arya) | `bash ada/run_smoke.sh` (via ada/pinned_node.sh) | PASSED | `reports/A9.json` |
 
-Teammates: the full instructions for each job are in `ADA_RUNBOOK.md`.
+Teammates: the full instructions for each job are in `ADA_RUNBOOK.md`; **for any re-run use its section "How jobs run
+on Ada"** (pinned node gnode056 through `ada/pinned_node.sh`, `-c 10 --mem=29G`). The request blocks below are the
+original requests; their RAM lines are updated to what Ada's QOS allows.
 
 ```
 ADA REQUEST A0
@@ -69,7 +74,7 @@ ADA REQUEST A2
 Owner: Arya          Needs: A1 done (data/corpus.jsonl and questions exist)
 Run:   git pull && bash ada/run_index.sh bm25        (in a CPU job or interactive session; no GPU, no internet)
 Time:  15-45 min (estimate: tokenising + indexing 2.68M passages, then ~1,400 test searches)
-Disk:  ~1.5-3 GB under $IRE_DATA_DIR/indexes/ada/bm25 (estimate)   RAM: ask for 48 GB (estimate: peak 16-32 GB)
+Disk:  ~1.5-3 GB under $IRE_DATA_DIR/indexes/ada/bm25 (estimate)   RAM: 29 GB (the QOS maximum)
 Success looks like: "RESULT: OK" and "SUMMARY A2: OK"; the report shows ~2.68M docs, Recall@10/@100 on
        1,000 questions, and the unique-token passage at rank 1.
 Send back: $IRE_DATA_DIR/reports/A2.json (paste it in the team chat or commit it to reports/)
@@ -83,7 +88,7 @@ Run:   git pull && bash ada/run_index.sh dense        (in a GPU job; no internet
 Time:  1-2 h (estimate: encoding 2.68M passages with e5-base-v2 on one GPU; the exact Flat index adds minutes)
 Disk:  ~13 GB under $IRE_DATA_DIR/indexes/ada/dense (estimate: float16 vectors 2.68M x 768 x 2 B = 4.1 GB +
        Flat index in float32 2.68M x 768 x 4 B = 8.2 GB)
-RAM:   ask for 48 GB (estimate: peak ~12-16 GB = 8.2 GB Flat index + ~1.5 GB passage texts + model/overhead)
+RAM:   29 GB (QOS maximum; peak ~12-16 GB = 8.2 GB Flat index + ~1.5 GB passage texts + model/overhead)
 Success looks like: "RESULT: OK" and "SUMMARY A3: OK"; the report shows ~2.68M docs, Recall@10/@100 on 1,000
        questions (next to BM25's on the same questions), stored-vs-re-encoded cosine > 0.999 and norms 1 +/- 1e-3.
 Send back: $IRE_DATA_DIR/reports/A3.json (paste it in the team chat or commit it to reports/)
@@ -100,7 +105,7 @@ Time:  1-3 h (estimate: SPLADE encoding of 2.68M passages; 260 passages/s on Sam
 Disk:  ~6 GB final + ~3 GB temporary checkpoint files while building, under $IRE_DATA_DIR/indexes/ada/splade
        (estimate scaled from the local index: 147.8 non-zeros per passage -> ~396M non-zeros; 8 bytes each,
        stored twice: document matrix + inverted index)
-RAM:   ask for 48 GB (estimate: peak ~12-16 GB while the two matrices are assembled)
+RAM:   29 GB (QOS maximum; peak ~12-16 GB while the two matrices are assembled)
 VRAM:  ~1.2 GB at batch 64 locally (fp16); the batch halves itself on out-of-memory
 Success looks like: "RESULT: OK" and "SUMMARY A4: OK"; the report shows ~2.68M docs, non-zeros per document
        and per query, Recall@10/@100 on 1,000 questions (next to BM25 and dense if their indexes exist), the
@@ -116,7 +121,7 @@ Owner: Vansh          Needs: A2, A3, A4, and A6 (poison ingested) and Arya's fin
 Run:   git pull && bash ada/run_cache.sh all            (in a GPU job; no internet needed)
 Time:  10-30 min (estimate: 400 questions x 3 retrievers over 2.68M passages, exact search, + spot checks)
 Disk:  ~10 MB under $IRE_DATA_DIR/caches/ada (about 2 MB per retriever for 400 questions, measured locally)
-RAM:   ask for 48 GB (the exact dense Flat index alone is ~8.2 GB; SPLADE and BM25 are memory-mapped)
+RAM:   29 GB (QOS maximum; the exact dense Flat index alone is ~8.2 GB; SPLADE and BM25 are memory-mapped)
 Success looks like: "RESULT: OK" and "SUMMARY A5: OK"; 400 rows per retriever, dense rows exactly 150, every
        spot check 20/20, and NO "index contains poison documents" warning from check_ada_report.py.
 Send back: $IRE_DATA_DIR/reports/A5.json (paste it in the team chat or commit it to reports/)
@@ -134,7 +139,7 @@ Run:   git pull && bash ada/run_index_poison.sh        (in a GPU job; no interne
 Time:  30-90 min (estimate: BM25 is rebuilt with the shards; dense/SPLADE copy their clean rows and encode only
        the poison passages; 400 questions are searched before and after on each index)
 Disk:  free space of about the largest index while it is swapped (~13 GB for dense); indexes grow by the poison
-RAM:   ask for 48 GB                   Order: A5 (caches) must run AFTER A6.
+RAM:   29 GB (QOS maximum)          Order: A5 (caches) must run AFTER A6.
 Success looks like: "RESULT: OK" and "SUMMARY A6: OK"; dense and SPLADE masking exactly equivalent, BM25 rank
        differences reported, and poison in its target's top-10 for at least one retriever.
 Send back: $IRE_DATA_DIR/reports/A6.json (paste it in the team chat or commit it to reports/)
@@ -178,7 +183,7 @@ If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A7_generate_benchmark.
   A8-A9 print NOT_IMPLEMENTED until their step adds the rules.
 - `python scripts/prepare_data.py [--corpus-mode full|random] [--dev-subset] [--source hf|ukp] [--force]` -- builds
   `$IRE_DATA_DIR/data/{corpus,questions_all,questions}.jsonl` (step 2; details in the step log). Local files exist now:
-  5,000 passages, 2,255 pool questions, 400 placeholder questions.
+  5,000 passages, 2,255 pool questions, the 400 final questions (Arya's frozen set).
 - `ire.data.nq`: `BeirParquet` / `BeirZip` readers (`iter_beir_corpus` streams the corpus), `load_beir_queries`,
   `load_beir_qrels`, `load_nq_open`, `normalize_question` (the join key), `select_placeholder(pool, 200, 200, seed=13)`.
 - `ire.schemas.QuestionAllRecord` for `questions_all.jsonl`.
@@ -225,7 +230,7 @@ If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A7_generate_benchmark.
   ```
 - `python scripts/build_cache.py --retriever {bm25,dense,splade,rrf,all} [--questions PATH] [--force]` -- top-150
   caches in `$IRE_DATA_DIR/caches/<env>/top150_<r>.jsonl` + `.manifest.json` sidecars; A5 report. Local caches
-  for all four exist now (400 placeholder questions).
+  for all four exist now (the 400 final questions).
 - **Vansh: loading the cache** (`ire.retrieval.cache`):
   ```python
   from ire.retrieval.cache import load_cache
@@ -245,7 +250,7 @@ If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A7_generate_benchmark.
   **Arya**: validate your shards before A6 with
   `load_shards(find_poison_shards(dir), {q.qid: q.role for q in read_jsonl(questions, QuestionRecord)})`.
 - `tests/fixtures/poison_fixture.jsonl`: 10 synthetic passages (5 fact + 5 hijack, PoisonedRAG style) for 5
-  placeholder target questions. **These are test fixtures written by Samarth, not Arya's poison**; they are
+  final target questions (re-targeted 2026-10-26). **These are test fixtures written by Samarth, not Arya's poison**; they are
   never put into `data/poison/` (index_poison.py refuses a tests/ folder unless --work-copy).
 - **Generation (section 2 contract)**: `from ire.generation.llm import generate`;
   `generate(qid, question, top5_doc_ids)` -> `{"answer": str, "cached": bool}`. For sweeps:
@@ -259,10 +264,77 @@ If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A7_generate_benchmark.
 - `ire.generation.smoke_metrics.best_em_f1` is a SMOKE check only; Vansh's metrics are the real ones.
 - `ire.retrieval.eval`: `recall_at_k(results, gold, ks)`, `questions_with_gold_in_index`, `sample_eval_set`
   (retrieval sanity only; the project metrics stay with Vansh).
-- **Arya**: `questions.jsonl` is a PLACEHOLDER (200 target + 200 clean, seed 13, folds A/B 100 each). Your final
-  set replaces it; same `QuestionRecord` format. Pick from `questions_all.jsonl` (every question there has a gold
-  passage and an nq_open answer). After replacing it, re-run step 2 in random mode locally so the local corpus
-  contains the new gold passages (tell Samarth).
+- `questions.jsonl` is Arya's FINAL set (200 target + 200 clean, folds A/B 100 each): `prepare_data.py` builds it
+  from `configs/frozen/question_set.json` (commit 56d807f) and the local corpus around its gold passages.
+
+## Ready for integration (IMPLEMENTATION_PLAN.md section 4; 2026-10-26)
+
+**Rebuild each cache** (Ada: through `ada/pinned_node.sh` on gnode056, see ADA_RUNBOOK.md):
+| What | Command | Ada job |
+|---|---|---|
+| data (corpus, questions_all, final questions) | `python scripts/prepare_data.py` | A1 |
+| BM25 / dense / SPLADE index | `python scripts/build_index.py --retriever bm25` (`dense`, `splade`) | A2 / A3 / A4 |
+| poison into every index | `python scripts/index_poison.py --check-masking` | A6 |
+| top-150 caches (all four) | `python scripts/build_cache.py --retriever all` (after A6) | A5 |
+| perplexity thresholds + score cache | `python scripts/calibrate_perplexity.py` | A8 |
+| generation benchmark | `python scripts/generate_benchmark.py` | A7 |
+
+**Entry points for Vansh's runner**
+- Retrieval: `load_cache(["bm25", "dense", "splade"])` -> `{retriever: {qid: [(doc_id, score), ...150]}}` (validated
+  against the current indexes and questions). RRF: mask the bm25 and dense rows, then
+  `ire.retrieval.rrf.fuse(bm25, dense, k=cfg["rrf.k"], depth=cfg["rrf.depth"])`; never mask `top150_rrf.jsonl`.
+- Poison ids: `ire.schemas.is_poison_id`, `parse_poison_id` (qid, attack, n); masking itself (`candidate_pool`,
+  `is_active`) is Vansh's (stub: `src/ire/stubs.py`).
+- Filters: `apply_filter(pool, qid, question, ctx) -> FilterResult` in `ire.defenses.query_phrase` (Arya),
+  `ire.defenses.cluster`, `ire.defenses.perplexity`; `FilterContext(texts=TextStore.open_for(cfg),
+  vectors=ire.vectors.default_vectors(), config=cfg, thresholds={...})`.
+- Generation: `Generator.from_config(cfg).generate_batch([(qid, question, top5_ids), ...])` ->
+  `[{"answer", "cached"}]`; single call `ire.generation.llm.generate(qid, question, top5_ids)`.
+- Scores for checks: every retriever has `score_docs(query, doc_ids)`.
+
+**Config keys Vansh needs for sweeps** (`configs/experiment.yaml` unless noted): `pool_size` 50, `final_k` 5,
+`top_k_cache` 150, `rrf.k` 60 / `rrf.depth` 150, `attacks`, `poison_rates` [1, 3, 5], `cluster.tau_c` 0.85 +
+`cluster.tau_c_sweep` (0.70-0.95, passed per run as `ctx.thresholds["tau_c"]`), `cluster.rouge_l_min` 0.25,
+`perplexity.alpha` 0.025 + `perplexity.alpha_sweep` + `perplexity.rule` (thresholds in
+`configs/perplexity_thresholds.json`), query-and-phrase thresholds in `configs/query_phrase_thresholds.json`
+(Arya), `generation.*` (all part of the generation-cache namespace), `compute.generate_batch_size` (env_*.yaml).
+
+**Known limitations**
+- BM25 masking is approximate (IDF includes the poison): on Ada (A6, 50 questions) max rank difference 32, mean
+  0.40, clean top-5 unchanged for 96%, Jaccard@50 0.995. Dense and SPLADE masking is exact (50/50 identical).
+- Perplexity is noisy on short halves: NQ passages average 102.8 GPT-2 tokens (median 87), 7.3% are too short to
+  score; detection at the anchor is weak (flag rate 4-14% on poison vs 1.9% on clean pool passages, A8).
+- Generation batching: answers were identical batched vs one by one on 20/20 prompts locally, but batching moves
+  first-token logits by up to 0.086 vs a smallest top-1/top-2 gap of 0.078, so a rare flip is possible; the
+  generation cache is the record (decision on the batch size after A7, see open issues).
+- The held-out shard is not in the indexes / caches yet (open issues).
+
+**Measured numbers**
+- Recall@10 / Recall@100 on 1,000 questions, full corpus (Ada A2-A4): BM25 0.444 / 0.744 (BEIR: 0.76), dense
+  e5-base-v2 0.781 / 0.941, SPLADE 0.733 / 0.927. Index build: BM25 334 s (1.0 GiB), dense 2,775 s (11.6 GiB),
+  SPLADE 3,261 s (6.0 GiB).
+- Poison reach (A6, own target's top-10, BM25 / dense / SPLADE): fact 0.92 / 0.75 / 0.87, hijack 0.61 / 0.24 /
+  0.28, url 0.08 / 0.31 / 0.16, diverse 0.56 / 0.43 / 0.12, repeat 0.00 / 0.28 / 0.74, stealth 0.00 / 0.00 / 0.01.
+- Generation throughput: real 3B model not benchmarked yet (A7). In A9 the 3B model on a 2080 Ti answered 20 new
+  prompts in ~4 s per retriever (~0.2 s per answer, after loading). Local 1.5B stand-in: 59.8 / 110.3 / 133.1
+  requests per minute at batch 1 / 4 / 8 (env=local).
+- Perplexity score cache (A8): 39,128 passages scored, 15 MB; calibration 11.1 s.
+- Filter overhead per question (A9, 20 questions, mean ms; BM25 / dense / SPLADE / RRF): query-and-phrase 457 / 98 /
+  65 / 60, cluster 235 / 118 / 94 / 120, perplexity 26 / 0.9 / 0.9 / 60 (perplexity is mostly cache hits).
+
+**Ada jobs**
+| Job | Status | Owner | Ran by |
+|---|---|---|---|
+| A0 setup | PASSED | Arya / Vansh | Arya |
+| A1 data | PASSED | Arya | Arya |
+| A2 bm25 | PASSED | Arya | Arya |
+| A3 dense | PASSED | Vansh | Arya |
+| A4 splade | PASSED | Vansh | Arya |
+| A5 cache | PASSED; must be re-run once the held-out shard exists | Vansh | Arya |
+| A6 poison | PASSED; must be re-run once the held-out shard exists | Arya | Arya |
+| A7 generate | REQUESTED | Vansh | -- |
+| A8 perplexity | PASSED | Vansh | Arya |
+| A9 smoke | PASSED | Arya / Vansh | Arya |
 
 ## Interface changes
 (Anything that differs from the contracts in IMPLEMENTATION_PLAN.md section 2. Empty = none.)
@@ -296,6 +368,14 @@ None to the data contracts. Layout notes (not contract changes):
   `[]`. So a `top150_bm25.jsonl` row can have fewer than 150 entries even when the index is larger (section 2 said
   "fewer only if the index is smaller"). On the local corpus all 400 placeholder questions still get 100+ hits.
   Ties are ordered by position in the index, so results are deterministic.
+- (2026-10-26, Arya; reviewed and kept by Samarth) **Dense search runs one query per FAISS call.** On Ada's FAISS
+  build, batches of >= 20 queries use BLAS and fewer use a direct loop; the two round differently (~2e-7) and
+  reordered near-ties (A5 dense spot check 17/20 with batches of 32). With one query per call a query's results
+  depend only on its own vector (the same rule as query encoding, step 5). The note in step 7 that FAISS batching
+  did not matter held only for the local Windows build.
+- (2026-10-26, Arya; reviewed) The FAISS index is loaded only when a search runs (`DenseRetriever.index`), so
+  `get_doc_vector` (filters) does not hold the 8.2 GB Flat index in RAM; the LLM is loaded straight onto its
+  device (`device_map`); model-cache lookups use the downloader's skip patterns (`MODEL_SKIP_PATTERNS`).
 - (Step 9) **Generation settings** (`generation:` in experiment.yaml, all part of the cache namespace):
   - Prompt = the plan's neutral prompt word for word, as the single user message of the chat template.
   - **System message: `model_default`** -- no system message is passed, so Qwen2.5's template adds its own
@@ -375,6 +455,35 @@ None to the data contracts. Layout notes (not contract changes):
 
 ## Step log
 (Newest first. Per step: what was built, files, how to run, verify results with actual numbers, open issues.)
+
+### 2026-10-26 -- After Arya's push: Ada results checked, fixes reviewed, local data on the final question set
+**Done**
+- Re-checked every returned Ada report with `scripts/check_ada_report.py`: A0, A1, A2, A3, A4, A5, A6, A8, A9 PASS
+  (A1 and A8 warn only that the Ada checkout had uncommitted changes); A7 has no report yet. Steps 0, 2, 3, 4, 5,
+  7, 8 set to DONE; the Ada table and the "Ready for integration" section updated.
+- Reviewed Arya's fixes in this lane (commits 273e784, 0214e48, 872c238, 78cbd66, 56d807f): all correct, kept
+  (see "Interface changes").
+- ADA_RUNBOOK.md: new section "How jobs run on Ada" with Arya's findings (QOS limits, `-c 10 --mem=29G`, 2080 Ti,
+  storage, pinned node gnode056 via `ada/pinned_node.sh`, no transformers without a GPU); every job block's
+  submit command updated (no more `--mem=48G`, which the QOS rejects).
+- Local data rebuilt on Arya's final question set (`python scripts/prepare_data.py --skip-download`, then
+  `build_index.py` for bm25 / dense / splade and `build_cache.py --retriever all`).
+- `tests/fixtures/poison_fixture.jsonl` re-targeted to 5 final target questions (test1664, test1936, test2043,
+  test2249, test2293): the old fixture qids are not in the final set, so `index_poison.py` would have rejected them.
+
+**Verify results (env=local)**
+- `questions.jsonl` (400: target/A, target/B, clean/A, clean/B 100 each) is byte-identical to Ada's (sha256
+  0365180a...); `questions_all.jsonl` identical too (86ff2915..., the hash the frozen selection records).
+- Corpus: 5,000 passages = 512 gold passages of the final questions + 4,488 seeded random; all gold present.
+- Recall on the 400 final questions (5,000-passage corpus; correctness only): BM25 Recall@10 0.9494, Recall@100
+  0.9804; dense 0.9992 / 1.0; SPLADE 0.9979 / 1.0. Every build_index check PASS.
+- Caches: 400 rows x bm25 / dense / splade / rrf, all rows 150, spot checks 20/20, every check PASS.
+- Poison verification on temporary copies with the re-targeted fixture: every fixture passage in its target's
+  top-10 for all three retrievers; masking dense 50/50 and SPLADE 50/50 identical (exact), BM25 max rank
+  difference 10, mean 0.54, top-5 unchanged 96%, Jaccard@50 0.991; append == full rebuild (dense, SPLADE);
+  re-run no-op and removal restores the clean index (all three); real indexes and caches unchanged.
+- Local builds were slow again (dense 127 s, SPLADE 305 s vs 25 s / 19 s on 2026-10-25): the laptop's power state,
+  not the code.
 
 ### Step 9 -- Generation harness and cache -- DONE-LOCAL (2026-10-25, env=local, 1.5B stand-in)
 **Built**
@@ -891,6 +1000,11 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
   runs out of memory, switch tokenisation to streaming (`Tokenizer.streaming_tokenize`) before re-running.
 - Resolved: the Ada dense index is exact Flat (see "Interface changes").
 - **Run order on Ada: A2, A3, A4 -> A6 (poison) -> A5 (caches).** A6 makes every cache stale.
+- **Held-out phrasings (plan 3.2) are not written yet** (TEAM_STATUS row 1): someone who has not seen the frozen
+  phrase list writes `heldout/phrasings.jsonl` (see `heldout/INSTRUCTIONS.md`); then Arya re-runs A6, A5 and P2.
+  The current Ada caches (A5) do not contain the held-out shard yet.
+- The step 0 commit (a49ead8) still carries a Co-Authored-By trailer from before the no-attribution rule; removing
+  it would rewrite pushed history (force push over Arya's commits), so it is left as is unless the team agrees.
 - **Decision needed (Samarth / Vansh): generation batch size vs exact batch independence.** Locally (1.5B, fp16)
   batched answers equalled one-by-one answers for 20/20 prompts, but batching moves the first-token logits by up
   to 0.08594 while the closest top-1/top-2 decision among those prompts has a gap of only
@@ -910,7 +1024,7 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
   timing-sensitive local runs (step 9 generation throughput).
 - The BM25 masking check (plan 2.1, "max rank difference on a 50-question check") is not run yet: it needs poison
   shards. `score_docs` is ready for it.
-- `questions.jsonl` is a placeholder until Arya's final 200 + 200 set replaces it (see "What teammates can use").
+- Resolved: `questions.jsonl` is Arya's final set (local and Ada byte-identical, sha256 0365180a...).
 - Corpus mode `subset` (~500k gold + hard negatives) is a TODO that needs the retrievers (after step 5).
 - Answer coverage is 65.3% (2,255 of 3,452 BEIR test questions have an nq_open answer); the pool of 2,255 is far
   more than the 400 needed.
@@ -920,6 +1034,6 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
   (step 13 at the latest).
 - **Model choices to confirm** (config values, easy to change before the Ada jobs run): Ada dense model
   `intfloat/e5-base-v2` (job A3) and Ada LLM `Qwen/Qwen2.5-3B-Instruct` (job A7; same family as the local stand-in).
-- `ada/common.sh` has placeholder SLURM values (`TODO_partition`); the first teammate on Ada should fill them in.
+- Resolved: Arya filled in the SLURM settings in `ada/common.sh` and the Ada facts are in ADA_RUNBOOK.md.
 - `.gitattributes` sends `*.npy` to LFS while `.gitignore` ignores `*.npy`. Harmless (ignored files are never
   tracked), but if a `.npy` ever needs to be shared, remove it from `.gitignore` deliberately.
