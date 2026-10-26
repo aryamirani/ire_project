@@ -1,0 +1,173 @@
+{
+  "job": "A3",
+  "env": "ada",
+  "ok": true,
+  "git_commit": "aca90f6320d8320d3cfc86e0c394d4afe200617a",
+  "timestamp_utc": "2026-10-26T03:16:53+00:00",
+  "retriever": "dense",
+  "checks": {
+    "n_docs_matches_corpus_plus_poison": true,
+    "recall_reported": true,
+    "same_query_twice_identical": true,
+    "edge_queries_no_crash": true,
+    "prefix_changes_vectors": true,
+    "stored_matches_reencoded_cos_gt_0.999": true,
+    "norms_within_1e-3": true,
+    "self_retrieval_top1_ge_0.9": true
+  },
+  "built_now": true,
+  "index_dir": "indexes/ada/dense",
+  "model": "intfloat/e5-base-v2",
+  "model_revision": "f52bf8ec8c7124536f0efb74aca902b2995e5bcd",
+  "dim": 768,
+  "device": "cuda",
+  "fp16": true,
+  "encode_batch_size_final": 128,
+  "build_time_s": 2774.99,
+  "build_timings_s": {
+    "read": 31.24,
+    "encode": 2682.05,
+    "faiss": 60.9,
+    "total": 2774.99
+  },
+  "encode_passages_per_s": 999.8,
+  "resumed_from_row": 0,
+  "vram_peak_gib": {
+    "build": 1.283,
+    "overall": 1.283,
+    "cap": null
+  },
+  "index_bytes": 12463464823,
+  "index_mib": 11886.09,
+  "load_time_s": 6.518,
+  "model_load_time_s": 24.79,
+  "corpus": {
+    "path": "data/corpus.jsonl",
+    "rows": 2681468,
+    "sha256": "92c5881c32ec9430202a6de38f1335fcb1bbb5b42aad5290b457cf17d2566c2a"
+  },
+  "n_docs": 2681468,
+  "n_clean": 2681468,
+  "n_poison": 0,
+  "poison_shards": [],
+  "settings": {
+    "model": "intfloat/e5-base-v2",
+    "query_prefix": "query: ",
+    "passage_prefix": "passage: ",
+    "pooling": "mean",
+    "max_length": 512,
+    "store_dtype": "float16",
+    "index_type": "flat",
+    "hnsw_m": 32,
+    "hnsw_ef_construction": 200
+  },
+  "eval": {
+    "ks": [
+      10,
+      100
+    ],
+    "placeholder_questions": {
+      "n_questions": 400,
+      "recall@10": 0.7438,
+      "hit@10": 0.79,
+      "recall@100": 0.9333,
+      "hit@100": 0.9475,
+      "batch_ms_per_query": 22.775
+    },
+    "questions_all_sample": {
+      "n_questions": 1000,
+      "recall@10": 0.7807,
+      "hit@10": 0.819,
+      "recall@100": 0.9409,
+      "hit@100": 0.949,
+      "batch_ms_per_query": 20.837,
+      "n_available": 2255
+    },
+    "bm25_same_questions": {
+      "placeholder_questions": {
+        "n_questions": 400,
+        "recall@10": 0.4496,
+        "hit@10": 0.495,
+        "recall@100": 0.7533,
+        "hit@100": 0.7825,
+        "batch_ms_per_query": 9.767
+      },
+      "questions_all_sample": {
+        "n_questions": 1000,
+        "recall@10": 0.4442,
+        "hit@10": 0.473,
+        "recall@100": 0.7442,
+        "hit@100": 0.768,
+        "batch_ms_per_query": 8.583
+      }
+    }
+  },
+  "latency_ms": {
+    "single_query_median_ms": 341.398,
+    "batch_ms_per_query": 20.837,
+    "note": "includes encoding the query"
+  },
+  "determinism": {
+    "same_query_twice": true,
+    "rebuild_identical": null
+  },
+  "edge_queries": {
+    "''": {
+      "hits": 10,
+      "error": null
+    },
+    "'the of and is'": {
+      "hits": 10,
+      "error": null
+    },
+    "'qwertzuiopasdfghjk'": {
+      "hits": 10,
+      "error": null
+    }
+  },
+  "prefix_test": {
+    "passage_cos_with_vs_without_prefix": [
+      0.9937,
+      0.9763,
+      0.9788,
+      0.985,
+      0.9737
+    ],
+    "query_cos_with_vs_without_prefix": [
+      0.9951,
+      0.9946,
+      0.9866,
+      0.9944,
+      0.9952
+    ],
+    "min_max_abs_change": 0.0108,
+    "differ": true
+  },
+  "reencode_check": {
+    "n": 200,
+    "min_cosine": 0.999973,
+    "mean_cosine": 1.000002,
+    "passed": true
+  },
+  "norms": {
+    "min": 0.99993896484375,
+    "max": 1.000059962272644,
+    "passed": true
+  },
+  "self_retrieval": {
+    "n": 100,
+    "top1_rate": 0.99,
+    "passed": true
+  },
+  "libraries": {
+    "python": "3.13.17",
+    "platform": "Linux-5.15.0-194-generic-x86_64-with-glibc2.35",
+    "torch": "2.6.0+cu124",
+    "transformers": "5.19.0",
+    "faiss-cpu": "1.15.1",
+    "numpy": "2.5.4",
+    "huggingface_hub": "1.33.0"
+  },
+  "runtime_s": 2935.5,
+  "rerun": "python scripts/build_index.py --retriever dense --report A3"
+}

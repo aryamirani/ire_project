@@ -21,7 +21,8 @@ Samarth's progress is in `HANDOFF.md`. None of his code was changed. The only ed
 |---|---|---|
 | A0 setup | environment + models installed; GPU check runs (GTX 1080 Ti / RTX 2080 Ti seen) | the report still FAILs "models cached" (see the snapshot note below); re-check at the end |
 | A1 data | **PASSED** (`reports/A1.json`, `check_ada_report.py A1` = PASS) | 2,681,468 passages; then `select_questions.py` replaced the placeholder with the final set on Ada |
-| A3 dense / A4 splade | RUNNING (chain on gnode061) | run by Arya with Vansh's agreement; A3 encodes ~1,000 passages/s on an RTX 2080 Ti |
+| A3 dense | **PASSED** (`reports/A3.json`, checker PASS) | e5-base-v2 on an RTX 2080 Ti (gnode061), 2,936 s; recall@10 0.781, recall@100 0.941 on 1,000 questions; re-encode min cos 0.99997 |
+| A4 splade | RUNNING (gnode061) | run by Arya with Vansh's agreement |
 | P1 poison (new, mine) | QUEUED after A4 | `ada/run_make_poison.sh` (needs the dense index for the stealth cap) |
 | A6 / A5 / P2 | QUEUED (A6, A5) / to submit (P2, 5-job limit) | P2 = `ada/run_query_phrase.sh` |
 | A2 bm25 | **PASSED** (`reports/A2.json`, checker PASS, clean tree) | 2,681,468 docs, 1.0 GiB, built in 334 s on gnode004 (10 CPUs, 29 GB); recall@10 0.444, recall@100 0.744 on 1,000 questions (BEIR BM25 on NQ: 0.76) |
