@@ -19,11 +19,12 @@ Samarth's progress is in `HANDOFF.md`. None of his code was changed. The only ed
 ## Ada jobs (Arya)
 | Job | Status | Notes |
 |---|---|---|
-| A0 setup | environment + all 4 models installed; report FAILED only because the check ran on the login node (no GPU) | the GPU re-check needs the storage fix below |
+| A0 setup | environment + models installed; GPU check runs (GTX 1080 Ti / RTX 2080 Ti seen) | the report still FAILs "models cached" (see the snapshot note below); re-check at the end |
 | A1 data | **PASSED** (`reports/A1.json`, `check_ada_report.py A1` = PASS) | 2,681,468 passages; then `select_questions.py` replaced the placeholder with the final set on Ada |
-| P1 poison (new, mine) | waiting for storage | `bash ada/run_make_poison.sh` after A3 (dense index, for the stealth cap) |
+| A3 dense / A4 splade | RUNNING (chain on gnode061) | run by Arya with Vansh's agreement; A3 encodes ~1,000 passages/s on an RTX 2080 Ti |
+| P1 poison (new, mine) | QUEUED after A4 | `ada/run_make_poison.sh` (needs the dense index for the stealth cap) |
+| A6 / A5 / P2 | QUEUED (A6, A5) / to submit (P2, 5-job limit) | P2 = `ada/run_query_phrase.sh` |
 | A2 bm25 | **PASSED** (`reports/A2.json`, checker PASS, clean tree) | 2,681,468 docs, 1.0 GiB, built in 334 s on gnode004 (10 CPUs, 29 GB); recall@10 0.444, recall@100 0.744 on 1,000 questions (BEIR BM25 on NQ: 0.76) |
-| A6 poison ingestion | waiting for A2-A4 + P1 | |
 
 ### Ada facts found on 2026-10-26 (Samarth: please fold these into ADA_RUNBOOK.md)
 - **QOS `low` (our student account): max 10 CPUs, 1 GPU, 32 GB RAM per user.** `--mem=48G` (A2-A6 in the
@@ -37,6 +38,20 @@ Samarth's progress is in `HANDOFF.md`. None of his code was changed. The only ed
   Arya's old course folders are being copied to her laptop, verified (file count + checksums) and removed from
   Ada to free ~37 GB of home. `IRE_DATA_DIR` and `HF_HOME` now point to `/home2/arya.mirani/ire_data_dir`, so all
   jobs (Arya's and Vansh's, run from the same account) share one data folder visible on every node.
+- **How the jobs run now (all from Arya's account, one node):** every index job is submitted with
+  `sbatch -p u22 -w gnode061 [--gres=gpu:1] -c 10 --mem=29G --wrap "bash $HOME/ire_project/ada/pinned_node.sh ada/<job>.sh"`.
+  `pinned_node.sh` keeps `IRE_DATA_DIR` on that node's `/scratch/arya.mirani/ire_data_dir` (all indexes), stages
+  data + models in from home and copies reports / logs / caches / poison back to `/home2/arya.mirani/ire_data_dir`.
+  A symlinked `indexes/` folder does not work: `build_index.py` calls `index_dir.relative_to(data_dir)` on the
+  resolved path. If gnode061's `/scratch` is ever wiped, the indexes must be rebuilt (A2-A4, A6).
+- GPUs on `u22`: 44 nodes have RTX 2080 Ti (feature `2080ti`), the rest are older (gnode004: GTX 1080 Ti, whose
+  fp16 is slow: A3 there was on track for ~10 h vs ~1 h on a 2080 Ti). Pin to a 2080 Ti node.
+- **QOS also limits a user to 5 queued + running jobs** (`QOSMaxSubmitJobPerUserLimit`).
+- Model snapshots: `download_models.py` skips ONNX / TF / Flax files, and with huggingface_hub 1.33
+  `snapshot_download(local_files_only=True)` then raises `IncompleteSnapshotError`, so `resolve_model` re-downloads
+  the full repo at job time (compute nodes have internet, so it works, but it costs disk) and `check_env.py`
+  reports those models as NOT CACHED. Samarth: consider `snapshot_download(..., ignore_patterns=SKIP_PATTERNS,
+  local_files_only=True)` in both places.
 - Memory per job: `--mem=32G` is 32,768 MB > the 32,000 MB cap; and memory is tied to CPUs (~3 GB per CPU), so
   `--mem=31G -c 10` is bumped to 11 CPUs and blocked. **Use `-c 10 --mem=29G`.**
 - **With torch 2.6 + transformers 5.19, `import transformers` fails on a node without a GPU**
