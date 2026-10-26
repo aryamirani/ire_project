@@ -19,16 +19,22 @@ Claude Code appends a section below for every job as its step is finished. Check
 ## Job list
 (Claude Code: add one block per job using the request template in IMPLEMENTATION_PLAN.md section 5. Keep the table in sync with HANDOFF.md.)
 
+**Update 2026-10-26:** on Ada the jobs below are submitted through `ada/pinned_node.sh` on one node (gnode056)
+with the memory our QOS allows, not with the `--mem=48G` / login-node commands further down. The working setup,
+limits and commands are in `HANDOFF_ARYA.md` ("Ada facts") and `VANSH_START.md` section 2.
+
 | Job | Script | Status | Owner |
 |---|---|---|---|
-| A0 setup | `ada/setup_env.sh` | REQUESTED | whoever starts first (Arya or Vansh) |
-| A1 data | `ada/run_prepare_data.sh` | REQUESTED | Arya |
-| A2 bm25 | `ada/run_index.sh bm25` | REQUESTED | Arya |
-| A3 dense | `ada/run_index.sh dense` | REQUESTED | Vansh |
-| A4 splade | `ada/run_index.sh splade` | REQUESTED | Vansh |
-| A5 cache | `ada/run_cache.sh all` | REQUESTED | Vansh |
-| A6 poison | `ada/run_index_poison.sh` | REQUESTED | Arya |
-| A7 generate | `ada/run_generate_benchmark.sh` | REQUESTED | Vansh |
+| A0 setup | `ada/setup_env.sh` | PASSED | Arya |
+| A1 data | `ada/run_prepare_data.sh` | PASSED | Arya |
+| A2 bm25 | `ada/run_index.sh bm25` | PASSED | Arya |
+| A3 dense | `ada/run_index.sh dense` | PASSED (run by Arya) | Vansh |
+| A4 splade | `ada/run_index.sh splade` | PASSED (run by Arya) | Vansh |
+| A5 cache | `ada/run_cache.sh all --batch-size 1` | PASSED (run by Arya) | Vansh |
+| A6 poison | `ada/run_index_poison.sh` | PASSED | Arya |
+| A7 generate | `ada/run_generate_benchmark.sh` | not run yet | Vansh |
+| A8 perplexity | `ada/run_ppl.sh` | PASSED (run by Arya with step 11) | Vansh |
+| A9 smoke | `ada/run_smoke.sh` | PASSED | Arya |
 
 ### A0 setup
 ```

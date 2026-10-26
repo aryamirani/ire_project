@@ -1,5 +1,9 @@
 # CLAUDE.md -- instructions for Claude Code (Samarth's lane)
 
+> **Status 2026-10-26:** Samarth's steps 0-13 and Arya's lane are done (steps 10-13 by Arya, agreed with Samarth).
+> If you are working on **Vansh's lane**, start from `VANSH_START.md` and `TEAM_STATUS.md`; the step list and rules
+> below were written for Samarth's assistant (e.g. "do not commit", "my lane only") and do not apply to Vansh's work.
+
 Project: IRE course project "Measuring RAG Safety Against Bad Data".
 Read, in this order, before doing anything:
 1. `docs/IRE_Final_Project_Plan.pdf` (the agreed project plan; source of truth for design)
