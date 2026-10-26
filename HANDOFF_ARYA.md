@@ -73,6 +73,35 @@ Samarth's progress is in `HANDOFF.md`. None of his code was changed. The only ed
 - macOS (Arya's laptop, local profile): faiss + torch in one process can deadlock (two OpenMP runtimes);
   run local scripts with `OMP_NUM_THREADS=1 KMP_DUPLICATE_LIB_OK=TRUE`.
 
+## Steps 10-13 (Samarth's, taken over by Arya on 2026-10-26 with his agreement)
+| Step | Files | Status |
+|---|---|---|
+| 10 cluster filter | `src/ire/defenses/cluster.py`, `tests/test_cluster.py`, `scripts/check_cluster.py` | DONE-LOCAL; runs inside A9 on Ada |
+| 11 perplexity filter + score cache | `src/ire/defenses/perplexity.py`, `tests/test_perplexity.py`, `scripts/calibrate_perplexity.py`, `ada/run_ppl.sh`, `configs/perplexity_thresholds.json` (Ada values) | DONE (A8 PASSED) |
+| 12 held-out tooling | `src/ire/poison/heldout.py`, `scripts/heldout_template.py`, `scripts/validate_heldout.py`, `heldout/phrasings_template.jsonl` | tooling DONE; phrasings NOT written (must be someone who has not seen the phrase list) |
+| 13 smoke test | `scripts/smoke_test.py`, `src/ire/stubs.py` (candidate_pool stub), `ada/run_smoke.sh` | DONE (A9 PASSED) |
+
+- **Cluster filter** (plan 4.2): k-means k=2 (seeded) on the dense vectors of the top-20 pool passages; a cluster
+  of >= 2 is flagged only if mean pairwise cosine >= tau_c (anchor 0.85; `ctx.thresholds["tau_c"]` for the sweep)
+  and mean pairwise ROUGE-L >= 0.25 (own LCS implementation). `scores` = the cluster's mean cosine; `backfill()`
+  reports survivors from beyond rank 20. Local check (5,000 passages): clean questions flagged 0-0.5%; rate-5
+  detection ~0.5 for fact / hijack / url / repeat, diverse 0.04-0.21; ~50 ms per question.
+- **Perplexity filter** (plan 4.3): GPT-2 small, token-midpoint split, f = mean NLL of each half scored after
+  `<|endoftext|>`, PD = f(pre) - f(post) (two-tailed band), PM = max (one-tailed); passages < 20 tokens never
+  flagged; scores cached per doc_id (SQLite); batches capped at 8,192 padded tokens. **A8 on Ada**:
+  thresholds at alpha 0.025 {"pd_low": -1.9279330670833588, "pd_high": 1.565777567029, "pm_high": 6.501932060718536}; held-out flag rate PD
+  0.0396, PM 0.0236 (tolerance
+  +/-0.018; includes the calibration sample's variance; PD at the anchor is noisy with 1,000
+  calibration passages, ~12 per tail). Passage length 102.8 tokens on average,
+  7.3% too short. 37,153 pool + poison passages scored.
+  Detection at the anchor (rule either): {'diverse': 0.1442, 'fact': 0.125, 'hijack': 0.138, 'repeat': 0.054, 'stealth': 0.04, 'url': 0.064} vs clean pool
+  0.0188 -- weak, as the plan's counter-evidence predicted.
+- **Smoke test, A9 on Ada**: 20 questions (10 target + 10 clean) x 4 retrievers, stub pool (no masking), all three
+  filters, Qwen2.5-3B: every check PASS, runtime 143.7 s. Flagged per filter (bm25): {'query_phrase': 154, 'cluster': 187, 'perplexity': 36}.
+- Code changes made on the way (all small, in Samarth's files, listed for his review): FAISS index loaded only when
+  a search runs (`DenseRetriever.index`), LLM loaded straight onto the GPU (`device_map`), plus the three fixes
+  above (prepare_data / dense batching / model-cache lookups).
+
 ## Requests to Samarth
 1. `scripts/prepare_data.py --force` would overwrite `questions.jsonl` with the placeholder again. Please make
    it build `questions.jsonl` from `configs/frozen/question_set.json` when that file exists (or call

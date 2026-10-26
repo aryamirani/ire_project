@@ -15,10 +15,12 @@ Last updated: 2026-10-25 (after step 9)
 | 7 | Top-150 cache builder | DONE-LOCAL | 2026-10-25 | `step 7: top-150 cache builder with fingerprinted sidecars` (committed) |
 | 8 | Poison ingestion hook (index poison shards) | DONE-LOCAL | 2026-10-25 | `step 8: poison ingestion hook with masking-equivalence check` (committed) |
 | 9 | Generation harness and cache | DONE-LOCAL | 2026-10-25 | `step 9: generation harness, text store and answer cache` |
-| 10 | Cluster filter | TODO | | |
-| 11 | Perplexity filter and score cache | TODO | | |
-| 12 | Held-out phrasing tool | TODO | | |
-| 13 | End-to-end smoke test | TODO | | |
+| 10 | Cluster filter | DONE-LOCAL (by Arya, reassigned with Samarth's agreement; see HANDOFF_ARYA.md) | 2026-10-26 | `step 10: cluster filter (taken over from Samarth, agreed)` (committed) |
+| 11 | Perplexity filter and score cache | DONE (by Arya, reassigned; A8 PASSED; see HANDOFF_ARYA.md) | 2026-10-26 | `step 11: perplexity filter, score cache and A8 calibration` (committed) |
+| 12 | Held-out phrasing tool | TOOLING DONE (by Arya); the phrasings themselves are still to be written by someone who has not seen the phrase list | 2026-10-26 | `step 12 tooling: held-out phrasing template and validator` (committed) |
+| 13 | End-to-end smoke test | DONE (by Arya, reassigned; A9 PASSED; see HANDOFF_ARYA.md) | 2026-10-26 | `step 13: end-to-end smoke test and candidate_pool stub` (committed) |
+
+Steps 10-13 were taken over by Arya on 2026-10-26 (agreed with Samarth); their logs are in HANDOFF_ARYA.md. Ada jobs A1-A6 and A8-A9 PASSED (reports in reports/; details in HANDOFF_ARYA.md).
 
 Status values: TODO, IN PROGRESS, DONE-LOCAL (passes on tiny local profile), DONE (also passed on Ada), REOPENED, BLOCKED.
 
@@ -33,8 +35,8 @@ Status values: TODO, IN PROGRESS, DONE-LOCAL (passes on tiny local profile), DON
 | A5 cache | 7 | Vansh | `bash ada/run_cache.sh all` (GPU job, 48 GB RAM; after A2-A4, A6 and the final questions) | REQUESTED | `$IRE_DATA_DIR/reports/A5.json` |
 | A6 poison | 8 | Arya | `bash ada/run_index_poison.sh` (GPU job, 48 GB RAM; after A2-A4, with the real shards; before A5) | REQUESTED | `$IRE_DATA_DIR/reports/A6.json` |
 | A7 generate | 9 | Vansh | `bash ada/run_generate_benchmark.sh` (GPU job; first check the GPU fits the 3B model) | REQUESTED | `$IRE_DATA_DIR/reports/A7.json` |
-| A8 perplexity | 11 | Vansh | | not yet requested | |
-| A9 smoke | 13 | Arya/Vansh | | not yet requested | |
+| A8 perplexity | 11 | Vansh (run by Arya with step 11) | `bash ada/run_ppl.sh` (via ada/pinned_node.sh) | PASSED | `reports/A8.json` |
+| A9 smoke | 13 | Arya/Vansh (run by Arya) | `bash ada/run_smoke.sh` (via ada/pinned_node.sh) | PASSED | `reports/A9.json` |
 
 Teammates: the full instructions for each job are in `ADA_RUNBOOK.md`.
 

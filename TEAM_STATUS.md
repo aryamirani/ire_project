@@ -1,13 +1,14 @@
-# TEAM_STATUS -- who has done what, what is left, and in what order (2026-10-26)
+# TEAM_STATUS -- who has done what, what is left, and in what order (updated 2026-10-26)
 
-**Reassignment (2026-10-26, agreed with Samarth by phone):** Arya takes over Samarth's remaining steps 10
+**Reassignment (2026-10-26, agreed with Samarth by phone):** Arya took over Samarth's remaining steps 10
 (cluster filter), 11 (perplexity filter + A8), the step 12 *tooling* (template + validator) and 13 (smoke test +
 A9). The held-out phrasings themselves (step 12) stay open: they must be written by someone who has not seen the
-frozen phrase list (not Arya). Steps 0-9 remain Samarth's work.
+frozen phrase list (not Arya). Steps 0-9 are Samarth's work.
 
-Vansh: start from `VANSH_START.md`. Owners follow the plan's work split (`docs/IRE_Final_Project_Plan.pdf`, section 9). Details: Samarth's lane in
-`HANDOFF.md`, Arya's lane in `HANDOFF_ARYA.md`. Plan dates: report write-up 26 Oct - 1 Nov, buffer 2-5 Nov,
-submission before 6 Nov, so the sweeps have to start within days.
+**Arya's and Samarth's lanes are done** except the held-out phrasings and the re-run they trigger (rows 1 and 2
+below). Everything else that is left is Vansh's lane. Vansh: start from `VANSH_START.md`.
+Details: Samarth's lane in `HANDOFF.md`, Arya's lane (and steps 10-13) in `HANDOFF_ARYA.md`. Plan dates: report
+write-up 26 Oct - 1 Nov, buffer 2-5 Nov, submission before 6 Nov.
 
 ## Done
 | Item | Owner (plan) | Who did it | Evidence |
@@ -17,36 +18,41 @@ submission before 6 Nov, so the sweeps have to start within days.
 | Frozen injection-phrase list | Arya | Arya | `configs/frozen/injection_phrases.json` |
 | Poison: fact, hijack, url, diverse, repeat, stealth (4,500 passages) | Arya | Arya | `src/ire/poison/`, `reports/poison_ada.json` |
 | Query-and-phrase filter + calibration (Ada thresholds) | Arya | Arya | `src/ire/defenses/query_phrase.py`, `configs/query_phrase_thresholds.json` |
-| Ada A0 setup, A1 data, A2 BM25 | Arya | Arya | `reports/A1.json`, `reports/A2.json` |
-| Ada A3 dense, A4 SPLADE, A5 caches | Vansh | Arya (on Arya's account, to unblock the chain) | `reports/A3.json`, `A4.json`, `A5.json` |
-| Ada A6 poison ingestion | Arya | Arya | `reports/A6.json` |
-| Three small fixes in Samarth's code found while running Ada: `prepare_data.py` builds the frozen question set; dense search one query per FAISS call (A5 spot check); model-cache lookups skip the same files as the downloader (A0) | Samarth | Arya | commits 56d807f, 273e784, 78cbd66 (Samarth: please review) |
+| Step 10: cluster filter | Samarth | Arya (reassigned) | `src/ire/defenses/cluster.py`, `scripts/check_cluster.py` |
+| Step 11: perplexity filter, score cache, calibration | Samarth | Arya (reassigned) | `src/ire/defenses/perplexity.py`, `configs/perplexity_thresholds.json` (Ada values) |
+| Step 12 tooling: held-out template + validator (phrasings NOT written) | Samarth | Arya (reassigned) | `scripts/heldout_template.py`, `scripts/validate_heldout.py`, `heldout/phrasings_template.jsonl` |
+| Step 13: end-to-end smoke test + `candidate_pool` stub | Samarth | Arya (reassigned) | `scripts/smoke_test.py`, `src/ire/stubs.py` |
+| Ada A0 setup, A1 data, A2 BM25, A6 poison ingestion | Arya | Arya | `reports/A1.json`, `A2.json`, `A6.json` |
+| Ada A3 dense, A4 SPLADE, A5 caches | Vansh (runner) | Arya (on Arya's account, to unblock the chain) | `reports/A3.json`, `A4.json`, `A5.json` |
+| Ada A8 perplexity (step 11's thresholds + score cache) | Vansh (runner) | Arya (as part of finishing step 11) | `reports/A8.json` |
+| Ada A9 smoke test | Arya or Vansh | Arya | `reports/A9.json` |
+| Small fixes in Samarth's code found while running Ada (prepare_data builds the frozen set; dense search one query per FAISS call; model-cache lookups; FAISS index loaded only for search; LLM loaded straight onto the GPU) | Samarth | Arya | commits 56d807f, 273e784, 78cbd66 and the later "DenseRetriever" / "Generator" commits (Samarth: please review) |
 
 ## Left, in order
 Each row can start once the rows it depends on are done. Rows with the same number can run in parallel.
 
 | # | Task | Owner | Depends on | Notes |
 |---|---|---|---|---|
-| 1 | Step 12: held-out phrasings (10 hijack + 5 fact passages, written WITHOUT opening the phrase list) -> `poison_heldout.jsonl` | Samarth | -- | Do this first: adding a shard changes the indexes, so A6, A5 and P2 must be re-run afterwards (row 3). |
-| 1 | `candidate_pool` masking + `is_active` (rate r keeps `poison_<qid>_<attack>_1..r`; RRF: mask both lists, then `fuse`) | **Vansh** | -- | Can start now on the current Ada caches (`load_cache`). |
-| 1 | Metrics: ASR (target string / codeword / URL domain in the answer), EM / F1, nDCG@5/@10, Recall@k, n_poison_top5, collateral poisoning, detection (ROC-AUC, TPR, FPR, gold dropped), latency / filter overhead | **Vansh** | -- | ASR strings are each record's `target_answer`; per-question targets in `configs/frozen/poison_targets.json`. |
-| 1 | Random filter + oracle filter controls | **Vansh** | -- | Random drops the same number of passages as the detector under test (plan 4.4). |
-| 1 | Ada A7: LLM throughput benchmark (`ada/run_generate_benchmark.sh`) + decide generation batch size (HANDOFF.md open issue) | **Vansh** | -- | Run on Arya's account with `pinned_node.sh` on gnode061 (see `HANDOFF_ARYA.md`). |
-| 2 | Step 10: cluster filter | Samarth | -- | |
-| 2 | Step 11: perplexity filter + score cache; then Ada A8 (`run_ppl.sh`) | Samarth (code), **Vansh** (A8 run) | -- | |
-| 3 | Re-run A6 (ingest held-out shard), A5 (caches), P2 (query-phrase calibration) | Arya | row 1 (held-out shard) | ~20 min on gnode056 with the existing indexes. |
-| 4 | Step 13: end-to-end smoke test; Ada A9 | Samarth (code), Arya or Vansh (run) | rows 1-3, cluster + perplexity filters | |
-| 4 | Sweep runner: retrievers x attacks x rates x filter settings -> run records (plan section 8) via the generation cache | **Vansh** | candidate_pool, metrics, all three filters | |
-| 5 | 500-request pilot (throughput, cache hit rate, failure modes) | **Vansh** (+ Arya to run on Ada) | sweep runner, A7 | Plan 6.1; decides the cut order if compute is short. |
-| 5 | Write down the decision rule before any sweep (headline anchor, what "helps" means, what we say if not) | All, led by **Vansh** | -- | Plan 5.5. |
-| 6 | Full sweeps (about 60,000 LLM requests upper bound) | **Vansh** (runs), Arya (Ada support) | pilot | |
-| 6 | Human calibration: 150 answers in pairs (Arya+Samarth, Samarth+Vansh, Vansh+Arya), 100 passage labels each; Cohen's kappa, judge accuracy | All; **Vansh** owns the agreement code | first generated answers | Plan section 7. |
-| 7 | Cross-fitting (choose on fold A, report on B, swap), McNemar for ASR, paired bootstrap for nDCG@5, Wilson intervals, Holm correction | **Vansh** | sweeps | |
-| 8 | Plots: ASR vs rate per retriever, detector ROC, ASR vs n_poison_top5 (mechanism check), complementarity table | **Vansh** | stats | |
-| 9 | Report write-up | All | results | Each person writes their lane's method section. |
+| 1 | Held-out phrasings: fill `heldout/phrasings_template.jsonl` (10 hijack phrasings with `{CW}`, 5 fact passages) WITHOUT opening the phrase list or the attack templates; save as `heldout/phrasings.jsonl`; `python scripts/validate_heldout.py` | Samarth (or Vansh, if he has not seen the list) | -- | Small; do it first, because it changes the indexes (row 2). |
+| 2 | Re-run A6 (ingest the held-out shard), A5 (caches), P2 (query-phrase calibration) on gnode056 | Arya | row 1 | ~20 min of jobs. Caches built before this are stale for the sweeps. |
+| 1 | `candidate_pool` masking + `is_active` (rate r keeps `poison_<qid>_<attack>_1..r`; RRF: mask both lists, then `fuse`); replaces `src/ire/stubs.py` | **Vansh** | -- | Can start now on the current caches. |
+| 1 | Metrics: ASR (target string / codeword / URL domain), EM / F1, nDCG@5/@10, Recall@k, n_poison_top5, collateral poisoning, detection (ROC-AUC, TPR, FPR, gold dropped), backfill, latency / filter overhead | **Vansh** | -- | ASR strings: each record's `target_answer`. |
+| 1 | Random filter + oracle filter controls | **Vansh** | -- | Random drops the same number of passages as the detector (plan 4.4). |
+| 1 | Ada A7: LLM throughput benchmark + decide the generation batch size (HANDOFF.md open issue) | **Vansh** | -- | `ada/run_generate_benchmark.sh` via `pinned_node.sh`. |
+| 3 | Sweep runner: retrievers x attacks x rates x filter settings -> run records (plan section 8) via the generation cache | **Vansh** | candidate_pool, metrics | All three filters are ready (`VANSH_START.md` section 4). |
+| 3 | Write the decision rule down before any sweep (plan 5.5) | All, led by **Vansh** | -- | |
+| 4 | 500-request pilot | **Vansh** | sweep runner, A7 | Plan 6.1. |
+| 5 | Full sweeps (about 60,000 LLM requests at most) | **Vansh** | pilot, row 2 | |
+| 5 | Human calibration: 150 answers in pairs, 100 passage labels each; agreement code | All; **Vansh** owns the code | first answers | Plan section 7. |
+| 6 | Cross-fitting, McNemar, paired bootstrap, Wilson intervals, Holm correction | **Vansh** | sweeps | |
+| 7 | Plots | **Vansh** | stats | |
+| 8 | Report write-up | All | results | |
 
 ## Ada notes for whoever runs a job
 - Everything runs from Arya's account; data in `/home2/arya.mirani/ire_data_dir`, indexes on gnode056's local
   `/scratch` (submit with `-w gnode056` through `ada/pinned_node.sh`).
-- Limits: 10 CPUs, 1 GPU, `--mem=29G`, at most 5 queued + running jobs.
+- Limits: 10 CPUs, 1 GPU, at most 5 queued + running jobs; memory is tied to CPUs (~3 GB each). Check what the
+  node has free first: `scontrol show node gnode056 | grep -E "CfgTRES|AllocTRES"` (details in `HANDOFF_ARYA.md`).
+  Filter and generation jobs fit in `-c 2 --mem=5G` (the FAISS index is only loaded for searches; the LLM loads
+  straight onto the GPU).
 - Do not start two jobs that write the same index or cache at the same time.
