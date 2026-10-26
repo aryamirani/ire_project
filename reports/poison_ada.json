@@ -1,0 +1,101 @@
+{
+  "job": "poison",
+  "env": "ada",
+  "time_utc": "2026-10-26T04:16:49+00:00",
+  "git_commit": "46ae747eb600407256b25f6040ff16ef86f1f049",
+  "questions_sha256": "0365180a6070be2f17e5b555027535cbd0659b12d2f0a8c5f6d055d844590c0e",
+  "shards": {
+    "poison_main.jsonl": {
+      "records": 3000,
+      "sha256": "d7249afffe9f5c2f4f564edce344f35281715d74541d2000b3fb9088506fde10"
+    },
+    "poison_adaptive.jsonl": {
+      "records": 1500,
+      "sha256": "8d12d06d3bf6b85efaca35b60b134053a339f899fc34bd40b0bd6c852d1d574e"
+    }
+  },
+  "summary": {
+    "files": [
+      "poison_adaptive.jsonl",
+      "poison_main.jsonl"
+    ],
+    "n_records": 4500,
+    "by_attack": {
+      "diverse": 500,
+      "fact": 1000,
+      "hijack": 1000,
+      "repeat": 500,
+      "stealth": 500,
+      "url": 1000
+    },
+    "n_target_qids": 200,
+    "per_qid": {
+      "min": 15,
+      "max": 30
+    },
+    "qids_with_role_clean": []
+  },
+  "by_attack": {
+    "diverse": 500,
+    "fact": 1000,
+    "hijack": 1000,
+    "repeat": 500,
+    "stealth": 500,
+    "url": 1000
+  },
+  "mean_words_by_attack": {
+    "diverse": 22.3,
+    "fact": 32.7,
+    "hijack": 24.4,
+    "repeat": 72.1,
+    "stealth": 30.6,
+    "url": 24.0
+  },
+  "phrase_rule_hit_rate_by_attack": {
+    "diverse": 0.004,
+    "fact": 0.003,
+    "hijack": 0.676,
+    "repeat": 0.004,
+    "stealth": 0.0,
+    "url": 0.763
+  },
+  "target_methods": {
+    "year_shift": 24,
+    "pool": 176
+  },
+  "target_answer_types": {
+    "year": 24,
+    "date": 14,
+    "number": 10,
+    "person": 67,
+    "place": 22,
+    "other": 63
+  },
+  "adaptive_qids_per_fold": {
+    "A": 50,
+    "B": 50
+  },
+  "stealth_similarity_cap": {
+    "passages": 500,
+    "under_cap": 428,
+    "variant": {
+      "keywords": 241,
+      "title_only": 259
+    },
+    "mean_cos": 0.8012,
+    "mean_cap": 0.8234
+  },
+  "corpus_occurrences": {
+    "ZOLTRAX": 0,
+    "answer-archive.example": 0
+  },
+  "checks": {
+    "main_count": true,
+    "adaptive_count": true,
+    "only_target_qids": true,
+    "codeword_absent_from_corpus": true,
+    "url_absent_from_corpus": true,
+    "fact_targets_in_text": true
+  },
+  "ok": true
+}

@@ -23,7 +23,7 @@ Samarth's progress is in `HANDOFF.md`. None of his code was changed. The only ed
 | A1 data | **PASSED** (`reports/A1.json`, `check_ada_report.py A1` = PASS) | 2,681,468 passages; then `select_questions.py` replaced the placeholder with the final set on Ada |
 | A3 dense | **PASSED** (`reports/A3.json`, checker PASS) | e5-base-v2 on an RTX 2080 Ti (gnode061), 2,936 s; recall@10 0.781, recall@100 0.941 on 1,000 questions; re-encode min cos 0.99997 |
 | A4 splade | **PASSED** (`reports/A4.json`, checker PASS) | 3,487 s on gnode061; 146.5 non-zeros per doc, 45.6 per query; recall@10 0.733, recall@100 0.927 |
-| P1 poison (new, mine) | QUEUED after A4 | `ada/run_make_poison.sh` (needs the dense index for the stealth cap) |
+| P1 poison (new, mine) | **PASSED** (`reports/poison_ada.json`, `reports/questions_ada.json`) | 3,000 main + 1,500 adaptive; main shard byte-identical to the local one; codeword / URL in 0 of 2.68M clean passages; stealth cap met for 428 / 500 (241 keyword-anchored, 259 title-only; mean cos 0.801 vs mean cap 0.823); targets equal the frozen file |
 | A6 / A5 / P2 | QUEUED (A6, A5) / to submit (P2, 5-job limit) | P2 = `ada/run_query_phrase.sh` |
 | A2 bm25 | **PASSED** (`reports/A2.json`, checker PASS, clean tree) | 2,681,468 docs, 1.0 GiB, built in 334 s on gnode004 (10 CPUs, 29 GB); recall@10 0.444, recall@100 0.744 on 1,000 questions (BEIR BM25 on NQ: 0.76) |
 
@@ -182,5 +182,5 @@ Ada: `bash ada/run_make_poison.sh` (P1) after A1 + A3, then A6, then A5, then th
 
 ## Open issues
 - Ada storage (above): waiting for home space; A2 / P1 / A6 not run yet.
-- Stealth similarity cap is only met for 23% of stealth passages locally; reported as is.
+- Stealth similarity cap: met for 428 / 500 stealth passages on Ada (e5-base), 113 / 500 locally (e5-small).
 - `configs/query_phrase_thresholds.json` currently holds local values; regenerate on Ada after A5.

@@ -1,0 +1,53 @@
+{
+  "job": "questions",
+  "env": "ada",
+  "time_utc": "2026-10-26T04:15:27+00:00",
+  "git_commit": "46ae747eb600407256b25f6040ff16ef86f1f049",
+  "questions_all_sha256": "86ff29150ca0f2274dd9892d23d1c8822cdc290011dcb026ff9674f6acf4cd1d",
+  "questions_sha256": "0365180a6070be2f17e5b555027535cbd0659b12d2f0a8c5f6d055d844590c0e",
+  "frozen_file": "configs/frozen/question_set.json",
+  "n_questions": 400,
+  "cells": {
+    "clean/A": 100,
+    "clean/B": 100,
+    "target/A": 100,
+    "target/B": 100
+  },
+  "by_cell_and_type": {
+    "clean/A/date": 6,
+    "clean/A/number": 5,
+    "clean/A/other": 32,
+    "clean/A/person": 34,
+    "clean/A/place": 11,
+    "clean/A/year": 12,
+    "clean/B/date": 6,
+    "clean/B/number": 5,
+    "clean/B/other": 32,
+    "clean/B/person": 34,
+    "clean/B/place": 11,
+    "clean/B/year": 12,
+    "target/A/date": 7,
+    "target/A/number": 5,
+    "target/A/other": 31,
+    "target/A/person": 34,
+    "target/A/place": 11,
+    "target/A/year": 12,
+    "target/B/date": 7,
+    "target/B/number": 5,
+    "target/B/other": 32,
+    "target/B/person": 33,
+    "target/B/place": 11,
+    "target/B/year": 12
+  },
+  "gold_ids": 512,
+  "gold_missing_in_corpus": 0,
+  "selection_stats": null,
+  "checks": {
+    "fold_balance": true,
+    "unique_qids": true,
+    "all_have_answers_and_gold": true,
+    "frozen_matches_questions_all": true,
+    "gold_in_corpus": true
+  },
+  "ok": true
+}
