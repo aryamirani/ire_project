@@ -1,6 +1,6 @@
 # HANDOFF -- Samarth's lane (indexes, retrievers, cache, generation, cluster + perplexity filters)
 
-Last updated: 2026-10-26 (Ada results checked, local data on the final question set, ready for integration)
+Last updated: 2026-10-29 (held-out phrasings written; steps 9-13 audited locally)
 
 ## Status board
 | Step | Title | Status | Date | Suggested message |
@@ -17,7 +17,7 @@ Last updated: 2026-10-26 (Ada results checked, local data on the final question 
 | 9 | Generation harness and cache | DONE-LOCAL (A7 not run yet; A9 ran the 3B model through it) | 2026-10-25 | `step 9: generation harness, text store and answer cache` (committed) |
 | 10 | Cluster filter | DONE-LOCAL (by Arya, reassigned with Samarth's agreement; see HANDOFF_ARYA.md) | 2026-10-26 | `step 10: cluster filter (taken over from Samarth, agreed)` (committed) |
 | 11 | Perplexity filter and score cache | DONE (by Arya, reassigned; A8 PASSED; see HANDOFF_ARYA.md) | 2026-10-26 | `step 11: perplexity filter, score cache and A8 calibration` (committed) |
-| 12 | Held-out phrasing tool | TOOLING DONE (by Arya); the phrasings themselves are still to be written by someone who has not seen the phrase list | 2026-10-26 | `step 12 tooling: held-out phrasing template and validator` (committed) |
+| 12 | Held-out phrasing tool | DONE-LOCAL (tooling by Arya; phrasings written blind on Samarth's side 2026-10-29; the shard is built and ingested on Ada by Arya: A6 / A5 / P2 re-run) | 2026-10-29 | `Held-out phrasings (written blind) for the step 12 test` |
 | 13 | End-to-end smoke test | DONE (by Arya, reassigned; A9 PASSED; see HANDOFF_ARYA.md) | 2026-10-26 | `step 13: end-to-end smoke test and candidate_pool stub` (committed) |
 
 Steps 10-13 were taken over by Arya on 2026-10-26 (agreed with Samarth); their logs are in HANDOFF_ARYA.md. Ada jobs
@@ -334,7 +334,7 @@ If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A7_generate_benchmark.
 - Generation batching: answers were identical batched vs one by one on 20/20 prompts locally, but batching moves
   first-token logits by up to 0.086 vs a smallest top-1/top-2 gap of 0.078, so a rare flip is possible; the
   generation cache is the record (decision on the batch size after A7, see open issues).
-- The held-out shard is not in the indexes / caches yet (open issues).
+- The held-out shard is written (`heldout/phrasings.jsonl`) but not in the Ada indexes / caches yet (open issues).
 
 **Measured numbers**
 - Recall@10 / Recall@100 on 1,000 questions, full corpus (Ada A2-A4): BM25 0.444 / 0.744 (BEIR: 0.76), dense
@@ -495,6 +495,42 @@ None to the data contracts. Layout notes (not contract changes):
 
 ## Step log
 (Newest first. Per step: what was built, files, how to run, verify results with actual numbers, open issues.)
+
+### 2026-10-29 -- Step 12: held-out phrasings written (blind)
+- `heldout/phrasings.jsonl`: the template filled with 10 hijack instructions (`{CW}` for the codeword; different
+  tone, claimed source, length and directness) and 5 fake fact passages (encyclopedia style, each containing its
+  `target_answer` verbatim). Written without opening `configs/frozen/injection_phrases.json`,
+  `src/ire/poison/templates.py` or the design section of `HANDOFF_ARYA.md`. They were not changed after the
+  overlap was shown (changing them would bias the held-out test).
+- `python scripts/validate_heldout.py --check-only` (env=local): `RESULT: OK`, 505 held-out poison passages
+  (500 hijack, 5 fact). Overlap with the frozen phrase list: 3/10 hijack phrasings caught (hijack_01, _07, _08),
+  0/5 fact passages.
+- The shard itself was NOT written locally (it would make the local indexes and caches stale; the local profile
+  does not need it). It is built on Ada by Arya: `python scripts/validate_heldout.py`, then A6 -> A5 -> P2.
+
+### 2026-10-27 -- Steps 9-13 audit on the local machine
+**Done**
+- Ran the Verify checks of steps 10-13 on Samarth's machine (env=local). Arya's tests cover every plan Verify
+  item of steps 10-12 (cluster: 5 near-duplicates flagged, 20 diverse passages nothing, a single member never;
+  perplexity: gibberish, too short, cache; held-out: template, empty slots rejected, fixture passes).
+- Fixed in the perplexity code (see "Interface changes", 2026-10-27): a local calibration overwrote the tracked
+  Ada thresholds; the filter accepted thresholds of another scorer; a cache-hit-only filter call loaded GPT-2; GPT-2
+  scoring ran out of CUDA memory on the 6 GB laptop (also next to the LLM in the smoke test).
+- New tests in `tests/test_perplexity.py`: cache hits load no model; thresholds from another scorer are refused.
+- HANDOFF: steps 10-13 entries in "What teammates can use"; stale lines fixed (A8/A9 rules exist, `stubs.py`
+  exists, the BM25 masking check ran in A6); open issue for Arya on `calibrate_query_phrase.py`.
+
+**Verify results (env=local)**
+- `pytest -q`: 402 passed.
+- New vs old GPT-2 scoring on 300 local passages: PD / PM differ by < 1e-6 (same batches) and < 1e-5 after a
+  forced out-of-memory retry; scorer namespace unchanged (`7248fb54...`), so A8's thresholds and score cache stay
+  valid.
+- `scripts/check_cluster.py` (local caches, no poison shards locally, so only the clean side): fraction of clean
+  questions with anything flagged / mean clean passages flagged / backfill: BM25 0.000 / 0.00 / 0.000, dense
+  0.005 / 0.03 / 0.000, SPLADE 0 / 0 / 0, RRF 0 / 0 / 0; 174 ms per question (mean, n = 800).
+- Not finished locally: `calibrate_perplexity.py`, `smoke_test.py` and `generate_benchmark.py`. The first run of
+  the generation benchmark hung (the laptop slept); the re-run of the first two was stopped because the machine
+  ran low on RAM. They passed on Ada (A8, A9); re-run them locally when the machine has free memory.
 
 ### 2026-10-26 -- After Arya's push: Ada results checked, fixes reviewed, local data on the final question set
 **Done**
@@ -1040,9 +1076,9 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
   runs out of memory, switch tokenisation to streaming (`Tokenizer.streaming_tokenize`) before re-running.
 - Resolved: the Ada dense index is exact Flat (see "Interface changes").
 - **Run order on Ada: A2, A3, A4 -> A6 (poison) -> A5 (caches).** A6 makes every cache stale.
-- **Held-out phrasings (plan 3.2) are not written yet** (TEAM_STATUS row 1): someone who has not seen the frozen
-  phrase list writes `heldout/phrasings.jsonl` (see `heldout/INSTRUCTIONS.md`); then Arya re-runs A6, A5 and P2.
-  The current Ada caches (A5) do not contain the held-out shard yet.
+- **Held-out phrasings are written** (`heldout/phrasings.jsonl`, 2026-10-29). **Next, Arya on Ada:**
+  `python scripts/validate_heldout.py` (writes `data/poison/poison_heldout.jsonl`, 505 passages), then re-run A6,
+  A5 and P2. Until then the Ada caches (A5) do not contain the held-out shard, and Vansh's sweeps must wait.
 - The step 0 commit (a49ead8) still carries a Co-Authored-By trailer from before the no-attribution rule; removing
   it would rewrite pushed history (force push over Arya's commits), so it is left as is unless the team agrees.
 - **Decision needed (Samarth / Vansh): generation batch size vs exact batch independence.** Locally (1.5B, fp16)

@@ -1,12 +1,12 @@
-# TEAM_STATUS -- who has done what, what is left, and in what order (updated 2026-10-26)
+# TEAM_STATUS -- who has done what, what is left, and in what order (updated 2026-10-29)
 
 **Reassignment (2026-10-26, agreed with Samarth by phone):** Arya took over Samarth's remaining steps 10
 (cluster filter), 11 (perplexity filter + A8), the step 12 *tooling* (template + validator) and 13 (smoke test +
 A9). The held-out phrasings themselves (step 12) stay open: they must be written by someone who has not seen the
 frozen phrase list (not Arya). Steps 0-9 are Samarth's work.
 
-**Arya's and Samarth's lanes are done** except the held-out phrasings and the re-run they trigger (rows 1 and 2
-below). Everything else that is left is Vansh's lane. Vansh: start from `VANSH_START.md`.
+**Arya's and Samarth's lanes are done.** The held-out phrasings were written by Samarth's side on 2026-10-29
+(row 1, DONE); what is left there is Arya's re-run they trigger (row 2). Everything else that is left is Vansh's lane. Vansh: start from `VANSH_START.md`.
 Details: Samarth's lane in `HANDOFF.md`, Arya's lane (and steps 10-13) in `HANDOFF_ARYA.md`. Plan dates: report
 write-up 26 Oct - 1 Nov, buffer 2-5 Nov, submission before 6 Nov.
 
@@ -34,8 +34,8 @@ Each row can start once the rows it depends on are done. Rows with the same numb
 
 | # | Task | Owner | Depends on | Notes |
 |---|---|---|---|---|
-| 1 | Held-out phrasings: fill `heldout/phrasings_template.jsonl` (10 hijack phrasings with `{CW}`, 5 fact passages) WITHOUT opening the phrase list or the attack templates; save as `heldout/phrasings.jsonl`; `python scripts/validate_heldout.py` | Samarth (or Vansh, if he has not seen the list) | -- | Small; do it first, because it changes the indexes (row 2). |
-| 2 | Re-run A6 (ingest the held-out shard), A5 (caches), P2 (query-phrase calibration) on gnode056 | Arya | row 1 | ~20 min of jobs. Caches built before this are stale for the sweeps. |
+| 1 | Held-out phrasings: fill `heldout/phrasings_template.jsonl` (10 hijack phrasings with `{CW}`, 5 fact passages) WITHOUT opening the phrase list or the attack templates; save as `heldout/phrasings.jsonl`; `python scripts/validate_heldout.py` | Samarth (or Vansh, if he has not seen the list) | -- | **DONE 2026-10-29** (`heldout/phrasings.jsonl`, written blind; `validate_heldout.py --check-only`: valid, 505 passages = 500 hijack + 5 fact; the frozen phrase rule catches 3/10 hijack phrasings, 0/5 fact). |
+| 2 | Re-run A6 (ingest the held-out shard), A5 (caches), P2 (query-phrase calibration) on gnode056 | Arya | row 1 (done) | **Next.** On Ada: `git pull`, `python scripts/validate_heldout.py` (writes `data/poison/poison_heldout.jsonl`; expect 505 passages, 3/10 caught), then A6 -> A5 -> P2. ~20 min of jobs. Caches built before this are stale for the sweeps. |
 | 1 | `candidate_pool` masking + `is_active` (rate r keeps `poison_<qid>_<attack>_1..r`; RRF: mask both lists, then `fuse`); replaces `src/ire/stubs.py` | **Vansh** | -- | Can start now on the current caches. |
 | 1 | Metrics: ASR (target string / codeword / URL domain), EM / F1, nDCG@5/@10, Recall@k, n_poison_top5, collateral poisoning, detection (ROC-AUC, TPR, FPR, gold dropped), backfill, latency / filter overhead | **Vansh** | -- | ASR strings: each record's `target_answer`. |
 | 1 | Random filter + oracle filter controls | **Vansh** | -- | Random drops the same number of passages as the detector (plan 4.4). |
