@@ -179,8 +179,8 @@ If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A7_generate_benchmark.
   Arya/Vansh: validate your files with e.g. `read_jsonl("poison_fact.jsonl", PoisonRecord)`; errors name the line.
 - `ire.utils.log.get_logger(name)` -- console + `$IRE_DATA_DIR/logs/<name>.log`, every line tagged `env=<IRE_ENV>`.
 - `python scripts/check_ada_report.py <A0..A9> [--file PATH] [--allow-local]` -- checks a returned Ada report
-  (looks in `reports/<job>.json`, then `$IRE_DATA_DIR/reports/<job>.json`). Exit 0 = PASS. Rules exist for A0-A7;
-  A8-A9 print NOT_IMPLEMENTED until their step adds the rules.
+  (looks in `reports/<job>.json`, then `$IRE_DATA_DIR/reports/<job>.json`). Exit 0 = PASS. Rules exist for A0-A9
+  (A8 and A9 added by Arya with steps 11 and 13).
 - `python scripts/prepare_data.py [--corpus-mode full|random] [--dev-subset] [--source hf|ukp] [--force]` -- builds
   `$IRE_DATA_DIR/data/{corpus,questions_all,questions}.jsonl` (step 2; details in the step log). Local files exist now:
   5,000 passages, 2,255 pool questions, the 400 final questions (Arya's frozen set).
@@ -266,6 +266,33 @@ If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A7_generate_benchmark.
   (retrieval sanity only; the project metrics stay with Vansh).
 - `questions.jsonl` is Arya's FINAL set (200 target + 200 clean, folds A/B 100 each): `prepare_data.py` builds it
   from `configs/frozen/question_set.json` (commit 56d807f) and the local corpus around its gold passages.
+- Steps 10-13 (built by Arya; audited and run locally by Samarth on 2026-10-27, see the step log):
+  - **Cluster filter** `ire.defenses.cluster.apply_filter(pool, qid, question, ctx) -> FilterResult`: k-means
+    (k = 2) over the top `cluster.top_n` pool passages' dense vectors (`ctx.vectors`); a cluster is flagged when
+    its mean pairwise cosine >= tau_c AND its mean pairwise ROUGE-L >= `cluster.rouge_l_min` (0.25); a single
+    passage is never flagged. tau_c = `ctx.thresholds["tau_c"]` if given (sweeps), else `cluster.tau_c` (0.85).
+  - `python scripts/check_cluster.py [--tau-c 0.85]` -- step 10 sanity check on the real caches (clean false
+    positives, poison detection per attack at rate 5, backfill, runtime) -> `reports/cluster_<env>.json`.
+  - **Perplexity filter** `ire.defenses.perplexity.apply_filter(...)`: flags a passage whose PD is outside the
+    clean band or whose PM is above the clean cutoff (`perplexity.rule`, default `either`); too-short passages are
+    never flagged. Alpha from `ctx.thresholds["alpha"]` (default `perplexity.alpha`, 0.025); the thresholds
+    table from `ctx.thresholds["table"]` or `configs/perplexity_thresholds.json`; it
+    refuses thresholds calibrated with another scorer namespace (GPT-2 revision / split rule). Scores come from the
+    SQLite score cache (`default_scores(cfg)`); GPT-2 is loaded only on a cache miss.
+  - `python scripts/calibrate_perplexity.py [--no-pools] [--write-config]` -- job A8 (thresholds, held-out check,
+    score cache for every pool passage). On Ada it writes the tracked `configs/perplexity_thresholds.json`;
+    elsewhere `$IRE_DATA_DIR/reports/perplexity_thresholds_<env>.json`, so a local run never overwrites the Ada
+    calibration (`--write-config` forces the tracked file).
+  - `python scripts/smoke_test.py [--n-questions 20] [--show 2]` -- job A9: 20 seeded questions (10 target + 10
+    clean) x 4 retrievers: cache -> `candidate_pool` stub -> the three filters -> first 5 unflagged -> generate.
+    Prints, per retriever, the shown questions with top-5 ids, flagged ids per filter and the answer, then the
+    per-filter flagged counts and mean ms per question; ends with `RESULT: OK`. Writes `A9.json` on Ada,
+    `A9_local.json` elsewhere (check with `check_ada_report.py A9 --file ... --allow-local`).
+  - Held-out phrasings: `python scripts/heldout_template.py` writes the empty template (never reads the phrase
+    list); after a blind writer fills `heldout/phrasings.jsonl`, `python scripts/validate_heldout.py
+    [--check-only]` validates it and writes `data/poison/poison_heldout.jsonl` (`heldout/INSTRUCTIONS.md`).
+  - `ire.stubs.candidate_pool(qid, retriever, attack, rate)` -- STUB (first pool_size cached ids, no masking);
+    Vansh's real version replaces it.
 
 ## Ready for integration (IMPLEMENTATION_PLAN.md section 4; 2026-10-26)
 
@@ -376,6 +403,19 @@ None to the data contracts. Layout notes (not contract changes):
 - (2026-10-26, Arya; reviewed) The FAISS index is loaded only when a search runs (`DenseRetriever.index`), so
   `get_doc_vector` (filters) does not hold the 8.2 GB Flat index in RAM; the LLM is loaded straight onto its
   device (`device_map`); model-cache lookups use the downloader's skip patterns (`MODEL_SKIP_PATTERNS`).
+- (2026-10-27, Samarth, audit of step 11) **Perplexity scorer / calibration**, no change to the score records,
+  the thresholds format or the scorer namespace (still `7248fb54...`, so A8's thresholds and score cache stay valid):
+  - `calibrate_perplexity.py` writes the tracked `configs/perplexity_thresholds.json` only on Ada (or with
+    `--write-config`); local runs write `$IRE_DATA_DIR/reports/perplexity_thresholds_<env>.json`. The report
+    names the file it wrote (`thresholds_file`).
+  - `perplexity.apply_filter` raises `ValueError` if the thresholds table's `namespace` differs from the scorer's.
+  - `PerplexityScorer.namespace()` no longer loads GPT-2 (revision lookup only): a filter call that is all
+    cache hits loads no model.
+  - GPT-2 scoring computes the loss row by row on views of the logits (the batched form copied the logits and
+    needed ~3x their size: CUDA out-of-memory on the 6 GB laptop, also next to the LLM in the smoke test), obeys
+    `compute.max_vram_gb`, and halves its token budget and retries on out-of-memory. Checked on 300 local
+    passages against the old code: PD / PM equal to < 1e-6 with the same batches, < 1e-5 after a forced
+    out-of-memory retry (smaller batches; float32 noise).
 - (Step 9) **Generation settings** (`generation:` in experiment.yaml, all part of the cache namespace):
   - Prompt = the plan's neutral prompt word for word, as the single user message of the chat template.
   - **System message: `model_default`** -- no system message is passed, so Qwen2.5's template adds its own
@@ -1022,16 +1062,19 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
   makes the caches stale, which is the safe behaviour but worth knowing.
 - Local GPU/CPU speed looks power-throttled (see step 4 log); plug in / use a performance power plan before
   timing-sensitive local runs (step 9 generation throughput).
-- The BM25 masking check (plan 2.1, "max rank difference on a 50-question check") is not run yet: it needs poison
-  shards. `score_docs` is ready for it.
+- Resolved: the BM25 masking check (plan 2.1) ran in A6 (max rank difference 32 on 50 questions).
 - Resolved: `questions.jsonl` is Arya's final set (local and Ada byte-identical, sha256 0365180a...).
 - Corpus mode `subset` (~500k gold + hard negatives) is a TODO that needs the retrievers (after step 5).
 - Answer coverage is 65.3% (2,255 of 3,452 BEIR test questions have an nq_open answer); the pool of 2,255 is far
   more than the 400 needed.
 - A 4 MiB partial `raw/beir/nq.zip.part` from the abandoned slow UKP download is still in `IRE_DATA_DIR`
   (kept so `--source ukp` can resume; Samarth can delete it).
-- `src/ire/stubs.py` (`candidate_pool` stub, section 2) is not created yet; it will be added when first needed
-  (step 13 at the latest).
+- Resolved: `src/ire/stubs.py` (`candidate_pool` stub) exists (Arya, step 13).
+- **For Arya: `scripts/calibrate_query_phrase.py` always writes the tracked `configs/query_phrase_thresholds.json`**
+  (also when run locally), so a local run replaces the Ada thresholds with local ones (`"env": "local"`). The
+  perplexity calibration had the same problem and now writes local thresholds to `$IRE_DATA_DIR/reports/` unless
+  `--write-config` (2026-10-27); the same change would fit the query-phrase script. Until then: do not commit
+  `configs/query_phrase_thresholds.json` after a local run (`git checkout -- configs/query_phrase_thresholds.json`).
 - **Model choices to confirm** (config values, easy to change before the Ada jobs run): Ada dense model
   `intfloat/e5-base-v2` (job A3) and Ada LLM `Qwen/Qwen2.5-3B-Instruct` (job A7; same family as the local stand-in).
 - Resolved: Arya filled in the SLURM settings in `ada/common.sh` and the Ada facts are in ADA_RUNBOOK.md.

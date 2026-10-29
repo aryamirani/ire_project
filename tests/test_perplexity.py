@@ -135,3 +135,32 @@ def test_batches_bounded_by_padded_tokens():
     assert sorted(i for b in batches for i in b) == list(range(len(lengths)))
     for b in batches:   # every batch fits, except a single sequence that is longer than the budget on its own
         assert len(b) == 1 or len(b) * (max(lengths[i] for i in b) + 1) <= 100
+
+
+@needs_gpt2
+def test_cache_hits_load_no_model(tmp_path):
+    """Step 11 verify: a lookup whose doc_ids are all cached does no model work at all (no weights loaded)."""
+    from ire.defenses.perplexity import PerplexityCache, PerplexityScorer, PerplexityScores
+
+    scorer = PerplexityScorer("openai-community/gpt2", device="cpu")
+    cache = PerplexityCache(tmp_path / "ppl.sqlite")
+    ns = scorer.namespace()
+    assert scorer._model is None and scorer.revision                      # namespace needs the revision only
+    rec = {"doc_id": "d1", "ppl_pre": 10.0, "ppl_post": 12.0, "pd": -0.1, "pm": 2.5, "nll_pre": 2.3,
+           "nll_post": 2.5, "n_tokens": 40, "too_short": False}
+    cache.put_many(ns, [rec])
+    got = PerplexityScores(scorer, cache).get(["d1"], {"d1": "unused text"})
+    assert got["d1"]["pm"] == 2.5 and scorer._model is None and scorer.n_scored == 0
+
+
+def test_filter_refuses_thresholds_from_another_scorer(tmp_path):
+    """Thresholds are percentiles of one scorer's PD / PM; a table calibrated for another namespace is refused."""
+    table = {"clean": rec("clean", 0.0, 3.5)}
+    scores = PerplexityScores(FakeScorer(table), PerplexityCache(tmp_path / "p.sqlite"))
+    th = {"namespace": "ns-other", "thresholds": {"0.025": {"pd_low": -1.0, "pd_high": 1.0, "pm_high": 5.0}}}
+    ctx = FilterContext(texts={"clean": "clean"}, vectors=None, config={"perplexity.rule": "either"},
+                        thresholds={"alpha": 0.025, "table": th, "scores": scores})
+    with pytest.raises(ValueError, match="re-run scripts/calibrate_perplexity.py"):
+        apply_filter(["clean"], "q", "x", ctx)
+    th["namespace"] = "ns-test"                                           # FakeScorer's namespace
+    assert apply_filter(["clean"], "q", "x", ctx).flagged == set()

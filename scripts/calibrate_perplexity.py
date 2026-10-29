@@ -7,7 +7,8 @@ Usage (repo root; needs corpus + poison shards; the pool cache step also needs c
 1. Seeded sample (seed from experiment.yaml) of 2 x perplexity.n_calibration (1,000) clean corpus passages:
    the first half calibrates, the second half is held out.
 2. Thresholds for every alpha in perplexity.alpha_sweep (PD band q(a/2)..q(1-a/2), PM cutoff q(1-a)) ->
-   configs/perplexity_thresholds.json.
+   configs/perplexity_thresholds.json on Ada; elsewhere $IRE_DATA_DIR/reports/perplexity_thresholds_<env>.json
+   (the tracked file keeps the Ada calibration) unless --write-config.
 3. Held-out flag rate per alpha for the pd rule, the pm rule and either (pd and pm should each be close to alpha).
 4. Sanity: a fluent passage vs the same passage with a gibberish second half (PD must drop sharply).
 5. Passage length in GPT-2 tokens (mean, median) and the fraction too_short (< perplexity.min_tokens).
@@ -58,6 +59,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--no-pools", action="store_true", help="skip the pool score cache (step 6) and step 7")
     ap.add_argument("--report", help="report name (default: A8 on Ada, A8_local otherwise)")
+    ap.add_argument("--write-config", action="store_true",
+                    help="off Ada: also overwrite the tracked configs/perplexity_thresholds.json (default: only on Ada)")
     args = ap.parse_args()
     t0 = time.time()
     cfg = load_config()
@@ -84,7 +87,11 @@ def main() -> int:
              "min_tokens": int(cfg["perplexity.min_tokens"]), "anchor_alpha": anchor, "rule": rule,
              "note": "PD = f(pre) - f(post), PM = max(f(pre), f(post)), f = mean NLL per GPT-2 token of each half",
              "thresholds": thresholds}
-    th_path = cfg.path("perplexity_thresholds")
+    # The tracked thresholds file holds the Ada calibration used for the results. Off Ada the table goes to the
+    # (untracked) reports folder unless --write-config is given, so a local check cannot replace the Ada values.
+    th_path = (cfg.path("perplexity_thresholds") if cfg.env == "ada" or args.write_config
+               else cfg.path("reports_dir") / f"perplexity_thresholds_{cfg.env}.json")
+    th_path.parent.mkdir(parents=True, exist_ok=True)
     th_path.write_text(json.dumps(table, indent=1) + "\n", encoding="utf-8", newline="\n")
     heldout = {alpha_key(a): {r: rate(held, thresholds[alpha_key(a)], r) for r in ("pd", "pm", "either")}
                for a in alphas}
@@ -134,7 +141,7 @@ def main() -> int:
     # passages, so both samples add variance, alpha (1 - alpha) (1 / n_cal + 1 / n_held)
     tol = 2.58 * (anchor * (1 - anchor) * (1 / max(len(cal), 1) + 1 / max(len(held), 1))) ** 0.5
     checks = {
-        "thresholds_written": th_path.is_file(),
+        "thresholds_written": th_path.is_file(), "thresholds_file": th_path.name,
         "heldout_pd_rate_close_to_alpha": abs(heldout[a]["pd"] - anchor) <= tol,
         "heldout_pm_rate_close_to_alpha": abs(heldout[a]["pm"] - anchor) <= tol,
         "gibberish_sanity": sanity["passed"],

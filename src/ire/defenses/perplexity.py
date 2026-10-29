@@ -44,18 +44,28 @@ class PerplexityScorer:
     """GPT-2 half-passage scorer. Loads the model lazily; counts how many passages it actually scored."""
 
     def __init__(self, model: str, device: str = "cuda", min_tokens: int = 20, batch_tokens: int = 8192,
-                 max_tokens: int = 1023) -> None:
-        self.model_name, self.device_req = model, device
+                 max_tokens: int = 1023, max_vram_gb: float | None = None) -> None:
+        self.model_name, self.device_req, self.max_vram_gb = model, device, max_vram_gb
         # batches are bounded by padded tokens, not passages: the [tokens x 50,257] logits dominate GPU memory
         # (32 long passages needed > 6 GiB on an 11 GB card); 8,192 tokens keep it near 1.6 GiB
         self.min_tokens, self.batch_tokens, self.max_tokens = min_tokens, batch_tokens, max_tokens
         self._model = self._tok = None
         self.revision: str | None = None
+        self._path: Path | None = None
         self.n_scored = 0
 
     @classmethod
     def from_config(cls, cfg: Any) -> PerplexityScorer:
-        return cls(cfg["models.perplexity"], device=cfg["compute.device"], min_tokens=int(cfg["perplexity.min_tokens"]))
+        return cls(cfg["models.perplexity"], device=cfg["compute.device"], min_tokens=int(cfg["perplexity.min_tokens"]),
+                   max_vram_gb=cfg.get("compute.max_vram_gb"))
+
+    def _resolve(self) -> Path:
+        """Local snapshot path and pinned revision, without loading any weights."""
+        if self.revision is None:
+            from ire.retrieval.common import resolve_model
+
+            self._path, self.revision = resolve_model(self.model_name)
+        return self._path
 
     def _load(self) -> None:
         if self._model is not None:
@@ -63,10 +73,11 @@ class PerplexityScorer:
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
-        from ire.retrieval.common import resolve_model, setup_device
+        from ire.retrieval.common import setup_device
 
-        path, self.revision = resolve_model(self.model_name)
-        self.device, _ = setup_device(self.device_req, False, None)   # float32: NLLs are compared across passages
+        path = self._resolve()
+        # float32: NLLs are compared across passages; the VRAM cap makes an overflow a clean OutOfMemoryError
+        self.device, _ = setup_device(self.device_req, False, self.max_vram_gb)
         self._tok = AutoTokenizer.from_pretrained(path)
         self._model = AutoModelForCausalLM.from_pretrained(path, dtype=torch.float32).to(self.device).eval()
         self.torch = torch
@@ -76,7 +87,7 @@ class PerplexityScorer:
         return self._tok
 
     def namespace(self) -> str:
-        self._load()
+        self._resolve()  # revision only: a lookup that is all cache hits loads no model
         spec = {"model": self.model_name, "revision": self.revision, "split": SPLIT_RULE,
                 "min_tokens": self.min_tokens, "max_tokens": self.max_tokens}
         return hashlib.sha1(json.dumps(spec, sort_keys=True).encode()).hexdigest()
@@ -102,25 +113,46 @@ class PerplexityScorer:
         lengths = [len(s) for s in seqs]
         order = sorted(range(len(seqs)), key=lambda i: lengths[i])
         res = [0.0] * len(seqs)
-        for idx in self._batches(order, lengths):
-            rows = [[eos] + seqs[i] for i in idx]
-            width = max(len(r) for r in rows)
-            ids = torch.full((len(rows), width), eos, dtype=torch.long)
-            mask = torch.zeros((len(rows), width), dtype=torch.long)
-            for j, r in enumerate(rows):
-                ids[j, : len(r)] = torch.tensor(r)
-                mask[j, : len(r)] = 1
-            ids, mask = ids.to(self.device), mask.to(self.device)
-            with torch.no_grad():
-                logits = self._model(input_ids=ids, attention_mask=mask).logits
-                nll = torch.nn.functional.cross_entropy(logits[:, :-1].reshape(-1, logits.shape[-1]).float(),
-                                                        ids[:, 1:].reshape(-1), reduction="none").view(len(rows), -1)
-                del logits
-            m = mask[:, 1:].float()
-            per = (nll * m).sum(1) / m.sum(1)
+        batches = self._batches(order, lengths)
+        k = 0
+        while k < len(batches):
+            idx = batches[k]
+            try:
+                per = self._batch_mean_nll([[eos] + seqs[i] for i in idx], eos)
+            except torch.cuda.OutOfMemoryError:
+                torch.cuda.empty_cache()
+                if len(idx) == 1:
+                    raise
+                # halve the budget and re-split the passages not scored yet (same order, smaller batches)
+                self.batch_tokens = max(1, self.batch_tokens // 2)
+                batches[k:] = self._batches([i for b in batches[k:] for i in b], lengths)
+                continue
             for j, i in enumerate(idx):
-                res[i] = float(per[j])
+                res[i] = per[j]
+            k += 1
         return res
+
+    def _batch_mean_nll(self, rows: list[list[int]], pad: int) -> list[float]:
+        """Mean NLL of each right-padded row. The loss is computed one row at a time on views of the logits: the
+        batched form (a reshape of a sliced tensor) copied the [tokens x 50,257] logits and needed ~3x their size,
+        which ran out of memory on a 6 GB card. Same per-position values and the same masked mean."""
+        torch = self.torch
+        width = max(len(r) for r in rows)
+        ids = torch.full((len(rows), width), pad, dtype=torch.long)
+        mask = torch.zeros((len(rows), width), dtype=torch.long)
+        for j, r in enumerate(rows):
+            ids[j, : len(r)] = torch.tensor(r)
+            mask[j, : len(r)] = 1
+        ids, mask = ids.to(self.device), mask.to(self.device)
+        with torch.no_grad():
+            logits = self._model(input_ids=ids, attention_mask=mask).logits
+            nll = torch.empty((len(rows), width - 1), dtype=torch.float32, device=self.device)
+            for j in range(len(rows)):
+                nll[j] = torch.nn.functional.cross_entropy(logits[j, :-1].float(), ids[j, 1:], reduction="none")
+            del logits
+        m = mask[:, 1:].float()
+        per = (nll * m).sum(1) / m.sum(1)
+        return [float(x) for x in per]
 
     def score_texts(self, items: Sequence[tuple[str, str]]) -> list[dict[str, Any]]:
         """[(doc_id, text)] -> score records (see the module docstring)."""
@@ -266,6 +298,10 @@ def _setup(ctx: FilterContext) -> tuple[dict[str, float], str, Any]:
     th = table["thresholds"][alpha_key(alpha)]
     rule = str(_cfg(ctx, "perplexity.rule", "either"))
     scores = ctx.thresholds.get("scores") or default_scores(ctx.config)
+    if table.get("namespace") and table["namespace"] != scores.scorer.namespace():
+        # thresholds are percentiles of THIS scorer's PD / PM; another GPT-2 revision or split rule needs new ones
+        raise ValueError(f"perplexity thresholds were calibrated for scorer namespace {table['namespace']}, the "
+                         f"scorer is {scores.scorer.namespace()}: re-run scripts/calibrate_perplexity.py")
     return th, rule, scores
 
 
