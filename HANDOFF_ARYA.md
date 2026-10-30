@@ -81,7 +81,7 @@ Samarth's progress is in `HANDOFF.md`. Edits to files that already existed befor
 |---|---|---|
 | 10 cluster filter | `src/ire/defenses/cluster.py`, `tests/test_cluster.py`, `scripts/check_cluster.py` | DONE-LOCAL; runs inside A9 on Ada |
 | 11 perplexity filter + score cache | `src/ire/defenses/perplexity.py`, `tests/test_perplexity.py`, `scripts/calibrate_perplexity.py`, `ada/run_ppl.sh`, `configs/perplexity_thresholds.json` (Ada values) | DONE (A8 PASSED) |
-| 12 held-out tooling | `src/ire/poison/heldout.py`, `scripts/heldout_template.py`, `scripts/validate_heldout.py`, `heldout/phrasings_template.jsonl` | tooling DONE; phrasings NOT written (must be someone who has not seen the phrase list) |
+| 12 held-out tooling | `src/ire/poison/heldout.py`, `scripts/heldout_template.py`, `scripts/validate_heldout.py`, `heldout/phrasings_template.jsonl` | DONE: phrasings written blind by Samarth's side (`heldout/phrasings.jsonl`, 2026-10-29), ingested by A6 on 2026-10-30 |
 | 13 smoke test | `scripts/smoke_test.py`, `src/ire/stubs.py` (candidate_pool stub), `ada/run_smoke.sh` | DONE (A9 PASSED) |
 
 - **Cluster filter** (plan 4.2): k-means k=2 (seeded) on the dense vectors of the top-20 pool passages; a cluster
@@ -104,6 +104,15 @@ Samarth's progress is in `HANDOFF.md`. Edits to files that already existed befor
 - Code changes made on the way (all small, in Samarth's files, listed for his review): FAISS index loaded only when
   a search runs (`DenseRetriever.index`), LLM loaded straight onto the GPU (`device_map`), plus the three fixes
   above (prepare_data / dense batching / model-cache lookups).
+
+- **Held-out re-run, 2026-10-30** (A6 48840 -> A5 48841 -> P2 48842, all PASS): `validate_heldout.py` wrote
+  505 passages (500 hijack + 5 fact; the frozen phrase rule catches 3/10 phrasings). Held-out reach: top-10 BM25
+  0.0317, dense 0.1089, SPLADE 0.1743; top-150 1.0 / 0.9109 / 1.0. Query-and-phrase at rate 5 on held-out: TPR
+  bm25 0.4706, dense 0.4886, splade 0.44, rrf 0.4351 (clean FPR 0.029-0.033); cutoffs unchanged.
+  The first A6 attempt (48705) failed `dense_masking_exact` (48/50 identical, one near-tie swap in 2 questions,
+  rel. score diff 5.8e-7): the saved clean reference `masking_reference_dense.json` dated from 2026-10-26, before
+  dense search went one query per call (273e784), so it was built with batched search. It was moved aside to
+  `masking_reference_dense.batched-20261026.json` (kept, not deleted) and A6 rebuilt it: now 50/50, diff 0.0.
 
 ## Requests to Samarth
 Status (Samarth, 2026-10-26): 1 is done by commit 56d807f (prepare_data builds the final questions and the local

@@ -20,8 +20,8 @@
     "rrf_row_length_ok": true,
     "rrf_spot_check": true
   },
-  "git_commit": "6ddefa31d5f30f26f9efd0733ab274cf2da9a4f6",
-  "timestamp_utc": "2026-10-26T04:33:02+00:00",
+  "git_commit": "aceb5500847ea2b368472423e865114f4dff11bc",
+  "timestamp_utc": "2026-10-30T15:37:37+00:00",
   "questions": {
     "path": "data/questions.jsonl",
     "n": 400
@@ -34,7 +34,7 @@
   "retrievers": {
     "bm25": {
       "built_now": true,
-      "build_time_s": 4.02,
+      "build_time_s": 24.29,
       "resumed_from_question": 0,
       "rows": 400,
       "n_questions": 400,
@@ -56,11 +56,11 @@
         "passed": true
       },
       "fingerprint_matches_index": true,
-      "index_n_poison": 4500,
+      "index_n_poison": 5005,
       "unmasked_reference": false,
-      "file_bytes": 2162341,
-      "file_mib": 2.062,
-      "load_time_s": 0.296,
+      "file_bytes": 2171224,
+      "file_mib": 2.071,
+      "load_time_s": 0.283,
       "key": {
         "retriever": "bm25",
         "cache_version": 1,
@@ -72,6 +72,10 @@
             {
               "name": "poison_adaptive.jsonl",
               "sha256": "8d12d06d3bf6b85efaca35b60b134053a339f899fc34bd40b0bd6c852d1d574e"
+            },
+            {
+              "name": "poison_heldout.jsonl",
+              "sha256": "5bf5433b256ba692c7dd5ef8ae32f195f307e57cd2ff5aa49f432f1f5a0b65e2"
             },
             {
               "name": "poison_main.jsonl",
@@ -93,7 +97,7 @@
     },
     "dense": {
       "built_now": true,
-      "build_time_s": 156.1,
+      "build_time_s": 178.38,
       "resumed_from_question": 0,
       "rows": 400,
       "n_questions": 400,
@@ -115,11 +119,11 @@
         "passed": true
       },
       "fingerprint_matches_index": true,
-      "index_n_poison": 4500,
+      "index_n_poison": 5005,
       "unmasked_reference": false,
-      "file_bytes": 2187491,
-      "file_mib": 2.086,
-      "load_time_s": 0.208,
+      "file_bytes": 2194517,
+      "file_mib": 2.093,
+      "load_time_s": 0.209,
       "key": {
         "retriever": "dense",
         "cache_version": 1,
@@ -131,6 +135,10 @@
             {
               "name": "poison_adaptive.jsonl",
               "sha256": "8d12d06d3bf6b85efaca35b60b134053a339f899fc34bd40b0bd6c852d1d574e"
+            },
+            {
+              "name": "poison_heldout.jsonl",
+              "sha256": "5bf5433b256ba692c7dd5ef8ae32f195f307e57cd2ff5aa49f432f1f5a0b65e2"
             },
             {
               "name": "poison_main.jsonl",
@@ -155,7 +163,7 @@
     },
     "splade": {
       "built_now": true,
-      "build_time_s": 25.31,
+      "build_time_s": 25.72,
       "resumed_from_question": 0,
       "rows": 400,
       "n_questions": 400,
@@ -177,11 +185,11 @@
         "passed": true
       },
       "fingerprint_matches_index": true,
-      "index_n_poison": 4500,
+      "index_n_poison": 5005,
       "unmasked_reference": false,
-      "file_bytes": 2178192,
-      "file_mib": 2.077,
-      "load_time_s": 0.212,
+      "file_bytes": 2186172,
+      "file_mib": 2.085,
+      "load_time_s": 0.208,
       "key": {
         "retriever": "splade",
         "cache_version": 1,
@@ -193,6 +201,10 @@
             {
               "name": "poison_adaptive.jsonl",
               "sha256": "8d12d06d3bf6b85efaca35b60b134053a339f899fc34bd40b0bd6c852d1d574e"
+            },
+            {
+              "name": "poison_heldout.jsonl",
+              "sha256": "5bf5433b256ba692c7dd5ef8ae32f195f307e57cd2ff5aa49f432f1f5a0b65e2"
             },
             {
               "name": "poison_main.jsonl",
@@ -212,7 +224,7 @@
     },
     "rrf": {
       "built_now": true,
-      "build_time_s": 0.36,
+      "build_time_s": 0.34,
       "resumed_from_question": 0,
       "rows": 400,
       "n_questions": 400,
@@ -235,13 +247,13 @@
       },
       "fingerprint_matches_index": true,
       "index_n_poison": {
-        "bm25": 4500,
-        "dense": 4500
+        "bm25": 5005,
+        "dense": 5005
       },
       "unmasked_reference": true,
-      "file_bytes": 2279030,
-      "file_mib": 2.173,
-      "load_time_s": 0.205,
+      "file_bytes": 2287904,
+      "file_mib": 2.182,
+      "load_time_s": 0.204,
       "key": {
         "retriever": "rrf",
         "cache_version": 1,
@@ -258,6 +270,10 @@
                 {
                   "name": "poison_adaptive.jsonl",
                   "sha256": "8d12d06d3bf6b85efaca35b60b134053a339f899fc34bd40b0bd6c852d1d574e"
+                },
+                {
+                  "name": "poison_heldout.jsonl",
+                  "sha256": "5bf5433b256ba692c7dd5ef8ae32f195f307e57cd2ff5aa49f432f1f5a0b65e2"
                 },
                 {
                   "name": "poison_main.jsonl",
@@ -289,6 +305,10 @@
                   "sha256": "8d12d06d3bf6b85efaca35b60b134053a339f899fc34bd40b0bd6c852d1d574e"
                 },
                 {
+                  "name": "poison_heldout.jsonl",
+                  "sha256": "5bf5433b256ba692c7dd5ef8ae32f195f307e57cd2ff5aa49f432f1f5a0b65e2"
+                },
+                {
                   "name": "poison_main.jsonl",
                   "sha256": "d7249afffe9f5c2f4f564edce344f35281715d74541d2000b3fb9088506fde10"
                 }
@@ -316,7 +336,7 @@
       }
     }
   },
-  "total_load_time_s": 0.818,
+  "total_load_time_s": 0.809,
   "libraries": {
     "python": "3.13.17",
     "platform": "Linux-5.15.0-194-generic-x86_64-with-glibc2.35",
@@ -327,6 +347,6 @@
     "torch": "2.6.0+cu124",
     "transformers": "5.19.0"
   },
-  "runtime_s": 211.5,
-  "rerun": "python scripts/build_cache.py --retriever all --report A5 --batch-size 1 --force"
+  "runtime_s": 249.3,
+  "rerun": "python scripts/build_cache.py --retriever all --report A5"
 }

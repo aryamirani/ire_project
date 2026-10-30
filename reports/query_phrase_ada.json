@@ -1,8 +1,8 @@
 {
   "job": "query_phrase",
   "env": "ada",
-  "time_utc": "2026-10-26T04:37:00+00:00",
-  "git_commit": "6ddefa31d5f30f26f9efd0733ab274cf2da9a4f6-dirty",
+  "time_utc": "2026-10-30T15:42:01+00:00",
+  "git_commit": "aceb5500847ea2b368472423e865114f4dff11bc",
   "thresholds_file": "configs/query_phrase_thresholds.json",
   "cutoffs": {
     "bm25": {
@@ -122,7 +122,7 @@
   },
   "phrase_rule": {
     "patterns": 24,
-    "clean_pool_passages": 21037,
+    "clean_pool_passages": 21038,
     "clean_pool_fpr": 0.00109,
     "corpus_sample": 20000,
     "corpus_sample_fpr": 0.0013,
@@ -159,8 +159,8 @@
       },
       "rrf": {
         "questions_with_poison_in_pool": 101,
-        "poison_in_pools": 368,
-        "tpr": 0.5054,
+        "poison_in_pools": 369,
+        "tpr": 0.5041,
         "fpr_clean": 0.0318
       }
     },
@@ -187,7 +187,33 @@
         "questions_with_poison_in_pool": 200,
         "poison_in_pools": 1017,
         "tpr": 0.5624,
+        "fpr_clean": 0.0323
+      }
+    },
+    "heldout": {
+      "bm25": {
+        "questions_with_poison_in_pool": 106,
+        "poison_in_pools": 510,
+        "tpr": 0.4706,
+        "fpr_clean": 0.0294
+      },
+      "dense": {
+        "questions_with_poison_in_pool": 105,
+        "poison_in_pools": 438,
+        "tpr": 0.4886,
         "fpr_clean": 0.0324
+      },
+      "splade": {
+        "questions_with_poison_in_pool": 105,
+        "poison_in_pools": 500,
+        "tpr": 0.44,
+        "fpr_clean": 0.0333
+      },
+      "rrf": {
+        "questions_with_poison_in_pool": 106,
+        "poison_in_pools": 501,
+        "tpr": 0.4351,
+        "fpr_clean": 0.0325
       }
     },
     "hijack": {
@@ -239,7 +265,7 @@
         "questions_with_poison_in_pool": 101,
         "poison_in_pools": 504,
         "tpr": 0.3254,
-        "fpr_clean": 0.0326
+        "fpr_clean": 0.0323
       }
     },
     "stealth": {
@@ -265,7 +291,7 @@
         "questions_with_poison_in_pool": 77,
         "poison_in_pools": 255,
         "tpr": 0.0039,
-        "fpr_clean": 0.0309
+        "fpr_clean": 0.0306
       }
     },
     "url": {
@@ -289,11 +315,11 @@
       },
       "rrf": {
         "questions_with_poison_in_pool": 200,
-        "poison_in_pools": 1005,
-        "tpr": 0.8388,
+        "poison_in_pools": 1004,
+        "tpr": 0.8396,
         "fpr_clean": 0.0325
       }
     }
   },
-  "runtime_s": 232.0
+  "runtime_s": 258.3
 }
