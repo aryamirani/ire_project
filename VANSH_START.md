@@ -8,15 +8,15 @@ The order across the team is in `TEAM_STATUS.md`; this file is only what you nee
 | What | Where | Notes |
 |---|---|---|
 | Final 400 questions | `data/questions.jsonl` (`QuestionRecord`: qid, question, answers, gold_doc_ids, role, fold) | 200 target + 200 clean, folds A/B with 100 + 100 each. Answer types per qid in `configs/frozen/question_set.json`. |
-| Poison shards | `data/poison/poison_main.jsonl` (fact, hijack, url) and `poison_adaptive.jsonl` (diverse, repeat, stealth) | `PoisonRecord`; doc_id `poison_<qid>_<attack>_<n>`, n = 1..5. Only target questions are poisoned. Held-out shard (Samarth) still to come. |
+| Poison shards | `data/poison/poison_main.jsonl` (fact, hijack, url) and `poison_adaptive.jsonl` (diverse, repeat, stealth) | `PoisonRecord`; doc_id `poison_<qid>_<attack>_<n>`, n = 1..5. Only target questions are poisoned. Held-out shard `poison_heldout.jsonl` (attack `heldout`, 505 passages, written blind) is ingested too (A6 re-run 2026-10-30). |
 | ASR target strings | each record's `target_answer`; per qid in `configs/frozen/poison_targets.json` | fact / diverse / repeat: a false answer; hijack / stealth: codeword `ZOLTRAX`; url: domain `answer-archive.example`. |
 | Top-150 caches over the poisoned indexes | `caches/ada/top150_{bm25,dense,splade,rrf}.jsonl` | Built on the final questions, after poison ingestion (A5 passed). The `rrf` file is an unmasked reference only (see section 3). |
 | Text of any doc_id | `ire.data.textstore.TextStore.open_for(cfg)` | Read-only mapping doc_id -> "title text"; use as `FilterContext(texts=...)`. |
 | Dense vectors | `ire.vectors.default_vectors()` | `get_doc_vector`, `get_query_vector`; use as `FilterContext(vectors=...)`. |
 | Query-and-phrase filter (Arya) | `ire.defenses.query_phrase` | Ready; thresholds calibrated on Ada in `configs/query_phrase_thresholds.json`. |
-| Cluster / perplexity filters (Samarth) | `ire.defenses.cluster`, `ire.defenses.perplexity` | **Not written yet** (steps 10-11). Build your runner against the filter API below and plug them in when they land. |
+| Cluster / perplexity filters (Samarth) | `ire.defenses.cluster`, `ire.defenses.perplexity` | Ready (steps 10-11, done by Arya); perplexity thresholds from A8 in `configs/perplexity_thresholds.json`. |
 | Generation | `ire.generation.llm.Generator.from_config(cfg)` | `generate(qid, question, top5_ids)` / `generate_batch([(qid, question, top5_ids), ...])` -> `{"answer", "cached"}`; answers cached in `caches/generation.sqlite`. |
-| Report checker | `python scripts/check_ada_report.py A7 --file ...` | Rules exist for A0-A7. |
+| Report checker | `python scripts/check_ada_report.py A7 --file ...` | Rules exist for A0-A9. |
 
 ## 2. Getting a working setup
 **On your laptop (develop and test here first; local numbers are for correctness only):**
@@ -49,7 +49,7 @@ deadlock otherwise). After this you have the same file layout as Ada, just small
   reads caches must run there.
 
 ## 3. Your first task: `candidate_pool` (plan section 2.3)
-Contract (IMPLEMENTATION_PLAN.md section 2): `candidate_pool(qid, retriever, attack, rate, cache, pool_size=50)`
+Contract (docs/IMPLEMENTATION_PLAN.md section 2): `candidate_pool(qid, retriever, attack, rate, cache, pool_size=50)`
 -> ranked list of doc_ids after masking. Suggested home: `src/ire/retrieval/pool.py` (plan layout: retrieval/).
 ```python
 from ire.retrieval.cache import load_cache
@@ -67,7 +67,7 @@ def masked(row, attack, rate):
 ```
 - `attack=None` (no-poison setting) masks every poison passage.
 - **RRF**: mask the bm25 and dense lists first, then `fuse(bm25_masked, dense_masked, k=cfg["rrf.k"],
-  depth=cfg["rrf.depth"])`. Never mask the cached `top150_rrf.jsonl` (HANDOFF.md, step 6 explains why).
+  depth=cfg["rrf.depth"])`. Never mask the cached `top150_rrf.jsonl` (docs/HANDOFF.md, step 6 explains why).
 - BM25 masking is not exactly a separate index; A6 measured it: mean rank shift 0.40, top-5 unchanged for
   96% of questions (`reports/A6.json`). Report this in the paper.
 - Should poison of OTHER target questions stay active in a setting? With `is_active` as above it does (same
@@ -99,7 +99,7 @@ latency / filter overhead.
 ## 6. Ada jobs that are yours
 | Job | When | Command (inside the sbatch / pinned_node pattern above) | Check |
 |---|---|---|---|
-| A7 LLM benchmark | now | `ada/run_generate_benchmark.sh` | `check_ada_report.py A7`; then decide the generation batch size (HANDOFF.md "Decision needed") |
+| A7 LLM benchmark | now | `ada/run_generate_benchmark.sh` | `check_ada_report.py A7`; then decide the generation batch size (docs/HANDOFF.md "Decision needed") |
 | A8 perplexity scores | after Samarth's step 11 | `ada/run_ppl.sh` (Samarth writes it) | `check_ada_report.py A8` |
 | Pilot (500 requests) | after your runner + A7 | your runner | throughput, cache hit rate, failure modes (plan 6.1) |
 | Sweeps | after the pilot and after the held-out shard is ingested | your runner | |

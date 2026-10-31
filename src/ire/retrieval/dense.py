@@ -350,7 +350,7 @@ def ingest_poison(index_dir: Path, corpus_path: Path, encoder: Encoder, settings
 
 
 class DenseRetriever:
-    """Search a dense index and serve stored vectors (implements the VectorAPI of IMPLEMENTATION_PLAN.md s.2).
+    """Search a dense index and serve stored vectors (implements the VectorAPI of docs/IMPLEMENTATION_PLAN.md s.2).
 
     The encoder is only loaded when queries have to be encoded (search / get_query_vector), and the FAISS index
     only when a search runs: the vector API (get_doc_vector) reads the memory-mapped vectors alone, so filters

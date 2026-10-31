@@ -1,16 +1,16 @@
-# IMPLEMENTATION_PLAN.md -- Samarth's lane
+# docs/IMPLEMENTATION_PLAN.md -- Samarth's lane
 
-Design source of truth: `docs/IRE_Final_Project_Plan.pdf`. This file says *what to build, in what order, and how to check it*. Progress is recorded in `HANDOFF.md`.
+Design source of truth: `docs/IRE_Final_Project_Plan.pdf`. This file says *what to build, in what order, and how to check it*. Progress is recorded in `docs/HANDOFF.md`.
 
 ## 0. How to work (read first)
 
 For every step:
-1. Set the step to IN PROGRESS in `HANDOFF.md`.
+1. Set the step to IN PROGRESS in `docs/HANDOFF.md`.
 2. Implement it (small, readable modules; type hints; docstrings stating inputs/outputs).
 3. Run every check under **Verify** on the local profile. Paste real outputs (numbers, counts, timings) into the HANDOFF step log, labelled `env=local`.
 4. If a check fails: fix and re-run. If stuck after a reasonable attempt: mark BLOCKED with the exact error and stop.
 5. Add or update a test in `tests/` for the step (pytest). `pytest -q` must pass before marking DONE.
-6. Set the step to DONE-LOCAL (never DONE; see section 0.5), raise the Ada request if the step has one (section 5), and update `HANDOFF.md`: status board row, "What teammates can use right now", step log, open issues.
+6. Set the step to DONE-LOCAL (never DONE; see section 0.5), raise the Ada request if the step has one (section 5), and update `docs/HANDOFF.md`: status board row, "What teammates can use right now", step log, open issues.
 7. Do not commit; leave changes uncommitted and tell the user which files changed and a suggested commit message (`step N: <title>`). The user commits and pushes. Then start the next step.
 
 Rules: no fake data in verify checks (small real subsets are fine; label them as subsets). Develop and test on the **local profile** (section 0.5) first. The 'dev subset' mentioned in step texts means the local profile on Samarth's machine, and a larger sample (1,000 questions + 50,000 passages) on Ada. Anything large is an **[ADA]** job run by a teammate (section 5), never run locally.
@@ -20,7 +20,7 @@ Rules: no fake data in verify checks (small real subsets are fine; label them as
 Samarth has **no Ada access**. Arya and Vansh do. So the work runs in two places:
 
 - **[LOCAL]** (Samarth's machine, CPU or a free Colab/Kaggle GPU): write all code, unit tests, and verify everything on a **tiny dev subset** with **small stand-in models**. Nothing here needs Ada.
-- **[ADA]** (a teammate with Ada access): run the heavy jobs on the full or large data with the real models, using the job scripts in `ada/` and the steps in `ADA_RUNBOOK.md`.
+- **[ADA]** (a teammate with Ada access): run the heavy jobs on the full or large data with the real models, using the job scripts in `ada/` and the steps in `docs/ADA_RUNBOOK.md`.
 
 Rules that follow from this:
 1. Code is written once and runs in both places. The only differences live in two config files: `configs/env_local.yaml` and `configs/env_ada.yaml`, selected with `IRE_ENV=local|ada`. No code branches on the environment except through config.
@@ -30,7 +30,7 @@ Rules that follow from this:
    - **DONE-LOCAL**: code written, tests pass, Verify checks pass on the local profile.
    - **DONE**: DONE-LOCAL plus the matching Ada job ran and its report passes the Ada checks.
    Claude Code may only set DONE-LOCAL by itself. DONE needs a pasted Ada report (see section 5).
-5. Never block on Ada. When a step is DONE-LOCAL, immediately create the Ada request (section 5), record it in `HANDOFF.md` under "Ada requests", and continue with the next step. Steps that need real Ada output as input (nothing in steps 0-13 does, because each step can be tested locally) are marked `needs-ada-output`.
+5. Never block on Ada. When a step is DONE-LOCAL, immediately create the Ada request (section 5), record it in `docs/HANDOFF.md` under "Ada requests", and continue with the next step. Steps that need real Ada output as input (nothing in steps 0-13 does, because each step can be tested locally) are marked `needs-ada-output`.
 6. Every Ada job script must be: idempotent and resumable, write to `$IRE_DATA_DIR`, write a small JSON `reports/<job>.json` (counts, timings, metrics, git commit, env, GPU, library versions), and print the exact command to re-run. Teammates should only have to run one command and send back the report file.
 7. Write teammates' instructions so a non-expert can follow them: exact commands, expected runtime, expected output files, and what "success" looks like.
 
@@ -68,8 +68,8 @@ def apply_filter(pool: list[str], qid: str, question: str, ctx: FilterContext) -
 ### Step 0 -- Repo skeleton and environment
 Build (tags: [LOCAL] + creates the `ada/` and `configs/env_*.yaml` scaffolding):
 - `configs/env_local.yaml` and `configs/env_ada.yaml` with the profiles from section 0.5; `IRE_ENV` selects one.
-- `ada/` directory with `setup_env.sh` (conda/venv creation, pinned installs, model pre-download to `$IRE_DATA_DIR/models`, Java check if pyserini is used) and `common.sh` (sources `.env`, activates the environment, prints GPU info). Add `ada/README.md` pointing to `ADA_RUNBOOK.md`.
-- `ADA_RUNBOOK.md` already exists in the repo; keep it in sync with the job scripts.
+- `ada/` directory with `setup_env.sh` (conda/venv creation, pinned installs, model pre-download to `$IRE_DATA_DIR/models`, Java check if pyserini is used) and `common.sh` (sources `.env`, activates the environment, prints GPU info). Add `ada/README.md` pointing to `docs/ADA_RUNBOOK.md`.
+- `docs/ADA_RUNBOOK.md` already exists in the repo; keep it in sync with the job scripts.
 - Layout: `src/ire/{config,data,retrieval,vectors,generation,defenses,utils}/`, `defenses/cluster.py`, `defenses/perplexity.py`, `scripts/`, `tests/`, `configs/`, `docs/`, `data/` (gitignored), `.env.example`, `requirements.txt` (pinned), `pyproject.toml`, `.gitignore` (data, indexes, caches, `.env`, `__pycache__`).
 - Put `IRE_Final_Project_Plan.pdf` into `docs/` if missing.
 - `scripts/check_env.py` printing: Python version, torch version, CUDA availability and GPU name/memory, free disk under `$IRE_DATA_DIR`, and whether pyserini/Java, transformers, sentence-transformers, faiss are importable.
@@ -196,7 +196,7 @@ Write a final HANDOFF section "Ready for integration" listing: commands to rebui
 
 ## 5. Ada requests (what teammates run)
 
-After each step reaches DONE-LOCAL, Claude Code does three things: (a) makes sure the job script exists in `ada/`, (b) appends an entry to `ADA_RUNBOOK.md` if it is new, (c) adds a row to "Ada requests" in `HANDOFF.md` with status REQUESTED and the named owner.
+After each step reaches DONE-LOCAL, Claude Code does three things: (a) makes sure the job script exists in `ada/`, (b) appends an entry to `docs/ADA_RUNBOOK.md` if it is new, (c) adds a row to "Ada requests" in `docs/HANDOFF.md` with status REQUESTED and the named owner.
 
 | Job | After step | Script | What it produces | Suggested owner | Rough size |
 |---|---|---|---|---|---|
@@ -222,7 +222,7 @@ Each script prints a one-line summary and writes `$IRE_DATA_DIR/reports/<job>.js
 - A8: flag rate on 1,000 held-out clean passages close to alpha; cache size; fraction of passages marked too_short.
 - A9: all four retrievers and both filters run end to end on 20 questions.
 
-**Request message template** (Claude Code writes this into `HANDOFF.md` and `ADA_RUNBOOK.md` for each job):
+**Request message template** (Claude Code writes this into `docs/HANDOFF.md` and `docs/ADA_RUNBOOK.md` for each job):
 ```
 ADA REQUEST <job>
 Owner: <name>          Needs: <earlier jobs done>
@@ -234,4 +234,4 @@ If it fails: send the last 50 lines of the log and the report file if one exists
 ```
 
 ## 6. Working without waiting
-Order of work for Samarth: finish DONE-LOCAL for steps 0-13 in sequence, raising Ada requests as soon as each step is ready. The Ada owners run jobs in parallel as they arrive. If an Ada result contradicts a local result (for example recall much lower than expected), mark that step REOPENED in `HANDOFF.md` with the evidence and fix it before continuing.
+Order of work for Samarth: finish DONE-LOCAL for steps 0-13 in sequence, raising Ada requests as soon as each step is ready. The Ada owners run jobs in parallel as they arrive. If an Ada result contradicts a local result (for example recall much lower than expected), mark that step REOPENED in `docs/HANDOFF.md` with the evidence and fix it before continuing.

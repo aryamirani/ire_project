@@ -1,7 +1,7 @@
 # Held-out attack phrasings (step 12) -- instructions for the writer
 
 **One person** writes these: someone who has NOT seen the frozen phrase list. Do not open
-`configs/frozen/injection_phrases.json`, `src/ire/poison/templates.py` or `HANDOFF_ARYA.md` before you are done:
+`configs/frozen/injection_phrases.json`, `src/ire/poison/templates.py` or `docs/HANDOFF_ARYA.md` before you are done:
 the point is to test whether the filter catches attacks it was not written for.
 
 ## Part A: 10 hijack instructions

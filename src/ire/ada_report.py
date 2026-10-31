@@ -1,4 +1,4 @@
-"""Acceptance checks for Ada job reports (IMPLEMENTATION_PLAN.md section 5).
+"""Acceptance checks for Ada job reports (docs/IMPLEMENTATION_PLAN.md section 5).
 
 `check_report(job, report)` runs the rules for one job on a parsed `reports/<job>.json` and returns a
 ReportResult. A step may go from DONE-LOCAL to DONE only when the result status is PASS.

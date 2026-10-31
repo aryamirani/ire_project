@@ -194,7 +194,7 @@ class Generator:
     # ---------------------------------------------------------------- cached API (section 2)
 
     def generate(self, qid: str, question: str, top5_doc_ids: Sequence[str]) -> dict[str, Any]:
-        """{"answer": str, "cached": bool} as in IMPLEMENTATION_PLAN.md section 2."""
+        """{"answer": str, "cached": bool} as in docs/IMPLEMENTATION_PLAN.md section 2."""
         return self.generate_batch([(qid, question, top5_doc_ids)])[0]
 
     def generate_batch(self, items: Sequence[tuple[str, str, Sequence[str]]], batch_size: int | None = None,

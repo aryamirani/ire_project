@@ -1,12 +1,12 @@
 # HANDOFF -- Arya's lane (question set, phrase list, poison, query-and-phrase filter; Ada jobs A0 / A1 / A2 / A6)
 
 Last updated: 2026-10-31. Design source: `docs/IRE_Final_Project_Plan.pdf` sections 3.1, 3.2, 4.1 and 9.
-Samarth's progress is in `HANDOFF.md`. Edits to files that already existed before this lane:
+Samarth's progress is in `docs/HANDOFF.md`. Edits to files that already existed before this lane:
 - `ada/common.sh`: the SLURM values (he asked the first teammate on Ada to fill them in) and a storage note;
 - new sections appended to `configs/experiment.yaml` (`poison:`, `query_phrase:`) and one new key in
   `configs/paths.yaml` (`query_phrase_thresholds`);
 - small fixes in Samarth's code found while running Ada (commits 56d807f, 273e784, 78cbd66, 0214e48, 872c238),
-  reviewed and kept by Samarth (see "Steps 10-13" below and `HANDOFF.md`, "Interface changes");
+  reviewed and kept by Samarth (see "Steps 10-13" below and `docs/HANDOFF.md`, "Interface changes");
 - steps 10-13, taken over with Samarth's agreement (section "Steps 10-13").
 
 ## Status board
@@ -32,49 +32,19 @@ Samarth's progress is in `HANDOFF.md`. Edits to files that already existed befor
 | P2 query-phrase calibration | **DONE** (`reports/query_phrase_ada.json`, `configs/query_phrase_thresholds.json` = Ada values) | e5-base-v2, 232 s. Anchor cutoffs (tail 2.5%): 0.870-0.878 for every retriever and fold. Cross-fold flag rate on clean pools 1.8-3.7% (target 2.5%; 100 clean questions per fold, so some fold-to-fold variation). Phrase-rule FPR: 0.0011 on 21,037 clean pool passages, 0.0013 on 20,000 random corpus passages. Detection sanity at rate 5 (TPR, BM25 / dense / SPLADE / RRF): url 0.85 / 0.84 / 0.84 / 0.84, hijack 0.79 / 0.77 / 0.78 / 0.77, fact 0.62 / 0.57 / 0.58 / 0.56, diverse 0.61 / 0.51 / 0.54 / 0.51, repeat 0.39 / 0.35 / 0.34 / 0.33, stealth 0.01 / 0.01 / 0.00 / 0.00; clean-passage FPR 0.030-0.036. NOTE: pinned_node.sh does not copy repo files back, so the thresholds file was taken from `~/ire_node/configs/`. |
 | A2 bm25 | **PASSED** (`reports/A2.json`, checker PASS, clean tree) | 2,681,468 docs, 1.0 GiB, built in 334 s on gnode004 (10 CPUs, 29 GB); recall@10 0.444, recall@100 0.744 on 1,000 questions (BEIR BM25 on NQ: 0.76) |
 
-### Ada facts found on 2026-10-26 (Samarth: please fold these into ADA_RUNBOOK.md)
-- **QOS `low` (our student account): max 10 CPUs, 1 GPU, 32 GB RAM per user.** `--mem=48G` (A2-A6 in the
-  runbook) is rejected with `QOSMaxMemoryPerUser`; use `--mem=32G`. Partition `u22`; `-A research` is rejected on
-  `u22-cpu`, so `ADA_ACCOUNT` is left empty.
-- **`/share1/<user>` is NOT mounted on compute nodes** (login node only) and has a 25 GB / **3,000-file** quota.
-  A conda env cannot live there (file limit). Compute nodes see home (`/home2/<user>`, 50 GB) and node-local
-  `/scratch` (~1.7 TB) / `/ssd_scratch` (~480 GB), which are not shared between nodes.
-- Arya's setup: environment in home via `IRE_ENV_DIR=/home2/arya.mirani/ire_env` in `.env` (common.sh honours it);
-  `PIP_NO_CACHE_DIR=1`. Data currently on `/share1` (only usable from the login node, e.g. A1).
-  Arya's old course folders are being copied to her laptop, verified (file count + checksums) and removed from
-  Ada to free ~37 GB of home. `IRE_DATA_DIR` and `HF_HOME` now point to `/home2/arya.mirani/ire_data_dir`, so all
-  jobs (Arya's and Vansh's, run from the same account) share one data folder visible on every node.
-- **How the jobs run now (all from Arya's account, one node):** every index job is submitted with
-  `sbatch -p u22 -w gnode056 [--gres=gpu:1] -c 10 --mem=29G --wrap "bash $HOME/ire_project/ada/pinned_node.sh ada/<job>.sh"`.
-  `pinned_node.sh` keeps `IRE_DATA_DIR` on that node's `/scratch/arya.mirani/ire_data_dir` (all indexes), stages
-  data + models in from home and copies reports / logs / caches / poison back to `/home2/arya.mirani/ire_data_dir`.
-  A symlinked `indexes/` folder does not work: `build_index.py` calls `index_dir.relative_to(data_dir)` on the
-  resolved path. If gnode056's `/scratch` is ever wiped, the indexes must be rebuilt (A2-A4, A6).
-- **Pinned node moved gnode061 -> gnode056 (2026-10-26)**: gnode061's 4 GPUs were taken by other users (estimated
-  start 5+ h later). The 19 GB of indexes were copied in two rounds through home with CPU-only jobs and verified
-  file by file with sha256 on gnode056 (`/home2/arya.mirani/ire_migrate/{out,in}.sh`). gnode061's `/scratch`
-  still holds the old copy (a backup until it is wiped). To move again: the same two scripts, or rebuild (A2-A4, A6,
-  A5: about 2.5 h of jobs).
-- **Before submitting, check what the node has free** (GPUs alone are not enough; other users' CPU-only jobs can
-  take the CPUs): `scontrol show node gnode056 | grep -E "CfgTRES|AllocTRES"`. Size the job to fit: GPT-2 / small
-  jobs run with `-c 2 --mem=5G`; anything that loads the dense index (8.2 GB in RAM) plus an LLM needs
-  `-c 8 --mem=23G` or more (memory is tied to CPUs at ~3 GB each).
-- GPUs on `u22`: 44 nodes have RTX 2080 Ti (feature `2080ti`), the rest are older (gnode004: GTX 1080 Ti, whose
-  fp16 is slow: A3 there was on track for ~10 h vs ~1 h on a 2080 Ti). Pin to a 2080 Ti node.
-- **QOS also limits a user to 5 queued + running jobs** (`QOSMaxSubmitJobPerUserLimit`).
+### Ada notes
+General Ada facts (limits, storage, pinned node, what to check before submitting) are in `docs/ADA_RUNBOOK.md`,
+"How jobs run on Ada". Three things that are only recorded here:
+- **Pinned node moved gnode061 -> gnode056 (2026-10-26)**: gnode061's GPUs were taken by other users. The 19 GB of
+  indexes were copied in two rounds through home with CPU-only jobs and verified file by file with sha256
+  (`/home2/arya.mirani/ire_migrate/{out,in}.sh`). To move again: the same two scripts, or rebuild (A2-A4, A6, A5:
+  about 2.5 h of jobs).
 - Model snapshots: `download_models.py` skips ONNX / TF / Flax files, and with huggingface_hub 1.33
   `snapshot_download(local_files_only=True)` then raises `IncompleteSnapshotError`, so `resolve_model` re-downloads
-  the full repo at job time (compute nodes have internet, so it works, but it costs disk) and `check_env.py`
-  reports those models as NOT CACHED. Samarth: consider `snapshot_download(..., ignore_patterns=SKIP_PATTERNS,
-  local_files_only=True)` in both places.
-- Memory per job: `--mem=32G` is 32,768 MB > the 32,000 MB cap; and memory is tied to CPUs (~3 GB per CPU), so
-  `--mem=31G -c 10` is bumped to 11 CPUs and blocked. **Use `-c 10 --mem=29G`.**
-- **With torch 2.6 + transformers 5.19, `import transformers` fails on a node without a GPU**
-  (`RuntimeError: Cannot access accelerator device when none is available`, from `torch.accelerator`). So
-  `check_env.py` reports sentence-transformers as NOT IMPORTABLE on the login node. BM25 (A2) and prepare_data
-  (A1) do not import transformers and are fine; anything that loads a model must run in a GPU job.
-- macOS (Arya's laptop, local profile): faiss + torch in one process can deadlock (two OpenMP runtimes);
-  run local scripts with `OMP_NUM_THREADS=1 KMP_DUPLICATE_LIB_OK=TRUE`.
+  the full repo at job time and `check_env.py` reports those models as NOT CACHED. Possible fix:
+  `snapshot_download(..., ignore_patterns=SKIP_PATTERNS, local_files_only=True)` in both places.
+- macOS (local profile): faiss + torch in one process can deadlock (two OpenMP runtimes); run local scripts and
+  pytest with `OMP_NUM_THREADS=1 KMP_DUPLICATE_LIB_OK=TRUE`.
 
 ## Steps 10-13 (Samarth's, taken over by Arya on 2026-10-26 with his agreement)
 | Step | Files | Status |
@@ -118,7 +88,7 @@ Samarth's progress is in `HANDOFF.md`. Edits to files that already existed befor
 Status (Samarth, 2026-10-26): 1 is done by commit 56d807f (prepare_data builds the final questions and the local
 corpus around them; re-run locally, questions.jsonl is byte-identical to Ada's); 2 is done (local indexes and
 caches rebuilt on the final set); 3 waits for the held-out phrasings. The Ada facts below are now in
-ADA_RUNBOOK.md ("How jobs run on Ada"), and the fixes in Samarth's files are reviewed and kept.
+docs/ADA_RUNBOOK.md ("How jobs run on Ada"), and the fixes in Samarth's files are reviewed and kept.
 1. `scripts/prepare_data.py --force` would overwrite `questions.jsonl` with the placeholder again. Please make
    it build `questions.jsonl` from `configs/frozen/question_set.json` when that file exists (or call
    `ire.data.question_set.build_questions`), and the local random corpus around those questions (what

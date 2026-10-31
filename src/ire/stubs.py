@@ -1,4 +1,4 @@
-"""Stand-ins for teammates' contracts (IMPLEMENTATION_PLAN.md section 2) until their versions are merged.
+"""Stand-ins for teammates' contracts (docs/IMPLEMENTATION_PLAN.md section 2) until their versions are merged.
 
 candidate_pool: Vansh's masking (plan section 2.3). This STUB returns the first pool_size cached ids WITHOUT
 masking, as the plan specifies for the smoke test. Vansh's real version masks inactive poison (rate r keeps

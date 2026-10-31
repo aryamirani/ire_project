@@ -15,12 +15,12 @@ Last updated: 2026-10-29 (held-out phrasings written; steps 9-13 audited locally
 | 7 | Top-150 cache builder | DONE (A5 PASS) | 2026-10-25 | `step 7: top-150 cache builder with fingerprinted sidecars` (committed) |
 | 8 | Poison ingestion hook (index poison shards) | DONE (A6 PASS) | 2026-10-25 | `step 8: poison ingestion hook with masking-equivalence check` (committed) |
 | 9 | Generation harness and cache | DONE-LOCAL (A7 not run yet; A9 ran the 3B model through it) | 2026-10-25 | `step 9: generation harness, text store and answer cache` (committed) |
-| 10 | Cluster filter | DONE-LOCAL (by Arya, reassigned with Samarth's agreement; see HANDOFF_ARYA.md) | 2026-10-26 | `step 10: cluster filter (taken over from Samarth, agreed)` (committed) |
-| 11 | Perplexity filter and score cache | DONE (by Arya, reassigned; A8 PASSED; see HANDOFF_ARYA.md) | 2026-10-26 | `step 11: perplexity filter, score cache and A8 calibration` (committed) |
+| 10 | Cluster filter | DONE-LOCAL (by Arya, reassigned with Samarth's agreement; see docs/HANDOFF_ARYA.md) | 2026-10-26 | `step 10: cluster filter (taken over from Samarth, agreed)` (committed) |
+| 11 | Perplexity filter and score cache | DONE (by Arya, reassigned; A8 PASSED; see docs/HANDOFF_ARYA.md) | 2026-10-26 | `step 11: perplexity filter, score cache and A8 calibration` (committed) |
 | 12 | Held-out phrasing tool | DONE (tooling by Arya; phrasings written blind on Samarth's side 2026-10-29; shard of 505 passages ingested on Ada 2026-10-30: A6 / A5 PASS, P2 done) | 2026-10-29 | `Held-out phrasings (written blind) for the step 12 test` |
-| 13 | End-to-end smoke test | DONE (by Arya, reassigned; A9 PASSED; see HANDOFF_ARYA.md) | 2026-10-26 | `step 13: end-to-end smoke test and candidate_pool stub` (committed) |
+| 13 | End-to-end smoke test | DONE (by Arya, reassigned; A9 PASSED; see docs/HANDOFF_ARYA.md) | 2026-10-26 | `step 13: end-to-end smoke test and candidate_pool stub` (committed) |
 
-Steps 10-13 were taken over by Arya on 2026-10-26 (agreed with Samarth); their logs are in HANDOFF_ARYA.md. Ada jobs
+Steps 10-13 were taken over by Arya on 2026-10-26 (agreed with Samarth); their logs are in docs/HANDOFF_ARYA.md. Ada jobs
 A0-A6 and A8-A9 PASSED: every report in `reports/` was re-checked by Samarth with `scripts/check_ada_report.py`
 on 2026-10-26 (all PASS; A1 and A8 only warn that the Ada checkout had uncommitted changes). A step is DONE when
 its Ada report passes; steps 1 and 6 have no Ada job of their own.
@@ -41,126 +41,8 @@ Status values: TODO, IN PROGRESS, DONE-LOCAL (passes on tiny local profile), DON
 | A8 perplexity | 11 | Vansh (run by Arya with step 11) | `bash ada/run_ppl.sh` (via ada/pinned_node.sh) | PASSED | `reports/A8.json` |
 | A9 smoke | 13 | Arya/Vansh (run by Arya) | `bash ada/run_smoke.sh` (via ada/pinned_node.sh) | PASSED | `reports/A9.json` |
 
-Teammates: the full instructions for each job are in `ADA_RUNBOOK.md`; **for any re-run use its section "How jobs run
-on Ada"** (pinned node gnode056 through `ada/pinned_node.sh`, `-c 10 --mem=29G`). The request blocks below are the
-original requests; their RAM lines are updated to what Ada's QOS allows.
-
-```
-ADA REQUEST A0
-Owner: whoever starts first (Arya or Vansh)          Needs: nothing
-Run:   git pull && bash ada/setup_env.sh                    (on the LOGIN node: it needs internet)
-       then, inside a GPU session:  bash ada/setup_env.sh --check-only
-Time:  10-30 min (estimate)      Disk: ~15 GB under $IRE_DATA_DIR (estimate: environment ~6 GB + models ~8 GB)
-Success looks like: the check_env output ends with a RESULT line saying OK and lists a GPU, and the script prints "SUMMARY A0: OK".
-Send back: $IRE_DATA_DIR/reports/A0.json (paste it in the team chat or commit it to reports/)
-If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A0_setup.log and the report file if one exists.
-```
-
-```
-ADA REQUEST A1
-Owner: Arya          Needs: A0 done (environment exists)
-Run:   git pull && bash ada/run_prepare_data.sh               (on the LOGIN node: it downloads ~735 MB)
-Time:  10-30 min (estimate: download at a few MB/s + two passes over 2.68M passages)
-Disk:  ~3 GB under $IRE_DATA_DIR (estimate: raw parquet 0.75 GB + corpus.jsonl ~1.5-2 GB)
-Success looks like: the output ends with "RESULT: OK" and "SUMMARY A1: OK", with corpus passages ~2.68M,
-       200 target + 200 clean (100 per role and fold) and every check PASS.
-Send back: $IRE_DATA_DIR/reports/A1.json (paste it in the team chat or commit it to reports/)
-           and commit reports/data_card_ada.json (counts, sizes, sources; no absolute paths in it).
-If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A1_prepare_data.log and the report file if one exists.
-```
-
-```
-ADA REQUEST A2
-Owner: Arya          Needs: A1 done (data/corpus.jsonl and questions exist)
-Run:   git pull && bash ada/run_index.sh bm25        (in a CPU job or interactive session; no GPU, no internet)
-Time:  15-45 min (estimate: tokenising + indexing 2.68M passages, then ~1,400 test searches)
-Disk:  ~1.5-3 GB under $IRE_DATA_DIR/indexes/ada/bm25 (estimate)   RAM: 29 GB (the QOS maximum)
-Success looks like: "RESULT: OK" and "SUMMARY A2: OK"; the report shows ~2.68M docs, Recall@10/@100 on
-       1,000 questions, and the unique-token passage at rank 1.
-Send back: $IRE_DATA_DIR/reports/A2.json (paste it in the team chat or commit it to reports/)
-If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A2_bm25.log and the report file if one exists.
-```
-
-```
-ADA REQUEST A3
-Owner: Vansh          Needs: A0 (environment + intfloat/e5-base-v2 downloaded) and A1 (data/corpus.jsonl)
-Run:   git pull && bash ada/run_index.sh dense        (in a GPU job; no internet needed)
-Time:  1-2 h (estimate: encoding 2.68M passages with e5-base-v2 on one GPU; the exact Flat index adds minutes)
-Disk:  ~13 GB under $IRE_DATA_DIR/indexes/ada/dense (estimate: float16 vectors 2.68M x 768 x 2 B = 4.1 GB +
-       Flat index in float32 2.68M x 768 x 4 B = 8.2 GB)
-RAM:   29 GB (QOS maximum; peak ~12-16 GB = 8.2 GB Flat index + ~1.5 GB passage texts + model/overhead)
-Success looks like: "RESULT: OK" and "SUMMARY A3: OK"; the report shows ~2.68M docs, Recall@10/@100 on 1,000
-       questions (next to BM25's on the same questions), stored-vs-re-encoded cosine > 0.999 and norms 1 +/- 1e-3.
-Send back: $IRE_DATA_DIR/reports/A3.json (paste it in the team chat or commit it to reports/)
-If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A3_dense.log and the report file if one exists.
-If the job is killed (time limit), submit the same command again: encoding resumes from the last checkpoint.
-```
-
-```
-ADA REQUEST A4
-Owner: Vansh          Needs: A0 (environment + SPLADE model downloaded) and A1 (data/corpus.jsonl)
-Run:   git pull && bash ada/run_index.sh splade       (in a GPU job; no internet needed)
-Time:  1-3 h (estimate: SPLADE encoding of 2.68M passages; 260 passages/s on Samarth's throttled 6 GB laptop
-       GPU, so a cluster GPU should be several times faster)
-Disk:  ~6 GB final + ~3 GB temporary checkpoint files while building, under $IRE_DATA_DIR/indexes/ada/splade
-       (estimate scaled from the local index: 147.8 non-zeros per passage -> ~396M non-zeros; 8 bytes each,
-       stored twice: document matrix + inverted index)
-RAM:   29 GB (QOS maximum; peak ~12-16 GB while the two matrices are assembled)
-VRAM:  ~1.2 GB at batch 64 locally (fp16); the batch halves itself on out-of-memory
-Success looks like: "RESULT: OK" and "SUMMARY A4: OK"; the report shows ~2.68M docs, non-zeros per document
-       and per query, Recall@10/@100 on 1,000 questions (next to BM25 and dense if their indexes exist), the
-       exactness check and self-retrieval at rank 1.
-Send back: $IRE_DATA_DIR/reports/A4.json (paste it in the team chat or commit it to reports/)
-If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A4_splade.log and the report file if one exists.
-If the job is killed (time limit), submit the same command again: encoding resumes from the last checkpoint.
-```
-
-```
-ADA REQUEST A5
-Owner: Vansh          Needs: A2, A3, A4, and A6 (poison ingested) and Arya's final questions.jsonl
-Run:   git pull && bash ada/run_cache.sh all            (in a GPU job; no internet needed)
-Time:  10-30 min (estimate: 400 questions x 3 retrievers over 2.68M passages, exact search, + spot checks)
-Disk:  ~10 MB under $IRE_DATA_DIR/caches/ada (about 2 MB per retriever for 400 questions, measured locally)
-RAM:   29 GB (QOS maximum; the exact dense Flat index alone is ~8.2 GB; SPLADE and BM25 are memory-mapped)
-Success looks like: "RESULT: OK" and "SUMMARY A5: OK"; 400 rows per retriever, dense rows exactly 150, every
-       spot check 20/20, and NO "index contains poison documents" warning from check_ada_report.py.
-Send back: $IRE_DATA_DIR/reports/A5.json (paste it in the team chat or commit it to reports/)
-If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A5_cache.log and the report file if one exists.
-IMPORTANT: a cache built before A6 (poison in the indexes) or before Arya's final question set is only a
-timing test and must be rebuilt. The loader refuses such a cache automatically once the index fingerprint or
-the questions file changes (StaleCacheError), so a stale cache cannot be used by mistake.
-```
-
-```
-ADA REQUEST A6
-Owner: Arya          Needs: A2, A3, A4 (the three indexes) and Arya's real poison shards, including the adaptive
-                     shard, as poison_*.jsonl in $IRE_DATA_DIR/data/poison/ (and her final questions.jsonl)
-Run:   git pull && bash ada/run_index_poison.sh        (in a GPU job; no internet needed)
-Time:  30-90 min (estimate: BM25 is rebuilt with the shards; dense/SPLADE copy their clean rows and encode only
-       the poison passages; 400 questions are searched before and after on each index)
-Disk:  free space of about the largest index while it is swapped (~13 GB for dense); indexes grow by the poison
-RAM:   29 GB (QOS maximum)          Order: A5 (caches) must run AFTER A6.
-Success looks like: "RESULT: OK" and "SUMMARY A6: OK"; dense and SPLADE masking exactly equivalent, BM25 rank
-       differences reported, and poison in its target's top-10 for at least one retriever.
-Send back: $IRE_DATA_DIR/reports/A6.json (paste it in the team chat or commit it to reports/)
-If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A6_index_poison.log and the report file if one exists.
-```
-
-```
-ADA REQUEST A7
-Owner: Vansh          Needs: A0 (environment + Qwen/Qwen2.5-3B-Instruct downloaded) and A1 (data)
-FIRST: confirm the Ada GPU fits the 3B model in fp16: about 7 GB of weights (2 bytes x ~3.1B parameters) plus a
-       few GB for batches; check `nvidia-smi` in your GPU session (16 GB or more is comfortable).
-Run:   git pull && bash ada/run_generate_benchmark.sh   (in a GPU job; no internet needed)
-Time:  15-30 min (estimate: model load, ~100 generations for the tests, 24 prompts x 4 batch sizes)
-Disk:  the document text store $IRE_DATA_DIR/data/text_store.sqlite (~2 GB for 2.68M passages, built on first
-       use, reused afterwards) + a temporary cache that is deleted at the end
-Success looks like: "RESULT: OK" and "SUMMARY A7: OK"; throughput in requests/min for batch sizes 1, 8, 16, 32,
-       the projected hours for 60,000 and 30,000 requests, cache hit + greedy determinism 20/20, the batch
-       independence counts, and a smoke EM/F1 on 50 clean questions.
-Send back: $IRE_DATA_DIR/reports/A7.json (paste it in the team chat or commit it to reports/)
-If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A7_generate_benchmark.log and the report file if one exists.
-```
+Full instructions for every job, including the original request blocks, are in `docs/ADA_RUNBOOK.md`; for any
+re-run use its section "How jobs run on Ada" (pinned node gnode056 through `ada/pinned_node.sh`, `-c 10 --mem=29G`).
 
 ## What teammates can use right now
 - `python scripts/check_env.py [--report JOB]` -- prints Python/torch/CUDA/GPU, free disk under `$IRE_DATA_DIR`, library
@@ -294,9 +176,9 @@ If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A7_generate_benchmark.
   - `ire.stubs.candidate_pool(qid, retriever, attack, rate)` -- STUB (first pool_size cached ids, no masking);
     Vansh's real version replaces it.
 
-## Ready for integration (IMPLEMENTATION_PLAN.md section 4; 2026-10-26)
+## Ready for integration (docs/IMPLEMENTATION_PLAN.md section 4; 2026-10-26)
 
-**Rebuild each cache** (Ada: through `ada/pinned_node.sh` on gnode056, see ADA_RUNBOOK.md):
+**Rebuild each cache** (Ada: through `ada/pinned_node.sh` on gnode056, see docs/ADA_RUNBOOK.md):
 | What | Command | Ada job |
 |---|---|---|
 | data (corpus, questions_all, final questions) | `python scripts/prepare_data.py` | A1 |
@@ -364,7 +246,7 @@ If it fails: send the last 50 lines of $IRE_DATA_DIR/logs/A7_generate_benchmark.
 | A9 smoke | PASSED | Arya / Vansh | Arya |
 
 ## Interface changes
-(Anything that differs from the contracts in IMPLEMENTATION_PLAN.md section 2. Empty = none.)
+(Anything that differs from the contracts in docs/IMPLEMENTATION_PLAN.md section 2. Empty = none.)
 
 None to the data contracts. Layout notes (not contract changes):
 - `src/ire/config/` and `src/ire/vectors/` are packages (the plan's layout lists them as folders). Step 1's
@@ -500,7 +382,7 @@ None to the data contracts. Layout notes (not contract changes):
 - `heldout/phrasings.jsonl`: the template filled with 10 hijack instructions (`{CW}` for the codeword; different
   tone, claimed source, length and directness) and 5 fake fact passages (encyclopedia style, each containing its
   `target_answer` verbatim). Written without opening `configs/frozen/injection_phrases.json`,
-  `src/ire/poison/templates.py` or the design section of `HANDOFF_ARYA.md`. They were not changed after the
+  `src/ire/poison/templates.py` or the design section of `docs/HANDOFF_ARYA.md`. They were not changed after the
   overlap was shown (changing them would bias the held-out test).
 - `python scripts/validate_heldout.py --check-only` (env=local): `RESULT: OK`, 505 held-out poison passages
   (500 hijack, 5 fact). Overlap with the frozen phrase list: 3/10 hijack phrasings caught (hijack_01, _07, _08),
@@ -539,7 +421,7 @@ None to the data contracts. Layout notes (not contract changes):
   7, 8 set to DONE; the Ada table and the "Ready for integration" section updated.
 - Reviewed Arya's fixes in this lane (commits 273e784, 0214e48, 872c238, 78cbd66, 56d807f): all correct, kept
   (see "Interface changes").
-- ADA_RUNBOOK.md: new section "How jobs run on Ada" with Arya's findings (QOS limits, `-c 10 --mem=29G`, 2080 Ti,
+- docs/ADA_RUNBOOK.md: new section "How jobs run on Ada" with Arya's findings (QOS limits, `-c 10 --mem=29G`, 2080 Ti,
   storage, pinned node gnode056 via `ada/pinned_node.sh`, no transformers without a GPU); every job block's
   submit command updated (no more `--mem=48G`, which the QOS rejects).
 - Local data rebuilt on Arya's final question set (`python scripts/prepare_data.py --skip-download`, then
@@ -998,7 +880,7 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
   commit; warnings for a dirty tree or Python other than 3.13). A1-A9 are stubs that state their acceptance check
   and the step that will implement it. Only `env=ada` reports can PASS; `--allow-local` gives `LOCAL_DRY_RUN`.
 - Tests: `tests/test_config.py`, `tests/test_schemas.py`, `tests/test_ada_report.py`, `tests/test_log.py`.
-- Process: CLAUDE.md and IMPLEMENTATION_PLAN.md section 0 now say "do not commit"; `.claude/settings.json` turns
+- Process: CLAUDE.md and docs/IMPLEMENTATION_PLAN.md section 0 now say "do not commit"; `.claude/settings.json` turns
   off commit/PR attribution.
 
 **How to run (PowerShell, repo root)**
@@ -1040,7 +922,7 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
   `defenses/cluster.py` and `defenses/perplexity.py` (docstrings only; implemented in steps 10-11).
 - `scripts/check_env.py`, `scripts/download_models.py`.
 - `ada/common.sh` (loads `.env`, activates env, GPU info, SLURM settings in one place), `ada/setup_env.sh`
-  (job A0), `ada/README.md`; A0 block added to `ADA_RUNBOOK.md`.
+  (job A0), `ada/README.md`; A0 block added to `docs/ADA_RUNBOOK.md`.
 - `requirements.txt` (pinned direct deps, Python 3.13; torch 2.6.0 installed from the cu124 index),
   `requirements-lock.txt` (full `pip freeze`), `pyproject.toml` (src layout, pytest config).
 - `tests/test_skeleton.py` (7 tests).
@@ -1113,6 +995,6 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
   `configs/query_phrase_thresholds.json` after a local run (`git checkout -- configs/query_phrase_thresholds.json`).
 - **Model choices to confirm** (config values, easy to change before the Ada jobs run): Ada dense model
   `intfloat/e5-base-v2` (job A3) and Ada LLM `Qwen/Qwen2.5-3B-Instruct` (job A7; same family as the local stand-in).
-- Resolved: Arya filled in the SLURM settings in `ada/common.sh` and the Ada facts are in ADA_RUNBOOK.md.
+- Resolved: Arya filled in the SLURM settings in `ada/common.sh` and the Ada facts are in docs/ADA_RUNBOOK.md.
 - `.gitattributes` sends `*.npy` to LFS while `.gitignore` ignores `*.npy`. Harmless (ignored files are never
   tracked), but if a `.npy` ever needs to be shared, remove it from `.gitignore` deliberately.

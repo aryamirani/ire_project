@@ -19,7 +19,7 @@ from typing import Any
 
 
 def cache_key(qid: str, top5_ids: Sequence[str]) -> str:
-    """sha1(qid + "|" + "|".join(top5_ids)) as in IMPLEMENTATION_PLAN.md step 9."""
+    """sha1(qid + "|" + "|".join(top5_ids)) as in docs/IMPLEMENTATION_PLAN.md step 9."""
     return hashlib.sha1((qid + "|" + "|".join(top5_ids)).encode("utf-8")).hexdigest()
 
 

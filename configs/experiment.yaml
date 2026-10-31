@@ -9,7 +9,7 @@ questions:
   n_clean: 200
   folds: [A, B]
 
-dev_subset:                # scripts/prepare_data.py --dev-subset (IMPLEMENTATION_PLAN.md section 0)
+dev_subset:                # scripts/prepare_data.py --dev-subset (docs/IMPLEMENTATION_PLAN.md section 0)
   n_questions: 1000        # the 400 placeholder questions + 600 more (seed 13)
   n_passages: 50000        # their gold passages + seeded random others
 

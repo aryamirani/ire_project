@@ -1,4 +1,4 @@
-"""Data contracts from IMPLEMENTATION_PLAN.md section 2, with validation and JSONL read/write helpers.
+"""Data contracts from docs/IMPLEMENTATION_PLAN.md section 2, with validation and JSONL read/write helpers.
 
 Records (one JSON object per line):
     CorpusRecord          corpus.jsonl            {"doc_id", "title", "text", "is_poison": false}
@@ -11,7 +11,7 @@ In-memory interfaces: VectorAPI, FilterContext, FilterResult, FilterFn, Generati
 
 Validation is strict: every field is required, unknown fields are rejected, types must match exactly
 (bool is not accepted as int/float and vice versa). Any violation raises SchemaError. Changing a format
-must be recorded in HANDOFF.md under "Interface changes".
+must be recorded in docs/HANDOFF.md under "Interface changes".
 """
 
 from __future__ import annotations
@@ -144,7 +144,7 @@ class Record:
         if missing:
             raise SchemaError(f"{cls.__name__}: missing field(s) {missing}")
         if extra:
-            raise SchemaError(f"{cls.__name__}: unknown field(s) {extra} (contract changes go in HANDOFF.md)")
+            raise SchemaError(f"{cls.__name__}: unknown field(s) {extra} (contract changes go in docs/HANDOFF.md)")
         return cls(**dict(data))
 
     def to_dict(self) -> dict[str, Any]:

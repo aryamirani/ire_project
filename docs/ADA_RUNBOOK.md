@@ -1,12 +1,12 @@
-# ADA_RUNBOOK.md -- for teammates running Samarth's jobs on Ada
+# docs/ADA_RUNBOOK.md -- for teammates running Samarth's jobs on Ada
 
 Samarth does not have Ada access, so the heavy jobs for his part (indexes, caches, perplexity scores, LLM benchmark) are run by Arya and Vansh. You do **not** need to understand the code. Each job is one command, and you send back one JSON report.
 
-Claude Code appends a section below for every job as its step is finished. Check `HANDOFF.md` ("Ada requests") to see which jobs are waiting.
+Claude Code appends a section below for every job as its step is finished. Check `docs/HANDOFF.md` ("Ada requests") to see which jobs are waiting.
 
 ## One-time setup (first person to run anything)
 1. `git clone <repo> && cd <repo>` (or `git pull` if already cloned).
-2. `cp .env.example .env` and set `IRE_DATA_DIR` to a folder with plenty of space (full corpus + indexes + caches + models need hundreds of GB; ask Samarth for the current estimate in `HANDOFF.md`). Set `IRE_ENV=ada`.
+2. `cp .env.example .env` and set `IRE_DATA_DIR` to a folder with plenty of space (full corpus + indexes + caches + models need hundreds of GB; ask Samarth for the current estimate in `docs/HANDOFF.md`). Set `IRE_ENV=ada`.
 3. `bash ada/setup_env.sh` (creates the environment, downloads models, runs `check_env`). If compute nodes have no internet, run the download part on the login node; the script says which part.
 4. Send Samarth the output of `python scripts/check_env.py` (GPU type and free disk).
 
@@ -17,7 +17,7 @@ Claude Code appends a section below for every job as its step is finished. Check
 - If it fails: send the last 50 lines of the log plus the report file if one exists. Do not try to fix the code yourself; Samarth's Claude Code will fix it and ask you to re-run.
 
 ## Job list
-(Claude Code: add one block per job using the request template in IMPLEMENTATION_PLAN.md section 5. Keep the table in sync with HANDOFF.md.)
+(Claude Code: add one block per job using the request template in docs/IMPLEMENTATION_PLAN.md section 5. Keep the table in sync with docs/HANDOFF.md.)
 
 The submit commands in the job blocks below follow "How jobs run on Ada" (next section).
 
@@ -89,7 +89,7 @@ Details for a non-expert:
    that server was very slow from Samarth's machine).
 5. Optional, only if asked: `bash ada/run_prepare_data.sh --dev-subset` builds the 1,000-question /
    50,000-passage dev subset in `$IRE_DATA_DIR/data/dev/` and writes `reports/A1_dev.json`.
-6. Arya: when your final question set is ready, it replaces `questions.jsonl` (same format, see HANDOFF.md).
+6. Arya: when your final question set is ready, it replaces `questions.jsonl` (same format, see docs/HANDOFF.md).
 
 ### A2 bm25
 ```
@@ -277,7 +277,7 @@ Details for a non-expert:
   copied to `~/ire_data_dir/reports/thresholds/` (commit them from there). Do not symlink
   `indexes/`: `build_index.py` needs it to be a real folder under `IRE_DATA_DIR`. If gnode056's `/scratch` is ever
   wiped, rebuild A2-A4 and A6, then A5 (about 2.5 h of jobs); moving to another node is described in
-  `HANDOFF_ARYA.md` ("Pinned node moved").
+  `docs/HANDOFF_ARYA.md` ("Pinned node moved").
 - **Check what the node has free before submitting** (other users' CPU jobs can hold the CPUs even when a GPU is
   free): `scontrol show node gnode056 | grep -E "CfgTRES|AllocTRES"`. Small jobs (GPT-2, filters, generation:
   the FAISS index is only loaded for searches and the LLM loads straight onto the GPU) fit in `-c 2 --mem=5G`;
@@ -287,7 +287,5 @@ Details for a non-expert:
   import it; every job that loads a model must run in a GPU job.
 - **Do not start two jobs that write the same index or cache at the same time.**
 
-## Division of labour (suggested; adjust freely)
-- Arya: data (A1), BM25 (A2), poison ingestion (A6). She already owns the poison shards.
-- Vansh: dense (A3), SPLADE (A4), caches (A5), LLM benchmark (A7), perplexity scores (A8). He already runs the sweeps and needs these outputs.
-- Either: A0 setup and A9 smoke test.
+## Who runs what
+See `TEAM_STATUS.md` (what is done, what is left and who owns it).

@@ -1,4 +1,4 @@
-"""Vector API (IMPLEMENTATION_PLAN.md section 2), used by the cluster filter and Arya's similarity filter.
+"""Vector API (docs/IMPLEMENTATION_PLAN.md section 2), used by the cluster filter and Arya's similarity filter.
 
     from ire.vectors import get_doc_vector, get_query_vector
     get_doc_vector(["doc12", "poison_q1_fact_1"])  -> np.ndarray [2, d] float32, L2-normalised (read from disk)

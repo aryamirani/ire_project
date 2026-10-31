@@ -1,4 +1,4 @@
-"""Check a returned Ada job report against the acceptance checks (IMPLEMENTATION_PLAN.md section 5).
+"""Check a returned Ada job report against the acceptance checks (docs/IMPLEMENTATION_PLAN.md section 5).
 
 Usage (from the repo root):
     python scripts/check_ada_report.py A0                       # looks for reports/A0.json, then $IRE_DATA_DIR/reports/A0.json
