@@ -28,13 +28,13 @@ number of passages at random. 200 clean questions measure the cost to normal ans
 
 \section{Done so far}
 \begin{itemize}
-\item \textbf{Data and retrieval} (Samarth): indexes for all four retrievers (Recall@100 on 1,000 questions: BM25
+\item \textbf{Data and retrieval}: indexes for all four retrievers (Recall@100 on 1,000 questions: BM25
   0.744, dense 0.941, SPLADE 0.927), a top-150 cache per retriever, and the generation harness with an answer cache.
-\item \textbf{Questions and attacks} (Arya): 400 frozen questions in two folds; 24 injection regexes frozen before
+\item \textbf{Questions and attacks}: 400 frozen questions in two folds; 24 injection regexes frozen before
   any attack text was written; 4,500 poison passages over six attacks (fact, hijack, url; and diverse, repeat,
-  stealth, each built to evade one detector). Samarth's side wrote 10 extra hijack phrasings and 5 fact passages
-  without seeing the regex list (505 held-out passages), to test whether the list only fits our own templates.
-\item \textbf{Detectors} (Arya, the last two taken over from Samarth): all three are calibrated on clean
+  stealth, each built to evade one detector). A teammate who had not seen the regex list wrote 10 extra hijack phrasings and 5 fact passages
+  (505 held-out passages), to test whether the list only fits our own templates.
+\item \textbf{Detectors}: all three are calibrated on clean
   passages only, at a 2.5\% false-positive target.
 \item \textbf{Smoke test}: 20 questions $\times$ 4 retrievers $\times$ 3 detectors $\to$ LLM ran end to end. All
   poison sits in one index per retriever; a setting (attack, rate 1/3/5) is simulated by masking the other poison.
@@ -84,7 +84,7 @@ an open question for the sweeps. None of these numbers include the LLM yet.
 
 \section{Remaining work}
 Masked candidate pools, metrics (ASR, EM/F1, nDCG, collateral damage, detection AUC), random and oracle
-controls, and the sweep runner (Vansh); a decision rule fixed before any sweep; a 500-request pilot, then up to
+controls, and the sweep runner; a decision rule fixed before any sweep; a 500-request pilot, then up to
 60,000 LLM requests; 150 answers labelled by two people to check the automatic ASR judge; paired tests with Holm
 correction; final report before 6 November.
 
