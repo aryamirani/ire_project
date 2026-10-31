@@ -17,7 +17,7 @@ Last updated: 2026-10-29 (held-out phrasings written; steps 9-13 audited locally
 | 9 | Generation harness and cache | DONE-LOCAL (A7 not run yet; A9 ran the 3B model through it) | 2026-10-25 | `step 9: generation harness, text store and answer cache` (committed) |
 | 10 | Cluster filter | DONE-LOCAL (by Arya, reassigned with Samarth's agreement; see HANDOFF_ARYA.md) | 2026-10-26 | `step 10: cluster filter (taken over from Samarth, agreed)` (committed) |
 | 11 | Perplexity filter and score cache | DONE (by Arya, reassigned; A8 PASSED; see HANDOFF_ARYA.md) | 2026-10-26 | `step 11: perplexity filter, score cache and A8 calibration` (committed) |
-| 12 | Held-out phrasing tool | DONE-LOCAL (tooling by Arya; phrasings written blind on Samarth's side 2026-10-29; the shard is built and ingested on Ada by Arya: A6 / A5 / P2 re-run) | 2026-10-29 | `Held-out phrasings (written blind) for the step 12 test` |
+| 12 | Held-out phrasing tool | DONE (tooling by Arya; phrasings written blind on Samarth's side 2026-10-29; shard of 505 passages ingested on Ada 2026-10-30: A6 / A5 PASS, P2 done) | 2026-10-29 | `Held-out phrasings (written blind) for the step 12 test` |
 | 13 | End-to-end smoke test | DONE (by Arya, reassigned; A9 PASSED; see HANDOFF_ARYA.md) | 2026-10-26 | `step 13: end-to-end smoke test and candidate_pool stub` (committed) |
 
 Steps 10-13 were taken over by Arya on 2026-10-26 (agreed with Samarth); their logs are in HANDOFF_ARYA.md. Ada jobs
@@ -35,8 +35,8 @@ Status values: TODO, IN PROGRESS, DONE-LOCAL (passes on tiny local profile), DON
 | A2 bm25 | 3 | Arya | `bash ada/run_index.sh bm25` (CPU job, `-c 10 --mem=29G`) | PASSED | `reports/A2.json` |
 | A3 dense | 4 | Vansh (run by Arya) | `bash ada/run_index.sh dense` (GPU job, `-c 10 --mem=29G`) | PASSED | `reports/A3.json` |
 | A4 splade | 5 | Vansh (run by Arya) | `bash ada/run_index.sh splade` (GPU job, `-c 10 --mem=29G`) | PASSED | `reports/A4.json` |
-| A5 cache | 7 | Vansh (run by Arya) | `bash ada/run_cache.sh all` (GPU job; after A2-A4, A6 and the final questions) | PASSED; must be re-run once the held-out shard exists | `reports/A5.json` |
-| A6 poison | 8 | Arya | `bash ada/run_index_poison.sh` (GPU job; after A2-A4, with the real shards; before A5) | PASSED; must be re-run once the held-out shard exists | `reports/A6.json` |
+| A5 cache | 7 | Vansh (run by Arya) | `bash ada/run_cache.sh all` (GPU job; after A2-A4, A6 and the final questions) | PASSED (re-run with the held-out shard, 2026-10-30) | `reports/A5.json` |
+| A6 poison | 8 | Arya | `bash ada/run_index_poison.sh` (GPU job; after A2-A4, with the real shards; before A5) | PASSED (re-run with the held-out shard, 2026-10-30) | `reports/A6.json` |
 | A7 generate | 9 | Vansh | `bash ada/run_generate_benchmark.sh` (GPU job, `-c 4 --mem=11G`; the 2080 Ti fits the 3B model, A9 ran it) | REQUESTED | `$IRE_DATA_DIR/reports/A7.json` |
 | A8 perplexity | 11 | Vansh (run by Arya with step 11) | `bash ada/run_ppl.sh` (via ada/pinned_node.sh) | PASSED | `reports/A8.json` |
 | A9 smoke | 13 | Arya/Vansh (run by Arya) | `bash ada/run_smoke.sh` (via ada/pinned_node.sh) | PASSED | `reports/A9.json` |

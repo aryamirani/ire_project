@@ -16,11 +16,11 @@ write-up 26 Oct - 1 Nov, buffer 2-5 Nov, submission before 6 Nov.
 | Steps 0-9: repo, config, data loading, BM25 / dense / SPLADE / RRF retrievers, top-150 cache, poison ingestion, generation harness + cache | Samarth | Samarth | `HANDOFF.md` |
 | Final question set (200 target + 200 clean, folds A/B) | Arya | Arya | `configs/frozen/question_set.json` |
 | Frozen injection-phrase list | Arya | Arya | `configs/frozen/injection_phrases.json` |
-| Poison: fact, hijack, url, diverse, repeat, stealth (4,500 passages) | Arya | Arya | `src/ire/poison/`, `reports/poison_ada.json` |
+| Poison: fact, hijack, url, diverse, repeat, stealth (4,500 passages) + held-out shard (505, phrasings by Samarth's side) | Arya | Arya | `src/ire/poison/`, `reports/poison_ada.json` |
 | Query-and-phrase filter + calibration (Ada thresholds) | Arya | Arya | `src/ire/defenses/query_phrase.py`, `configs/query_phrase_thresholds.json` |
 | Step 10: cluster filter | Samarth | Arya (reassigned) | `src/ire/defenses/cluster.py`, `scripts/check_cluster.py` |
 | Step 11: perplexity filter, score cache, calibration | Samarth | Arya (reassigned) | `src/ire/defenses/perplexity.py`, `configs/perplexity_thresholds.json` (Ada values) |
-| Step 12 tooling: held-out template + validator (phrasings NOT written) | Samarth | Arya (reassigned) | `scripts/heldout_template.py`, `scripts/validate_heldout.py`, `heldout/phrasings_template.jsonl` |
+| Step 12 tooling: held-out template + validator (phrasings written blind by Samarth's side, 2026-10-29) | Samarth | Arya (reassigned) | `scripts/heldout_template.py`, `scripts/validate_heldout.py`, `heldout/phrasings_template.jsonl` |
 | Step 13: end-to-end smoke test + `candidate_pool` stub | Samarth | Arya (reassigned) | `scripts/smoke_test.py`, `src/ire/stubs.py` |
 | Ada A0 setup, A1 data, A2 BM25, A6 poison ingestion | Arya | Arya | `reports/A0.json`, `A1.json`, `A2.json`, `A6.json` |
 | Ada reports A0-A6, A8, A9 re-checked with `scripts/check_ada_report.py` (all PASS); steps 0, 2-5, 7, 8 marked DONE; ADA_RUNBOOK.md updated with the Ada facts; local data rebuilt on the final questions; "Ready for integration" section | Samarth | Samarth | `HANDOFF.md` (2026-10-26) |
