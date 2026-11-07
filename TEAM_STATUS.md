@@ -12,7 +12,7 @@ the submission deadline moved to **20 Nov 2026**.
 
 **Vansh's lane, 2026-11-08:** all the code is written (see the rows below); the pure parts have passing unit tests (41), but the
 runner, calibration scripts and plots have not been run on real data, and A7 / the pilot / the sweeps have not been run.
-Commands in order: `docs/VANSH_RUNBOOK.md`. Decision rule to sign off (Arya, Samarth, Vansh): `docs/DECISION_RULE.md`.
+Commands in order: `docs/VANSH_RUNBOOK.md`. Decision rule: agreed by Arya, Samarth and Vansh and frozen (`docs/DECISION_RULE.md`, see the "DECISION RULE AGREED" commit; never edited again).
 
 ## Done
 | Item | Owner (plan) | Who did it | Evidence |
@@ -45,7 +45,7 @@ Each row can start once the rows it depends on are done. Rows with the same numb
 | 1 | Random filter + oracle filter controls | **Vansh** | -- | **Code written** (`src/ire/defenses/controls.py`; tests pass). Random drops the same number of passages as the detector (plan 4.4). |
 | 1 | Ada A7: LLM throughput benchmark + decide the generation batch size (docs/HANDOFF.md open issue) | **Vansh** | -- | `ada/run_generate_benchmark.sh` via `pinned_node.sh`. **NOT RUN yet; Arya to submit** (needs no new code). |
 | 3 | Sweep runner: retrievers x attacks x rates x filter settings -> run records (plan section 8) via the generation cache | **Vansh** | candidate_pool, metrics | **Code written** (`src/ire/eval/sweep.py`, `scripts/run_sweep.py`, `ada/run_sweep.sh`, grid in `configs/sweep.yaml`: 384 settings in 5 tiers); grid expansion tested, runner NOT yet run (local dry run next). |
-| 3 | Write the decision rule down before any sweep (plan 5.5) | All, led by **Vansh** | -- | **Drafted** in `docs/DECISION_RULE.md`; needs Arya's and Samarth's agreement, then commit it unchanged before the headline sweep. |
+| 3 | Write the decision rule down before any sweep (plan 5.5) | All, led by **Vansh** | -- | **DONE 2026-11-08, frozen** in `docs/DECISION_RULE.md`; agreed by Arya, Samarth and Vansh; the freezing commit precedes the headline sweep. |
 | 4 | 500-request pilot | **Vansh** | sweep runner, A7 | Plan 6.1. `ada/run_sweep.sh --pilot`. |
 | 5 | Full sweeps (about 60,000 LLM requests at most) | **Vansh** | pilot, row 2 | |
 | 5 | Human calibration: 150 answers in pairs, 100 passage labels each; agreement code | All; **Vansh** owns the code | first answers | Plan section 7. **Code written** (`scripts/calibration_sample.py`, `calibration_agreement.py`); needs run records first. |

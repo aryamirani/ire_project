@@ -7,7 +7,7 @@ The order across the team is in `TEAM_STATUS.md`; this file is only what you nee
 **Status 2026-11-08:** the code for the whole lane is written (sections 3 and 5 below say where). The pure parts
 (masking, metrics, stats, controls, grid expansion, analysis) have unit tests that pass (41 tests). The runner, the
 calibration scripts and the plots have NOT been run on real data yet; A7, the pilot and the sweeps have not been run.
-The commands, in order, are in `docs/VANSH_RUNBOOK.md`; the decision rule to sign off is `docs/DECISION_RULE.md`.
+The commands, in order, are in `docs/VANSH_RUNBOOK.md`; the decision rule is agreed and frozen: `docs/DECISION_RULE.md` (do not edit).
 Deadline: 20 Nov.
 
 ## 1. What already exists for you
@@ -80,7 +80,7 @@ def masked(row, attack, rate):
 - BM25 masking is not exactly a separate index; A6 measured it: mean rank shift 0.40, top-5 unchanged for
   96% of questions (`reports/A6.json`). Report this in the paper.
 - Poison of OTHER target questions stays active in a setting (same attack, any qid), which is what produces
-  "collateral poisoning" on clean questions. DECIDED and written down in `docs/DECISION_RULE.md` (pending sign-off).
+  "collateral poisoning" on clean questions. DECIDED and written down in `docs/DECISION_RULE.md` (agreed by all three, frozen).
 
 ## 4. Filters (all have the same API)
 ```python
