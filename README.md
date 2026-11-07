@@ -10,8 +10,8 @@ compared against random and oracle removal. Design: `docs/IRE_Final_Project_Plan
 ## Layout
 | Path | What |
 |---|---|
-| `src/ire/` | the package: `data/`, `retrieval/` (indexes, top-150 cache, poison masking), `poison/`, `defenses/`, `generation/` |
-| `scripts/` | one command per stage (prepare data, build index, make / ingest poison, build cache, calibrate filters, smoke test) |
+| `src/ire/` | the package: `data/`, `retrieval/` (indexes, top-150 cache, `pool.py` = candidate pool with poison masking), `poison/`, `defenses/` (three filters + `controls.py` random / oracle), `generation/`, `eval/` (metrics, statistics, sweep runner, analysis) |
+| `scripts/` | one command per stage (prepare data, build index, make / ingest poison, build cache, calibrate filters, smoke test, `run_sweep.py`, `analyze.py`, `make_plots.py`, human-calibration sheets and agreement) |
 | `ada/` | cluster job wrappers; each is one command, resumable, and writes a JSON report |
 | `configs/` | paths, environment profiles, experiment settings; `frozen/` holds the question set, phrase list and attack targets (never edited) |
 | `reports/` | JSON reports from the Ada runs (checked with `scripts/check_ada_report.py <job>`) |
@@ -23,8 +23,10 @@ Large files (corpus, indexes, caches, models) live under `$IRE_DATA_DIR`, never 
 
 ## Setup and a local run
 ```bash
-python -m venv .venv && .venv/bin/pip install torch==2.6.0 -r requirements.txt && .venv/bin/pip install -e . --no-deps
+uv venv --python 3.13 .venv && source .venv/bin/activate     # Python 3.11+ needed (macOS python3 is 3.9)
+uv pip install torch==2.6.0 && uv pip install -r requirements.txt matplotlib && uv pip install -e . --no-deps
 cp .env.example .env    # IRE_ENV=local (small corpus, small models) or ada; set IRE_DATA_DIR
+                        # (outside the repo, or exactly <repo>/ire_data_dir, which is git-ignored)
 python scripts/download_models.py
 python scripts/prepare_data.py
 python scripts/build_index.py --retriever bm25   # then dense, splade
@@ -36,5 +38,7 @@ On macOS prefix commands with `OMP_NUM_THREADS=1 KMP_DUPLICATE_LIB_OK=TRUE` (fai
 OpenMP runtimes). Full-corpus jobs run on the Ada cluster: see `docs/ADA_RUNBOOK.md`.
 
 ## Status
-Who has done what and what is left: `TEAM_STATUS.md`. Retrieval, attacks, detectors and the smoke test are done;
-the evaluation harness, sweeps and statistics are next (`VANSH_START.md`).
+Who has done what and what is left: `TEAM_STATUS.md`. Retrieval, attacks, detectors and the smoke test are done and
+passed on Ada. The evaluation harness (masking, metrics, controls, sweep runner, statistics, plots, calibration
+tools) is written and its pure parts are unit-tested; it has not yet been run on real data, and the pilot and sweeps
+are still to run (`VANSH_START.md`, `docs/VANSH_RUNBOOK.md`, decision rule `docs/DECISION_RULE.md`). Deadline 20 Nov.

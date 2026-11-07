@@ -248,7 +248,20 @@ re-run use its section "How jobs run on Ada" (pinned node gnode056 through `ada/
 ## Interface changes
 (Anything that differs from the contracts in docs/IMPLEMENTATION_PLAN.md section 2. Empty = none.)
 
-None to the data contracts. Layout notes (not contract changes):
+None to the data contracts' required fields. Changes made in Vansh's lane (2026-11-08):
+- **Run record** (plan section 8) gained extra keys; the plan's keys are all still present: `setting, of, param, role,
+  pool_scores, n_pool, n_poison_pool, n_poison_flagged, n_clean_flagged, backfill, filter_ms, ndcg5, ndcg10, recall5,
+  recall10, ndcg5_pool, ndcg10_pool, acc` (module docstring of `src/ire/eval/sweep.py`). `asr` is null for clean
+  questions and for the no-poison setting. `filter` takes the values none | query_phrase | cluster | perplexity | random |
+  oracle (random also records `of`, the detector it matches).
+- **`candidate_pool`** now lives in `src/ire/retrieval/pool.py` with the plan's signature plus an optional `cfg`
+  (rrf `k`, `depth`); `src/ire/stubs.py` is kept only for the smoke test.
+- **`configs/paths.yaml`** gained `sweep_config`, `runs_dir`, `analysis_dir`, `calibration_dir` (the last three under
+  `$IRE_DATA_DIR/reports/` so `ada/pinned_node.sh` copies them back); new `configs/sweep.yaml` (the grid).
+- **`IRE_DATA_DIR` guard** (`src/ire/config/env.py`): the folder may now also be exactly `<repo>/ire_data_dir`
+  (already in `.gitignore`); any other path inside the repo is still refused. `tests/test_config.py` was relaxed to match.
+
+Layout notes (not contract changes):
 - `src/ire/config/` and `src/ire/vectors/` are packages (the plan's layout lists them as folders). Step 1's
   "`src/ire/config.py`" will live in `src/ire/config/`, and step 4's `vectors.py` in `src/ire/vectors/`.
 - Models are downloaded to the Hugging Face cache at `HF_HOME` (set in `.env` to `$IRE_DATA_DIR/hf_cache`), not to a

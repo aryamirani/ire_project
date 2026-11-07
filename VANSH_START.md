@@ -1,8 +1,14 @@
-# VANSH_START -- where your lane starts and how to continue (2026-10-26)
+# VANSH_START -- where your lane starts and how to continue (2026-10-26, status updated 2026-11-08)
 
 Your lane (plan section 9): **`candidate_pool` masking; metrics including detection quality; random and oracle
-controls; cross-fitting and statistics; judge calibration; sweep runner; plots.** Plus the Ada runs A7 and A8.
+controls; cross-fitting and statistics; judge calibration; sweep runner; plots.** Plus the Ada run A7 (A8 is done).
 The order across the team is in `TEAM_STATUS.md`; this file is only what you need to start.
+
+**Status 2026-11-08:** the code for the whole lane is written (sections 3 and 5 below say where). The pure parts
+(masking, metrics, stats, controls, grid expansion, analysis) have unit tests that pass (41 tests). The runner, the
+calibration scripts and the plots have NOT been run on real data yet; A7, the pilot and the sweeps have not been run.
+The commands, in order, are in `docs/VANSH_RUNBOOK.md`; the decision rule to sign off is `docs/DECISION_RULE.md`.
+Deadline: 20 Nov.
 
 ## 1. What already exists for you
 | What | Where | Notes |
@@ -22,8 +28,10 @@ The order across the team is in `TEAM_STATUS.md`; this file is only what you nee
 **On your laptop (develop and test here first; local numbers are for correctness only):**
 ```
 git pull
-python -m venv .venv  &&  pip install torch==2.6.0 -r requirements.txt  &&  pip install -e . --no-deps
+uv venv --python 3.13 .venv && source .venv/bin/activate     # Python 3.11+ is required; macOS's python3 is 3.9
+uv pip install torch==2.6.0 && uv pip install -r requirements.txt matplotlib && uv pip install -e . --no-deps
 cp .env.example .env            # IRE_ENV=local, IRE_DATA_DIR=<a folder with ~10 GB free>, HF_HOME=<that>/hf_cache
+                                # IRE_DATA_DIR may be <repo>/ire_data_dir (git-ignored); any other path inside the repo is refused
 python scripts/download_models.py
 python scripts/prepare_data.py                      # downloads NQ; builds the final questions + a 5,000-passage corpus
 python scripts/build_index.py --retriever bm25      # then dense, then splade
@@ -48,9 +56,10 @@ deadlock otherwise). After this you have the same file layout as Ada, just small
 - `load_cache` checks the caches against the index manifests, which exist only on gnode056, so anything that
   reads caches must run there.
 
-## 3. Your first task: `candidate_pool` (plan section 2.3)
+## 3. `candidate_pool` (plan section 2.3) -- WRITTEN in `src/ire/retrieval/pool.py` (tests: `tests/test_pool.py`)
 Contract (docs/IMPLEMENTATION_PLAN.md section 2): `candidate_pool(qid, retriever, attack, rate, cache, pool_size=50)`
--> ranked list of doc_ids after masking. Suggested home: `src/ire/retrieval/pool.py` (plan layout: retrieval/).
+-> ranked list of doc_ids after masking (`cfg` is an optional last argument, for the rrf `k` and `depth`).
+`src/ire/stubs.py` (the unmasked stub) is only used by the smoke test now. The rules it implements:
 ```python
 from ire.retrieval.cache import load_cache
 from ire.retrieval.rrf import fuse
@@ -70,8 +79,8 @@ def masked(row, attack, rate):
   depth=cfg["rrf.depth"])`. Never mask the cached `top150_rrf.jsonl` (docs/HANDOFF.md, step 6 explains why).
 - BM25 masking is not exactly a separate index; A6 measured it: mean rank shift 0.40, top-5 unchanged for
   96% of questions (`reports/A6.json`). Report this in the paper.
-- Should poison of OTHER target questions stay active in a setting? With `is_active` as above it does (same
-  attack, any qid), which is what produces "collateral poisoning" on clean questions. Decide and write it down.
+- Poison of OTHER target questions stays active in a setting (same attack, any qid), which is what produces
+  "collateral poisoning" on clean questions. DECIDED and written down in `docs/DECISION_RULE.md` (pending sign-off).
 
 ## 4. Filters (all have the same API)
 ```python
@@ -86,29 +95,34 @@ top5 = [d for d in pool if d not in res.flagged][:5]                            
 `res.scores[doc_id]` is the continuous score for ROC-AUC (similarity for query-phrase). Sweep tails:
 `cfg["query_phrase.tail_sweep"]`; ablations: `cfg["query_phrase.rule"]` = `either` | `similarity` | `phrase`.
 Random control: drop the same number of passages as the detector, chosen with a seeded RNG. Oracle: drop every
-`is_poison_id`.
+`is_poison_id`. Both are in `src/ire/defenses/controls.py`; the sweep runner calls the filters for you
+(`src/ire/eval/sweep.py`).
 
 ## 5. What a run produces (plan section 8, "Run record")
-`{"qid", "retriever", "attack", "rate", "filter", "fold", "pool", "flagged", "top5", "n_poison_top5",
-"n_gold_dropped", "answer", "asr", "em", "f1"}` -- one per (setting, question). Metrics to compute from them:
-ASR, EM / F1 (SQuAD normalisation; `ire.generation.smoke_metrics` has a smoke version), nDCG@5 / @10 and
-Recall@k against `gold_doc_ids`, collateral poisoning (poison in clean questions' top-5), detection (ROC-AUC,
-TPR on poison, FPR on clean passages, gold passages dropped), backfill rate (survivors from beyond rank 20),
-latency / filter overhead.
+One JSONL per setting under `<runs_dir>/<name>/`, one record per (setting, question), written by
+`src/ire/eval/sweep.py` (`scripts/run_sweep.py`). Keys: the plan's `qid, retriever, attack, rate, filter, fold, pool,
+flagged, top5, n_poison_top5, n_gold_dropped, answer, asr, em, f1` plus `setting, of, param, role, pool_scores,
+n_pool, n_poison_pool, n_poison_flagged, n_clean_flagged, backfill, filter_ms, ndcg5, ndcg10, recall5, recall10,
+ndcg5_pool, ndcg10_pool, acc` (full list in the module docstring). Metrics live in `src/ire/eval/metrics.py` (SQuAD
+EM / F1, ASR, nDCG, recall) and the tables in `src/ire/eval/analysis.py` (`scripts/analyze.py`: ASR with Wilson
+intervals, collateral poisoning, TPR / FPR / ROC-AUC, gold dropped, backfill, latency, Holm-corrected headline,
+cross-fitting, mechanism check, complementarity).
 
 ## 6. Ada jobs that are yours
 | Job | When | Command (inside the sbatch / pinned_node pattern above) | Check |
 |---|---|---|---|
-| A7 LLM benchmark | now | `ada/run_generate_benchmark.sh` | `check_ada_report.py A7`; then decide the generation batch size (docs/HANDOFF.md "Decision needed") |
-| A8 perplexity scores | after Samarth's step 11 | `ada/run_ppl.sh` (Samarth writes it) | `check_ada_report.py A8` |
-| Pilot (500 requests) | after your runner + A7 | your runner | throughput, cache hit rate, failure modes (plan 6.1) |
-| Sweeps | after the pilot and after the held-out shard is ingested | your runner | |
+| A7 LLM benchmark | now (needs no new code) | `ada/run_generate_benchmark.sh` | `check_ada_report.py A7`; then decide the generation batch size (docs/HANDOFF.md "Decision needed") |
+| A8 perplexity scores | DONE (Arya, `reports/A8.json`) | -- | -- |
+| Pilot (500 requests) | after A7 and a green local dry run | `ada/run_sweep.sh --pilot` | throughput, cache hit rate, failure modes (plan 6.1); `reports/SWEEP_pilot.json` |
+| Sweeps | after the pilot and the signed-off decision rule (the held-out shard is already ingested) | `ada/run_sweep.sh --tier headline` (then `rates`, `sweeps`, `adaptive`, `optional`) | `reports/SWEEP_main.json`, then `scripts/analyze.py` |
+
+Exact sbatch lines for all of these: `docs/VANSH_RUNBOOK.md`.
 
 Qwen2.5-3B-Instruct is already downloaded to `~/ire_data_dir/hf_cache` on Ada (6.2 GB fits the 2080 Ti's 11 GB).
 
 ## 7. Before the sweeps (do not skip)
-1. Samarth's held-out shard must be ingested first (Arya re-runs A6 -> A5 -> P2); caches built before that are
-   stale and `load_cache` will refuse them (`StaleCacheError`).
-2. Write the decision rule down before running (plan 5.5): headline anchor, what "helps" means (ASR interval
-   excludes zero and clean nDCG@5 loss under a stated bound), what we say if the answer is no.
+1. The held-out shard is ingested and the caches are final (A6 -> A5 -> P2 re-run by Arya on 2026-10-30). Caches
+   built before that are stale and `load_cache` refuses them (`StaleCacheError`).
+2. The decision rule (plan 5.5) is drafted in `docs/DECISION_RULE.md` (headline anchor, what "helps" means, what we
+   say if the answer is no). Arya and Samarth must agree, then commit it unchanged BEFORE the headline sweep.
 3. Thresholds and cutoffs: choose on fold A, report on B, swap, pool (plan 5.2).

@@ -1,4 +1,4 @@
-# TEAM_STATUS -- who has done what, what is left, and in what order (updated 2026-10-30)
+# TEAM_STATUS -- who has done what, what is left, and in what order (updated 2026-11-08)
 
 **Reassignment (2026-10-26, agreed with Samarth by phone):** Arya took over Samarth's remaining steps 10
 (cluster filter), 11 (perplexity filter + A8), the step 12 *tooling* (template + validator) and 13 (smoke test +
@@ -8,7 +8,11 @@ frozen phrase list (not Arya). Steps 0-9 are Samarth's work.
 **Arya's and Samarth's lanes are done.** The held-out phrasings were written by Samarth's side on 2026-10-29
 (row 1, DONE) and Arya re-ran A6 -> A5 -> P2 with them on 2026-10-30 (row 2, DONE). Everything else that is left is Vansh's lane. Vansh: start from `VANSH_START.md`.
 Details: Samarth's lane in `docs/HANDOFF.md`, Arya's lane (and steps 10-13) in `docs/HANDOFF_ARYA.md`. Plan dates: report
-write-up 26 Oct - 1 Nov, buffer 2-5 Nov, submission before 6 Nov.
+the submission deadline moved to **20 Nov 2026**.
+
+**Vansh's lane, 2026-11-08:** all the code is written (see the rows below); the pure parts have passing unit tests (41), but the
+runner, calibration scripts and plots have not been run on real data, and A7 / the pilot / the sweeps have not been run.
+Commands in order: `docs/VANSH_RUNBOOK.md`. Decision rule to sign off (Arya, Samarth, Vansh): `docs/DECISION_RULE.md`.
 
 ## Done
 | Item | Owner (plan) | Who did it | Evidence |
@@ -36,16 +40,16 @@ Each row can start once the rows it depends on are done. Rows with the same numb
 |---|---|---|---|---|
 | 1 | Held-out phrasings: fill `heldout/phrasings_template.jsonl` (10 hijack phrasings with `{CW}`, 5 fact passages) WITHOUT opening the phrase list or the attack templates; save as `heldout/phrasings.jsonl`; `python scripts/validate_heldout.py` | Samarth (or Vansh, if he has not seen the list) | -- | **DONE 2026-10-29** (`heldout/phrasings.jsonl`, written blind; `validate_heldout.py --check-only`: valid, 505 passages = 500 hijack + 5 fact; the frozen phrase rule catches 3/10 hijack phrasings, 0/5 fact). |
 | 2 | Re-run A6 (ingest the held-out shard), A5 (caches), P2 (query-phrase calibration) on gnode056 | Arya | row 1 (done) | **DONE 2026-10-30** (jobs 48840 / 48841 / 48842; `reports/A6.json`, `reports/A5.json` PASS in `check_ada_report.py`; `reports/query_phrase_ada.json`). 5,005 poison passages in every index; held-out reach top-10 BM25 0.032 / dense 0.109 / SPLADE 0.174; query-and-phrase TPR on held-out at rate 5: 0.47 / 0.49 / 0.44 / 0.44 (bm25 / dense / splade / rrf) vs 0.77-0.79 on hijack. Thresholds unchanged. Dense masking reference regenerated (see `docs/HANDOFF_ARYA.md`). Caches are now final for the sweeps. |
-| 1 | `candidate_pool` masking + `is_active` (rate r keeps `poison_<qid>_<attack>_1..r`; RRF: mask both lists, then `fuse`); replaces `src/ire/stubs.py` | **Vansh** | -- | Can start now on the current caches. |
-| 1 | Metrics: ASR (target string / codeword / URL domain), EM / F1, nDCG@5/@10, Recall@k, n_poison_top5, collateral poisoning, detection (ROC-AUC, TPR, FPR, gold dropped), backfill, latency / filter overhead | **Vansh** | -- | ASR strings: each record's `target_answer`. |
-| 1 | Random filter + oracle filter controls | **Vansh** | -- | Random drops the same number of passages as the detector (plan 4.4). |
-| 1 | Ada A7: LLM throughput benchmark + decide the generation batch size (docs/HANDOFF.md open issue) | **Vansh** | -- | `ada/run_generate_benchmark.sh` via `pinned_node.sh`. |
-| 3 | Sweep runner: retrievers x attacks x rates x filter settings -> run records (plan section 8) via the generation cache | **Vansh** | candidate_pool, metrics | All three filters are ready (`VANSH_START.md` section 4). |
-| 3 | Write the decision rule down before any sweep (plan 5.5) | All, led by **Vansh** | -- | |
-| 4 | 500-request pilot | **Vansh** | sweep runner, A7 | Plan 6.1. |
+| 1 | `candidate_pool` masking + `is_active` (rate r keeps `poison_<qid>_<attack>_1..r`; RRF: mask both lists, then `fuse`); replaces `src/ire/stubs.py` | **Vansh** | -- | **Code written** (`src/ire/retrieval/pool.py`, `tests/test_pool.py` pass); not yet run on the real caches. `src/ire/stubs.py` stays for the smoke test. |
+| 1 | Metrics: ASR (target string / codeword / URL domain), EM / F1, nDCG@5/@10, Recall@k, n_poison_top5, collateral poisoning, detection (ROC-AUC, TPR, FPR, gold dropped), backfill, latency / filter overhead | **Vansh** | -- | **Code written** (`src/ire/eval/metrics.py`, `analysis.py`; tests pass); ASR strings = each record's `target_answer`. |
+| 1 | Random filter + oracle filter controls | **Vansh** | -- | **Code written** (`src/ire/defenses/controls.py`; tests pass). Random drops the same number of passages as the detector (plan 4.4). |
+| 1 | Ada A7: LLM throughput benchmark + decide the generation batch size (docs/HANDOFF.md open issue) | **Vansh** | -- | `ada/run_generate_benchmark.sh` via `pinned_node.sh`. **NOT RUN yet; Arya to submit** (needs no new code). |
+| 3 | Sweep runner: retrievers x attacks x rates x filter settings -> run records (plan section 8) via the generation cache | **Vansh** | candidate_pool, metrics | **Code written** (`src/ire/eval/sweep.py`, `scripts/run_sweep.py`, `ada/run_sweep.sh`, grid in `configs/sweep.yaml`: 384 settings in 5 tiers); grid expansion tested, runner NOT yet run (local dry run next). |
+| 3 | Write the decision rule down before any sweep (plan 5.5) | All, led by **Vansh** | -- | **Drafted** in `docs/DECISION_RULE.md`; needs Arya's and Samarth's agreement, then commit it unchanged before the headline sweep. |
+| 4 | 500-request pilot | **Vansh** | sweep runner, A7 | Plan 6.1. `ada/run_sweep.sh --pilot`. |
 | 5 | Full sweeps (about 60,000 LLM requests at most) | **Vansh** | pilot, row 2 | |
-| 5 | Human calibration: 150 answers in pairs, 100 passage labels each; agreement code | All; **Vansh** owns the code | first answers | Plan section 7. |
-| 6 | Cross-fitting, McNemar, paired bootstrap, Wilson intervals, Holm correction | **Vansh** | sweeps | |
+| 5 | Human calibration: 150 answers in pairs, 100 passage labels each; agreement code | All; **Vansh** owns the code | first answers | Plan section 7. **Code written** (`scripts/calibration_sample.py`, `calibration_agreement.py`); needs run records first. |
+| 6 | Cross-fitting, McNemar, paired bootstrap, Wilson intervals, Holm correction | **Vansh** | sweeps | **Code written** (`src/ire/eval/stats.py`, `analysis.py`, `scripts/analyze.py`; tests pass). |
 | 7 | Plots | **Vansh** | stats | |
 | 8 | Report write-up | All | results | |
 

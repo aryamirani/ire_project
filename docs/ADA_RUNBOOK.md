@@ -33,6 +33,10 @@ The submit commands in the job blocks below follow "How jobs run on Ada" (next s
 | A7 generate | `ada/run_generate_benchmark.sh` | not run yet | Vansh |
 | A8 perplexity | `ada/run_ppl.sh` | PASSED (run by Arya with step 11) | Vansh |
 | A9 smoke | `ada/run_smoke.sh` | PASSED | Arya |
+| S1 pilot | `ada/run_sweep.sh --pilot` | not run yet (needs A7) | Vansh |
+| S2 sweeps | `ada/run_sweep.sh --tier headline` (then `rates`, `sweeps`, `adaptive`, `optional`) | not run yet (needs the pilot and the signed-off `docs/DECISION_RULE.md`) | Vansh |
+
+S1 / S2 are submitted like every job (`pinned_node.sh`, GPU, `-c 10 --mem=29G`); resubmit the same line after a time limit. Full commands: `docs/VANSH_RUNBOOK.md`.
 
 ### A0 setup
 ```

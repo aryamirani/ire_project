@@ -5,22 +5,25 @@ first run; the local steps exist to find them before any Ada time is spent. Pref
 `OMP_NUM_THREADS=1 KMP_DUPLICATE_LIB_OK=TRUE` and use the project venv.
 
 ## 0. One-time local setup (laptop)
+Python 3.11+ is required (macOS `python3` is 3.9: do not use it).
 ```
 git pull
-python -m venv .venv && source .venv/bin/activate
-pip install torch==2.6.0 -r requirements.txt && pip install -e . --no-deps
-pip install matplotlib                  # plots only; then: pip freeze | grep -i matplotlib  -> pin it in requirements.txt
-cp .env.example .env                    # IRE_ENV=local, IRE_DATA_DIR=<folder with ~10 GB free>, HF_HOME=<it>/hf_cache
+uv venv --python 3.13 .venv && source .venv/bin/activate && python --version      # must print 3.13.x
+uv pip install torch==2.6.0 && uv pip install -r requirements.txt matplotlib && uv pip install -e . --no-deps
+cp .env.example .env     # IRE_ENV=local; IRE_DATA_DIR="<repo>/ire_data_dir" (git-ignored; allowed inside the repo); HF_HOME="<that>/hf_cache"
+pip freeze | grep -i matplotlib       # then pin that version in requirements.txt
+export OMP_NUM_THREADS=1 KMP_DUPLICATE_LIB_OK=TRUE
 python scripts/download_models.py
-python scripts/prepare_data.py          # then the local chain, only if you want to run the sweep locally:
+python scripts/prepare_data.py          # then the local chain, only needed for the local dry run (section 2):
 python scripts/build_index.py --retriever bm25 && python scripts/build_index.py --retriever dense && python scripts/build_index.py --retriever splade
 python scripts/make_poison.py && python scripts/index_poison.py && python scripts/build_cache.py --retriever all
 ```
+Do NOT run `calibrate_query_phrase.py` locally: it overwrites `configs/query_phrase_thresholds.json` (the Ada values).
 
 ## 1. Tests (no models, seconds)
 ```
 pytest tests/test_pool.py tests/test_metrics.py tests/test_stats.py tests/test_controls.py tests/test_sweep.py tests/test_analysis.py -q
-pytest -q                                # whole suite (373+ tests before this lane)
+pytest -q                                # whole suite (the 41 tests of this lane + config passed on 2026-11-08)
 python scripts/run_sweep.py --list --tier headline rates sweeps adaptive optional    # prints 384 settings, loads nothing
 ```
 
