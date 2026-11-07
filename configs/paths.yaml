@@ -25,3 +25,9 @@ reports_repo: reports                                  # Ada reports committed b
 perplexity_thresholds: configs/perplexity_thresholds.json
 heldout_dir: heldout
 query_phrase_thresholds: configs/query_phrase_thresholds.json   # Arya: similarity cutoffs per retriever and fold
+
+# ---- Vansh's lane: sweep, analysis, calibration (under reports/ so ada/pinned_node.sh copies them back) ----
+sweep_config: configs/sweep.yaml
+runs_dir: ${IRE_DATA_DIR}/reports/runs                 # one JSONL of run records per setting (ire.eval.sweep)
+analysis_dir: ${IRE_DATA_DIR}/reports/analysis         # tables (CSV) and figures written by scripts/analyze.py
+calibration_dir: ${IRE_DATA_DIR}/reports/calibration   # human-label sheets and agreement report (plan section 7)

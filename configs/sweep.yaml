@@ -1,0 +1,54 @@
+# Sweep grid (plan sections 4.4 and 6). Read by ire.eval.sweep; edit here, never in code.
+# A block expands to retrievers x attacks x rates x params. `null` attack/rate = the no-poison setting.
+# Tiers are the CUT ORDER reversed: run `headline` first, then `rates`, `sweeps`, `adaptive`, `optional`.
+# Anchors: query_phrase tail 0.025, cluster tau_c 0.85, perplexity alpha 0.025 (configs/experiment.yaml).
+#   random  = drops as many passages as the detector `of` flagged for the same question (params = that detector's)
+#   oracle  = drops every poison passage in the pool
+
+retrievers: [bm25, dense, splade, rrf]
+tiers: [headline, rates, sweeps, adaptive, optional]
+
+blocks:
+  # ------------------------------------------------------------------ headline: rate 3, fact + hijack
+  - {tier: headline, filter: none,   attacks: [null],            rates: [null]}
+  - {tier: headline, filter: none,   attacks: [fact, hijack],    rates: [3]}
+  - {tier: headline, filter: oracle, attacks: [fact, hijack],    rates: [3]}
+  - {tier: headline, filter: query_phrase, params: [{tail: 0.025}], attacks: [fact, hijack], rates: [3]}
+  - {tier: headline, filter: cluster,      params: [{tau_c: 0.85}], attacks: [fact, hijack], rates: [3]}
+  - {tier: headline, filter: perplexity,   params: [{alpha: 0.025}], attacks: [fact, hijack], rates: [3]}
+  - {tier: headline, filter: random, of: query_phrase, params: [{tail: 0.025}],  attacks: [fact, hijack], rates: [3]}
+  - {tier: headline, filter: random, of: cluster,      params: [{tau_c: 0.85}],  attacks: [fact, hijack], rates: [3]}
+  - {tier: headline, filter: random, of: perplexity,   params: [{alpha: 0.025}], attacks: [fact, hijack], rates: [3]}
+
+  # ------------------------------------------------------------------ rates 1 and 5 (attack growth, RQ1)
+  - {tier: rates, filter: none,   attacks: [fact, hijack], rates: [1, 5]}
+  - {tier: rates, filter: oracle, attacks: [fact, hijack], rates: [1, 5]}
+  - {tier: rates, filter: query_phrase, params: [{tail: 0.025}], attacks: [fact, hijack], rates: [1, 5]}
+  - {tier: rates, filter: cluster,      params: [{tau_c: 0.85}], attacks: [fact, hijack], rates: [1, 5]}
+  - {tier: rates, filter: perplexity,   params: [{alpha: 0.025}], attacks: [fact, hijack], rates: [1, 5]}
+  - {tier: rates, filter: random, of: query_phrase, params: [{tail: 0.025}],  attacks: [fact, hijack], rates: [1, 5]}
+  - {tier: rates, filter: random, of: cluster,      params: [{tau_c: 0.85}],  attacks: [fact, hijack], rates: [1, 5]}
+  - {tier: rates, filter: random, of: perplexity,   params: [{alpha: 0.025}], attacks: [fact, hijack], rates: [1, 5]}
+
+  # ------------------------------------------------------------------ threshold sweeps at rate 3 (descriptive)
+  - {tier: sweeps, filter: query_phrase, params: [{tail: 0.01}, {tail: 0.05}, {tail: 0.1}],
+     attacks: [fact, hijack], rates: [3]}
+  - {tier: sweeps, filter: cluster, params: [{tau_c: 0.7}, {tau_c: 0.75}, {tau_c: 0.8}, {tau_c: 0.9}, {tau_c: 0.95}],
+     attacks: [fact, hijack], rates: [3]}
+  - {tier: sweeps, filter: perplexity, params: [{alpha: 0.01}, {alpha: 0.05}, {alpha: 0.1}],
+     attacks: [fact, hijack], rates: [3]}
+
+  # ------------------------------------------------------------------ adaptive stress variants, rate 3
+  # (each attack only exists for ~100 target questions; the runner restricts the target questions to those)
+  - {tier: adaptive, filter: none,   attacks: [heldout, stealth, diverse, repeat], rates: [3]}
+  - {tier: adaptive, filter: oracle, attacks: [heldout, stealth, diverse, repeat], rates: [3]}
+  - {tier: adaptive, filter: query_phrase, params: [{tail: 0.025}], attacks: [heldout, stealth, diverse, repeat], rates: [3]}
+  - {tier: adaptive, filter: cluster,      params: [{tau_c: 0.85}], attacks: [heldout, stealth, diverse, repeat], rates: [3]}
+  - {tier: adaptive, filter: perplexity,   params: [{alpha: 0.025}], attacks: [heldout, stealth, diverse, repeat], rates: [3]}
+
+  # ------------------------------------------------------------------ optional (first to be cut, plan 6.1)
+  - {tier: optional, filter: none,   attacks: [url], rates: [3]}
+  - {tier: optional, filter: oracle, attacks: [url], rates: [3]}
+  - {tier: optional, filter: query_phrase, params: [{tail: 0.025}], attacks: [url], rates: [3]}
+  - {tier: optional, filter: cluster,      params: [{tau_c: 0.85}], attacks: [url], rates: [3]}
+  - {tier: optional, filter: perplexity,   params: [{alpha: 0.025}], attacks: [url], rates: [3]}

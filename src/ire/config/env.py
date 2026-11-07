@@ -49,8 +49,10 @@ def get_data_dir() -> Path:
     if not raw:
         raise RuntimeError("IRE_DATA_DIR is not set. Copy .env.example to .env and set it.")
     path = Path(raw).expanduser().resolve()
-    if path == REPO_ROOT or REPO_ROOT in path.parents:
-        raise RuntimeError(f"IRE_DATA_DIR must be outside the repo, got {path}")
+    in_repo = path == REPO_ROOT or REPO_ROOT in path.parents
+    allowed = REPO_ROOT / "ire_data_dir"   # git-ignored (.gitignore: ire_data_dir/), so big files cannot be committed
+    if in_repo and path != allowed and allowed not in path.parents:
+        raise RuntimeError(f"IRE_DATA_DIR must be outside the repo (or exactly <repo>/ire_data_dir), got {path}")
     return path
 
 

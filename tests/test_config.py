@@ -47,7 +47,7 @@ def test_data_paths_resolve_under_data_dir() -> None:
     for key in ("corpus", "questions", "poison_dir", "indexes_dir", "cache_dir", "logs_dir", "reports_dir"):
         path = cfg.path(key)
         assert path.is_absolute() and data_dir in path.parents, key
-        assert REPO_ROOT not in path.parents, key
+        assert REPO_ROOT not in path.parents or (REPO_ROOT / "ire_data_dir") in path.parents, key
     assert cfg.path("data_dir") == data_dir
     assert cfg.path("corpus").name == "corpus.jsonl"
 
