@@ -1044,12 +1044,13 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
 - A 4 MiB partial `raw/beir/nq.zip.part` from the abandoned slow UKP download is still in `IRE_DATA_DIR`
   (kept so `--source ukp` can resume; Samarth can delete it).
 - Resolved: `src/ire/stubs.py` (`candidate_pool` stub) exists (Arya, step 13).
-- **For Arya (check, not fixed): some false answers do not fit their question type.** Of the 5 held-out fact
-  targets (assigned by `make_template` from the frozen targets), one is clearly off: "about 1500 BC" for "what
-  percentage of global man-made co2 emissions comes from worldwide aviation" (also "Johannes Gutenberg" as a
-  singer). A model may reject an absurd answer, which would make the fact attack look weaker than it is.
-  `configs/frozen/` cannot change now, so: count how many of the 200 targets have a type mismatch and say so in
-  the report (or analyse ASR with and without them).
+- **For Arya (check, not fixed): some false answers are semantically odd.** Targets ARE type-matched
+  (`ire.poison.targets`), but the type classifier is coarse: 63 of the 200 targets are type `other`. Example:
+  test300 "what percentage of global man-made co2 emissions comes from worldwide aviation" (gold "4 percent
+  cumulative effect", classified `other` because of the extra words) got "about 1500 BC"; "Johannes Gutenberg" as the
+  singer (type `person`, so type-consistent but implausible). A model may reject an absurd answer, which would make
+  the fact attack look weaker than it is. `configs/frozen/` cannot change now, so: count the implausible targets and
+  say so in the report (or analyse ASR with and without them).
 - Resolved 2026-11-08: `scripts/calibrate_query_phrase.py` no longer overwrites the tracked Ada cutoffs off Ada,
   and local runs no longer use the Ada (e5-base-v2) cutoffs with e5-small-v2 vectors ("Interface changes").
 - **Open, team decision (frozen decision rule): the `heldout` attack mixes two attacks.** Its target questions
