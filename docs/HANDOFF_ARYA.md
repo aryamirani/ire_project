@@ -207,6 +207,10 @@ python scripts/calibrate_query_phrase.py --detection
 Ada: `bash ada/run_make_poison.sh` (P1) after A1 + A3, then A6, then A5, then the calibration script in a GPU job.
 
 ## Open issues
-- Ada storage (above): waiting for home space; A2 / P1 / A6 not run yet.
+- Resolved: Ada storage (home + gnode056 `/scratch`); A2, P1 and A6 ran (A6 re-run with the held-out shard on
+  2026-10-30).
 - Stealth similarity cap: met for 428 / 500 stealth passages on Ada (e5-base), 113 / 500 locally (e5-small).
-- `configs/query_phrase_thresholds.json` now holds the Ada values (calibrated on the final caches).
+- `configs/query_phrase_thresholds.json` now holds the Ada values (calibrated on the final caches). Since
+  2026-11-08 `scripts/calibrate_query_phrase.py` writes it only on Ada (or with `--write-config`); off Ada it writes
+  `$IRE_DATA_DIR/reports/query_phrase_thresholds_<env>.json`, which local runs read (see docs/HANDOFF.md,
+  "Interface changes", 2026-11-08).

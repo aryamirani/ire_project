@@ -120,6 +120,29 @@ class Config:
                               f"Known keys: {', '.join(sorted(self.paths))}")
         return self.paths[key]
 
+    # The tracked threshold tables (configs/perplexity_thresholds.json, configs/query_phrase_thresholds.json) hold
+    # the Ada calibration used for the results. Off Ada, calibrations go to the untracked reports folder instead, so
+    # a local run can never replace the Ada values, and local runs read their own table when it exists.
+    def local_thresholds_path(self, key: str) -> Path:
+        """`$IRE_DATA_DIR/reports/<key>_<env>.json`: where an off-Ada calibration of `key` is kept."""
+        self.path(key)  # unknown key -> ConfigError
+        return self.path("reports_dir") / f"{key}_{self.env}.json"
+
+    def thresholds_path(self, key: str) -> Path:
+        """Thresholds table to READ: on Ada the tracked file; elsewhere the local calibration if it exists,
+        otherwise the tracked (Ada) file."""
+        if self.env == "ada":
+            return self.path(key)
+        local = self.local_thresholds_path(key)
+        return local if local.is_file() else self.path(key)
+
+    def thresholds_write_paths(self, key: str, write_tracked: bool = False) -> list[Path]:
+        """Where a calibration of `key` is WRITTEN: on Ada the tracked file; elsewhere the local file, plus the
+        tracked file only if `write_tracked` (the --write-config flag of the calibration scripts)."""
+        if self.env == "ada":
+            return [self.path(key)]
+        return [self.local_thresholds_path(key)] + ([self.path(key)] if write_tracked else [])
+
     def __repr__(self) -> str:
         return f"Config(env={self.env!r}, keys={sorted(self.values)}, paths={sorted(self.paths)})"
 

@@ -207,8 +207,8 @@ class SweepRunner:
         self.texts = TextStore.open_for(cfg)
         self.vectors = default_vectors()
         self.mods = {"query_phrase": query_phrase, "cluster": cluster, "perplexity": perplexity}
-        self.qp_table = query_phrase.load_thresholds(cfg.path("query_phrase_thresholds"))
-        self.ppl_table = perplexity.load_thresholds(cfg.path("perplexity_thresholds"))
+        self.qp_table = query_phrase.load_thresholds(cfg.thresholds_path("query_phrase_thresholds"), cfg)
+        self.ppl_table = perplexity.load_thresholds(cfg.thresholds_path("perplexity_thresholds"))
         self.ppl_scores = perplexity.default_scores(cfg)
         self.generator = Generator.from_config(cfg, texts=self.texts)
         self._ready = True

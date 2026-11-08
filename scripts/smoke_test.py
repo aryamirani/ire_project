@@ -60,9 +60,9 @@ def main() -> int:
     cache = load_cache(["bm25", "dense", "splade"])
     texts = TextStore.open_for(cfg)
     vectors = default_vectors()
-    qp_table = query_phrase.load_thresholds(cfg.path("query_phrase_thresholds"))
+    qp_table = query_phrase.load_thresholds(cfg.thresholds_path("query_phrase_thresholds"), cfg)
     ppl = perplexity.default_scores(cfg)
-    ppl_table = perplexity.load_thresholds(cfg.path("perplexity_thresholds"))
+    ppl_table = perplexity.load_thresholds(cfg.thresholds_path("perplexity_thresholds"))
     gen = Generator.from_config(cfg, texts=texts)
 
     report_r: dict[str, dict] = {}

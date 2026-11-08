@@ -112,8 +112,16 @@ def thresholds_for(table: Mapping[str, Any], retriever: str, report_fold: str, t
     return {"sim_cutoff": float(cutoff), "calibrated_on_fold": calib, "tail": float(tail), "retriever": retriever}
 
 
-def load_thresholds(path: str | Path) -> dict[str, Any]:
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+def load_thresholds(path: str | Path, cfg: Any = None) -> dict[str, Any]:
+    """The cutoffs table. With `cfg`, refuse a table calibrated with another dense model: s(q, p) is a cosine of
+    that model's vectors, so e.g. e5-base-v2 cutoffs mean nothing for the local e5-small-v2."""
+    table = json.loads(Path(path).read_text(encoding="utf-8"))
+    if cfg is not None and table.get("dense_model") and table["dense_model"] != cfg["models.dense"]:
+        raise ValueError(f"query-phrase cutoffs in {Path(path).name} were calibrated with {table['dense_model']}, "
+                         f"this profile (env={cfg.env}) uses {cfg['models.dense']}: run "
+                         f"python scripts/calibrate_query_phrase.py first (off Ada it writes "
+                         f"{cfg.local_thresholds_path('query_phrase_thresholds').name} under reports/)")
+    return table
 
 
 # ---------------------------------------------------------------- the filter

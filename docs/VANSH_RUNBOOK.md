@@ -29,10 +29,15 @@ python scripts/run_sweep.py --list --tier headline rates sweeps adaptive optiona
 
 ## 2. Local dry run on the tiny corpus (finds bugs before Ada)
 ```
+python scripts/calibrate_query_phrase.py                 # once per machine (~30 s): local cutoffs for e5-small
 python scripts/run_sweep.py --pilot                       # 10 target + 10 clean questions, fact only, local 1.5B stand-in
 python scripts/analyze.py --run-name pilot
 python scripts/make_plots.py --run-name pilot
 ```
+The first line is needed because the query-phrase cutoffs are cosines of the dense model's vectors: the tracked
+`configs/query_phrase_thresholds.json` (Ada, e5-base-v2) is refused on the local profile (e5-small-v2). Off Ada the
+script writes `$IRE_DATA_DIR/reports/query_phrase_thresholds_local.json` and never touches the tracked file.
+The perplexity thresholds need nothing (same GPT-2 everywhere; the Ada table is used).
 Local numbers are for correctness only. Look at one record: `head -c 1500 $IRE_DATA_DIR/reports/runs/pilot/bm25__fact__r3__none.jsonl`.
 
 ## 3. Ada (all through Arya's account on gnode056; see VANSH_START.md section 2 for the sbatch pattern)

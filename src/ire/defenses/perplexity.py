@@ -294,7 +294,7 @@ def _setup(ctx: FilterContext) -> tuple[dict[str, float], str, Any]:
     alpha = float(ctx.thresholds.get("alpha", _cfg(ctx, "perplexity.alpha", 0.025)))
     table = ctx.thresholds.get("table")
     if table is None:
-        table = load_thresholds(ctx.config.path("perplexity_thresholds"))
+        table = load_thresholds(ctx.config.thresholds_path("perplexity_thresholds"))
     th = table["thresholds"][alpha_key(alpha)]
     rule = str(_cfg(ctx, "perplexity.rule", "either"))
     scores = ctx.thresholds.get("scores") or default_scores(ctx.config)

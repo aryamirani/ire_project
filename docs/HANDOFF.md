@@ -1,6 +1,6 @@
 # HANDOFF -- Samarth's lane (indexes, retrievers, cache, generation, cluster + perplexity filters)
 
-Last updated: 2026-10-29 (held-out phrasings written; steps 9-13 audited locally)
+Last updated: 2026-11-08 (bug fixes after the steps 9-13 scan)
 
 ## Status board
 | Step | Title | Status | Date | Suggested message |
@@ -213,6 +213,9 @@ re-run use its section "How jobs run on Ada" (pinned node gnode056 through `ada/
   0.40, clean top-5 unchanged for 96%, Jaccard@50 0.995. Dense and SPLADE masking is exact (50/50 identical).
 - Perplexity is noisy on short halves: NQ passages average 102.8 GPT-2 tokens (median 87), 7.3% are too short to
   score; detection at the anchor is weak (flag rate 4-14% on poison vs 1.9% on clean pool passages, A8).
+  At alpha 0.025 the PD rule flagged 3.96% of the 1,000 held-out clean passages (PM 2.36%): inside A8's
+  tolerance (+/-0.018), but the PD band is estimated from ~12 passages per tail, so report the measured clean
+  flag rate (FPR) next to alpha rather than assuming alpha.
 - Generation batching: answers were identical batched vs one by one on 20/20 prompts locally, but batching moves
   first-token logits by up to 0.086 vs a smallest top-1/top-2 gap of 0.078, so a rare flip is possible; the
   generation cache is the record (decision on the batch size after A7, see open issues).
@@ -298,6 +301,21 @@ Layout notes (not contract changes):
 - (2026-10-26, Arya; reviewed) The FAISS index is loaded only when a search runs (`DenseRetriever.index`), so
   `get_doc_vector` (filters) does not hold the 8.2 GB Flat index in RAM; the LLM is loaded straight onto its
   device (`device_map`); model-cache lookups use the downloader's skip patterns (`MODEL_SKIP_PATTERNS`).
+- (2026-11-08, Samarth) **Threshold tables: tracked = Ada, local calibrations stay local** (both filters).
+  - New `Config.thresholds_path(key)` (read), `Config.thresholds_write_paths(key, write_tracked=False)` (write)
+    and `Config.local_thresholds_path(key)` = `$IRE_DATA_DIR/reports/<key>_<env>.json`. On Ada: always the
+    tracked file. Elsewhere: the calibration scripts write the local file (`--write-config` also writes the
+    tracked one), and readers use the local file when it exists, else the tracked (Ada) file.
+  - `scripts/calibrate_query_phrase.py` (Arya's) now follows this, like `calibrate_perplexity.py`: before, every
+    local run overwrote the tracked Ada cutoffs. Readers switched: `ire.eval.sweep`, `scripts/smoke_test.py`,
+    `perplexity.apply_filter`.
+  - `query_phrase.load_thresholds(path, cfg)` refuses a table whose `dense_model` differs from
+    `cfg["models.dense"]` (cutoffs are cosines of that model's vectors; the Ada e5-base-v2 table is meaningless
+    for the local e5-small-v2). Called without `cfg` it behaves as before. Locally: run
+    `python scripts/calibrate_query_phrase.py` once (~30 s) before the smoke test or a local sweep.
+  - `.gitattributes`: `configs/frozen/**` and `heldout/**` are always checked out with LF, so their bytes (and
+    hashes) are the same on Windows and on Ada (before, Windows had CRLF: `question_set.json` hashed 2f2e7...
+    locally vs fb6f5... committed).
 - (2026-10-27, Samarth, audit of step 11) **Perplexity scorer / calibration**, no change to the score records,
   the thresholds format or the scorer namespace (still `7248fb54...`, so A8's thresholds and score cache stay valid):
   - `calibrate_perplexity.py` writes the tracked `configs/perplexity_thresholds.json` only on Ada (or with
@@ -390,6 +408,30 @@ Layout notes (not contract changes):
 
 ## Step log
 (Newest first. Per step: what was built, files, how to run, verify results with actual numbers, open issues.)
+
+### 2026-11-08 -- Bug fixes after the steps 9-13 scan
+- Threshold tables (both filters): off Ada, calibrations are written to `$IRE_DATA_DIR/reports/<key>_<env>.json`
+  and read from there; the tracked files keep the Ada values (`Config.thresholds_*`, see "Interface changes").
+  `calibrate_query_phrase.py` (Arya's) used to overwrite the tracked Ada cutoffs on every local run, and local
+  runs used the Ada e5-base-v2 cutoffs with e5-small-v2 vectors; the query-phrase loader now refuses a table of
+  another dense model.
+- `.gitattributes`: `configs/frozen/**` and `heldout/**` are LF on every machine (Windows had CRLF, so the frozen
+  question set hashed differently from the committed bytes).
+- Docs: stale open issue in `docs/HANDOFF_ARYA.md`; local query-phrase calibration step in `docs/VANSH_RUNBOOK.md`;
+  open issues for the `heldout` attack mixing hijack and fact questions (team decision) and for type-mismatched
+  false answers (Arya); PD clean flag rate as a limitation.
+- Not a code fix: generation batching may flip a rare answer; decided with the A7 numbers (open issue).
+
+**Verify results (env=local)**
+- `python scripts/calibrate_query_phrase.py --corpus-sample 2000`: 25 s, wrote
+  `reports/query_phrase_thresholds_local.json` (cutoffs at tail 0.025: bm25 0.842 / 0.844, dense 0.847 / 0.847,
+  splade 0.847 / 0.847, rrf 0.847 / 0.847 for folds A / B; cross-fold flag rate 0.024-0.026); both tracked
+  threshold files byte-identical before and after (md5).
+- Readers on the local profile: query-phrase -> the local table (e5-small-v2); the tracked Ada table is refused
+  with a message naming the calibration script; perplexity -> the tracked Ada table (same GPT-2 namespace).
+- `configs/frozen/question_set.json` sha256 on Windows after the change: fb6f55b3... = the committed bytes.
+- `pytest -q`: 433 passed (3 new tests in `tests/test_config.py`: Ada uses the tracked table; off Ada nothing is
+  written to it and the local table is read once it exists; another dense model's cutoffs are refused).
 
 ### 2026-10-29 -- Step 12: held-out phrasings written (blind)
 - `heldout/phrasings.jsonl`: the template filled with 10 hijack instructions (`{CW}` for the codeword; different
@@ -990,7 +1032,8 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
   on Arya's final questions.jsonl. Anything earlier is a timing test only; the loader will refuse it (stale
   fingerprint / questions sha256) and `check_ada_report.py A5` warns if the indexes hold 0 poison documents.
 - The questions file is fingerprinted by its bytes: re-saving it with other line endings (e.g. CRLF on Windows)
-  makes the caches stale, which is the safe behaviour but worth knowing.
+  makes the caches stale, which is the safe behaviour but worth knowing. (Generated files are written with LF;
+  tracked frozen / held-out files are LF on every machine since 2026-11-08, `.gitattributes`.)
 - Local GPU/CPU speed looks power-throttled (see step 4 log); plug in / use a performance power plan before
   timing-sensitive local runs (step 9 generation throughput).
 - Resolved: the BM25 masking check (plan 2.1) ran in A6 (max rank difference 32 on 50 questions).
@@ -1001,11 +1044,23 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
 - A 4 MiB partial `raw/beir/nq.zip.part` from the abandoned slow UKP download is still in `IRE_DATA_DIR`
   (kept so `--source ukp` can resume; Samarth can delete it).
 - Resolved: `src/ire/stubs.py` (`candidate_pool` stub) exists (Arya, step 13).
-- **For Arya: `scripts/calibrate_query_phrase.py` always writes the tracked `configs/query_phrase_thresholds.json`**
-  (also when run locally), so a local run replaces the Ada thresholds with local ones (`"env": "local"`). The
-  perplexity calibration had the same problem and now writes local thresholds to `$IRE_DATA_DIR/reports/` unless
-  `--write-config` (2026-10-27); the same change would fit the query-phrase script. Until then: do not commit
-  `configs/query_phrase_thresholds.json` after a local run (`git checkout -- configs/query_phrase_thresholds.json`).
+- **For Arya (check, not fixed): some false answers do not fit their question type.** Of the 5 held-out fact
+  targets (assigned by `make_template` from the frozen targets), one is clearly off: "about 1500 BC" for "what
+  percentage of global man-made co2 emissions comes from worldwide aviation" (also "Johannes Gutenberg" as a
+  singer). A model may reject an absurd answer, which would make the fact attack look weaker than it is.
+  `configs/frozen/` cannot change now, so: count how many of the 200 targets have a type mismatch and say so in
+  the report (or analyse ASR with and without them).
+- Resolved 2026-11-08: `scripts/calibrate_query_phrase.py` no longer overwrites the tracked Ada cutoffs off Ada,
+  and local runs no longer use the Ada (e5-base-v2) cutoffs with e5-small-v2 vectors ("Interface changes").
+- **Open, team decision (frozen decision rule): the `heldout` attack mixes two attacks.** Its target questions
+  are "the questions that have poison of that attack" (`ire.eval.sweep.load_targets`): the 100 adaptive
+  questions with the 10 held-out hijack phrasings (target = the codeword) AND the 5 questions of the held-out
+  fact passages (target = a false answer, n = 1 only). The plan (sections 1 and 4.1) defines the held-out test as
+  "held-out hijack phrasings against the phrase list"; the phrase list has no bearing on fact passages. So the
+  held-out ASR / detection rows blend ~5% fact questions into a hijack measurement. Proposed fix: score the
+  `heldout` attack on the 100 hijack questions only and show the 5 fact passages as examples (5 questions at
+  n = 1 cannot give a rate). Needs Arya's and Vansh's agreement because `docs/DECISION_RULE.md` is frozen
+  (it says "~100 questions", which matches the fix).
 - **Model choices to confirm** (config values, easy to change before the Ada jobs run): Ada dense model
   `intfloat/e5-base-v2` (job A3) and Ada LLM `Qwen/Qwen2.5-3B-Instruct` (job A7; same family as the local stand-in).
 - Resolved: Arya filled in the SLURM settings in `ada/common.sh` and the Ada facts are in docs/ADA_RUNBOOK.md.

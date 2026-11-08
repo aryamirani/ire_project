@@ -10,8 +10,10 @@ masked (the no-poison setting; RRF fuses the masked bm25 + dense lists), compute
 and store the (1 - tail) percentile for every tail of query_phrase.tail_sweep. A run reported on fold B uses
 the fold-A cutoff and vice versa (`ire.defenses.query_phrase.thresholds_for`).
 
-Writes configs/query_phrase_thresholds.json (tracked; the Ada version is the one used for results) and
-$IRE_DATA_DIR/reports/query_phrase_<env>.json. Checks reported:
+Writes the cutoffs to configs/query_phrase_thresholds.json on Ada (tracked; the Ada version is the one used for
+results); elsewhere to $IRE_DATA_DIR/reports/query_phrase_thresholds_<env>.json, which local runs then read
+(Config.thresholds_path), so a local run never replaces the Ada cutoffs (--write-config also overwrites the
+tracked file). Report: $IRE_DATA_DIR/reports/query_phrase_<env>.json. Checks reported:
     - flag rate of the similarity rule on the opposite fold's clean pools ~= tail (cross-fold sanity),
     - phrase-rule false-positive rate on clean pool passages and on a random corpus sample,
     - (--detection) per attack at rate 5: TPR on poison and FPR on clean passages of the target questions'
@@ -75,6 +77,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--detection", action="store_true", help="also run the detection sanity check")
     ap.add_argument("--corpus-sample", type=int, default=20000, help="random corpus passages for the phrase FPR")
+    ap.add_argument("--write-config", action="store_true",
+                    help="off Ada: also overwrite the tracked configs/query_phrase_thresholds.json (default: only on Ada)")
     args = ap.parse_args()
 
     cfg = load_config()
@@ -124,8 +128,11 @@ def main() -> int:
                      "reported on fold X uses the other fold's cutoff (thresholds_for).",
              "n_pairs": {r: {f: len(sims[r][f]) for f in folds} for r in retrievers},
              "cutoffs": cutoffs}
-    out_table = cfg.path("query_phrase_thresholds")
-    out_table.write_text(json.dumps(table, indent=1) + "\n", encoding="utf-8", newline="\n")
+    out_tables = cfg.thresholds_write_paths("query_phrase_thresholds", write_tracked=args.write_config)
+    for out_table in out_tables:
+        out_table.parent.mkdir(parents=True, exist_ok=True)
+        out_table.write_text(json.dumps(table, indent=1) + "\n", encoding="utf-8", newline="\n")
+    out_table = out_tables[0]
 
     # ---- detection sanity check (rate 5, every attack present in the shards)
     detection = None
@@ -158,7 +165,9 @@ def main() -> int:
 
     report = {
         "job": "query_phrase", "env": cfg.env, "time_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "git_commit": git_commit(), "thresholds_file": str(out_table.relative_to(REPO_ROOT)),
+        "git_commit": git_commit(),
+        "thresholds_file": (out_table.relative_to(REPO_ROOT).as_posix() if REPO_ROOT in out_table.parents
+                            else out_table.name),
         "cutoffs": cutoffs, "cross_fold_flag_rate": cross,
         "phrase_rule": {"patterns": len(phrases),
                         "clean_pool_passages": clean_phrase["passages"],

@@ -107,3 +107,52 @@ def test_dotenv_loaded_on_import() -> None:
     import ire.config  # noqa: F401  (import loads .env)
 
     assert os.environ.get("IRE_DATA_DIR"), "IRE_DATA_DIR should come from .env"
+
+
+# ---- threshold tables: the tracked files hold the Ada calibration; off Ada, calibrations stay in reports/
+
+def _cfg_with(env: str, tmp_path: Path):
+    from ire.config.loader import Config
+
+    paths = {"reports_dir": tmp_path / "reports",
+             "perplexity_thresholds": tmp_path / "configs" / "perplexity_thresholds.json",
+             "query_phrase_thresholds": tmp_path / "configs" / "query_phrase_thresholds.json"}
+    return Config(env, {"models": {"dense": "intfloat/e5-small-v2"}}, paths)
+
+
+def test_thresholds_on_ada_use_the_tracked_file(tmp_path: Path) -> None:
+    cfg = _cfg_with("ada", tmp_path)
+    tracked = cfg.path("query_phrase_thresholds")
+    assert cfg.thresholds_write_paths("query_phrase_thresholds") == [tracked]
+    (tmp_path / "reports").mkdir()
+    cfg.local_thresholds_path("query_phrase_thresholds").write_text("{}", encoding="utf-8")
+    assert cfg.thresholds_path("query_phrase_thresholds") == tracked   # a stray local file is ignored on Ada
+
+
+def test_thresholds_off_ada_never_overwrite_the_tracked_file(tmp_path: Path) -> None:
+    cfg = _cfg_with("local", tmp_path)
+    tracked, local = cfg.path("perplexity_thresholds"), cfg.local_thresholds_path("perplexity_thresholds")
+    assert local == tmp_path / "reports" / "perplexity_thresholds_local.json"
+    assert cfg.thresholds_write_paths("perplexity_thresholds") == [local]
+    assert cfg.thresholds_write_paths("perplexity_thresholds", write_tracked=True) == [local, tracked]
+    assert cfg.thresholds_path("perplexity_thresholds") == tracked     # no local calibration yet: the Ada table
+    local.parent.mkdir(parents=True)
+    local.write_text("{}", encoding="utf-8")
+    assert cfg.thresholds_path("perplexity_thresholds") == local       # then the local one
+    with pytest.raises(ConfigError):
+        cfg.local_thresholds_path("no_such_key")
+
+
+def test_query_phrase_cutoffs_of_another_dense_model_are_refused(tmp_path: Path) -> None:
+    import json
+
+    from ire.defenses.query_phrase import load_thresholds
+
+    cfg = _cfg_with("local", tmp_path)
+    path = tmp_path / "t.json"
+    path.write_text(json.dumps({"dense_model": "intfloat/e5-base-v2", "cutoffs": {}}), encoding="utf-8")
+    assert load_thresholds(path)["dense_model"] == "intfloat/e5-base-v2"   # without cfg: no check (old behaviour)
+    with pytest.raises(ValueError, match="calibrate_query_phrase"):
+        load_thresholds(path, cfg)
+    path.write_text(json.dumps({"dense_model": "intfloat/e5-small-v2", "cutoffs": {}}), encoding="utf-8")
+    assert load_thresholds(path, cfg)["cutoffs"] == {}
