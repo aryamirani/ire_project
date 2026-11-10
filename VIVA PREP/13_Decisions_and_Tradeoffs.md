@@ -56,7 +56,7 @@ candidates who know the weaknesses of their own choices.
 | 36 | Chat template with the model's default system message | raw prompt; custom system message | instruct models expect the template; default is neutral | the default system text is part of the setup (recorded) |
 | 37 | Passages truncated to 180 tokens | no truncation | bounded prompt length and memory; uniform batches | 18% of passages cut (locally) |
 | 38 | Cache keyed by (qid, ordered top-5) within a namespace | prompt-text key | the plan's key; namespace covers everything else | -- |
-| 39 | Batched generation, cache as the record | batch size 1 | 2.2x faster locally; one sweep internally consistent | a rare answer could differ from a batch-1 run (logit shifts up to 0.086 vs 0.078 smallest gap); decision pending A7 |
+| 39 | Batched generation, cache as the record | batch size 1 | 2.2x faster locally; one sweep internally consistent | a rare answer could differ from a batch-1 run (logit shifts up to 0.086 vs 0.078 smallest gap); decided 2026-11-10 from A7: batch 32 (306.8 req/min vs 46.7 at batch 1), batch independence 19/20 |
 
 ## E. Engineering
 | # | Decision | Why |

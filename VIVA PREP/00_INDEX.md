@@ -6,7 +6,7 @@ test yourself and jump back to the file that answers a question you could not an
 Every number here comes from a committed report (`reports/*.json`), `docs/HANDOFF.md`, `docs/HANDOFF_ARYA.md` or
 `TEAM_STATUS.md`. Numbers marked **env=local** come from Samarth's laptop (5,000-passage corpus, small models) and
 are for correctness only; everything else is from the Ada cluster on the full 2.68M-passage corpus. The sweeps
-(the final experiment) have **not** run yet at the time of writing (2026-11-08), so there are no final ASR results:
+(the final experiment) have **not** run yet at the time of writing (2026-11-10; A7 passed and a local dry run of the whole pipeline ran, but the Ada pilot and sweeps have not), so there are no final ASR results:
 never quote a result that is not in these files.
 
 | # | File | What it covers | Read when |

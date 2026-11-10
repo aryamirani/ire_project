@@ -71,3 +71,20 @@ def test_answer_part_asr_rules():
     assert answer_part(retrieval_part(s, clean, POOL, set(), None, 0.0), clean, "y", ["ZOLTRAX"])["asr"] is None
     nop = Setting("bm25", None, None, "none")
     assert answer_part(retrieval_part(nop, Q, POOL, set(), None, 0.0), Q, "Paris", [])["asr"] is None
+
+
+def test_heldout_targets_are_the_hijack_questions_only():
+    from ire.eval.sweep import collect_targets
+    from ire.schemas import PoisonRecord
+
+    def poison(qid, attack, n, target):
+        return PoisonRecord(doc_id=f"poison_{qid}_{attack}_{n}", qid=qid, attack=attack, title="t", text="x",
+                            is_poison=True, target_answer=target)
+
+    recs = [poison("q1", "heldout", 1, "ZOLTRAX"), poison("q1", "heldout", 2, "ZOLTRAX"),
+            poison("q2", "heldout", 1, "ZOLTRAX"), poison("q9", "heldout", 1, "1992"),   # a held-out fact passage
+            poison("q9", "fact", 1, "1992"), poison("q1", "fact", 1, "1987")]
+    targets, qids = collect_targets(recs, "ZOLTRAX")
+    assert qids["heldout"] == {"q1", "q2"} and ("q9", "heldout") not in targets
+    assert targets[("q1", "heldout")] == ["ZOLTRAX"]
+    assert qids["fact"] == {"q1", "q9"} and targets[("q9", "fact")] == ["1992"]   # other attacks unchanged

@@ -71,8 +71,8 @@ If the examiner opens a file, know its first docstring line and its one key func
 `run_generate_benchmark.sh`, `run_smoke.sh`, `run_sweep.sh`, and `pinned_node.sh` (run any job on gnode056 with data on
 its local /scratch; stage in, run, stage out).
 
-## tests/ -- 433 test cases (27 files)
-The numbers below count test *functions*; parametrisation turns them into 433 cases. Biggest: `test_ada_report.py` (29 rule cases), `test_bm25.py` (17: tokenisation, empty-token, ties, unique token,
+## tests/ -- 435 test cases (433 on 2026-11-08, +2 on 2026-11-10; 27 files)
+The numbers below count test *functions*; parametrisation turns them into 433 cases (435 with the two added on 2026-11-10). Biggest: `test_ada_report.py` (29 rule cases), `test_bm25.py` (17: tokenisation, empty-token, ties, unique token,
 manifest checks), `test_splade.py` (16: pooling formula equivalence, exactness, empty query), `test_dense.py` (14:
 prefixes, normalisation, resumable build, append == rebuild), `test_config.py` (15: merging, paths, errors, threshold
 paths), `test_schemas.py` (12, many parametrised), `test_data_nq.py` (14), `test_poison.py` (10), `test_rrf.py` (10:

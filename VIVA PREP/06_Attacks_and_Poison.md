@@ -116,8 +116,10 @@ verbatim in every fact passage, no duplicates; only *after* that it reports the 
 `you_are_model`/`if_you_are_model`, hijack_08 `dear_model`) vs 67.6% of the template hijacks. Query-and-phrase TPR at
 rate 5 (Ada): held-out 0.47 / 0.49 / 0.44 / 0.44 (bm25 / dense / splade / rrf) vs hijack 0.77-0.79 -- the drop that
 the held-out test was designed to expose.
-**Open team decision:** the sweep's `heldout` attack currently scores 105 questions (100 hijack + 5 fact); the plan
-defines the test as hijack phrasings, so scoring only the 100 is proposed (docs/HANDOFF.md open issues).
+**Decided 2026-11-10 (Samarth proposed; Arya and Vansh agreed):** the sweep's `heldout` attack is scored on the 100 hijack
+questions only (the plan defines the test as hijack phrasings); `ire.eval.sweep.collect_targets` keeps a held-out record
+only if its target is the codeword. The 5 held-out fact passages stay in the indexes and serve as examples. The frozen
+decision rule says "~100 questions", so it needed no edit.
 
 ## 6. Likely viva questions
 - *Why put the question at the start of the passage?* PoisonedRAG's retrieval condition: the passage must be

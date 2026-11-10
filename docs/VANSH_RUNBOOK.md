@@ -23,7 +23,7 @@ Do NOT run `calibrate_query_phrase.py` locally: it overwrites `configs/query_phr
 ## 1. Tests (no models, seconds)
 ```
 pytest tests/test_pool.py tests/test_metrics.py tests/test_stats.py tests/test_controls.py tests/test_sweep.py tests/test_analysis.py -q
-pytest -q                                # whole suite (the 41 tests of this lane + config passed on 2026-11-08)
+pytest -q                                # whole suite (all tests passed on 2026-11-10)
 python scripts/run_sweep.py --list --tier headline rates sweeps adaptive optional    # prints 384 settings, loads nothing
 ```
 
@@ -43,14 +43,14 @@ Local numbers are for correctness only. Look at one record: `head -c 1500 $IRE_D
 ## 3. Ada (all through Arya's account on gnode056; see VANSH_START.md section 2 for the sbatch pattern)
 Get the code there (`git pull` in `~/ire_project` on Ada, or ask Arya), then:
 
-**A7 -- LLM benchmark (decide the batch size).** Does not depend on any new code:
+**A7 -- LLM benchmark: DONE 2026-11-10 (Arya, `reports/A7.json`, PASS); batch size 32 decided. Kept for reference:**
 ```
 sbatch -p u22 -w gnode056 --gres=gpu:1 -c 4 --mem=11G -t 01:00:00 -o ~/ire_data_dir/logs/A7-%j.log \
   --wrap "bash \$HOME/ire_project/ada/pinned_node.sh ada/run_generate_benchmark.sh"
 python scripts/check_ada_report.py A7 --file ~/ire_data_dir/reports/A7.json
 ```
-Then set `compute.generate_batch_size` in `configs/env_ada.yaml` (or pass `--batch-size` to the sweep). Rule of thumb from
-HANDOFF: generate in batches and treat the generation cache as the record.
+Result: batch 1/8/16/32 = 46.7/202.8/250.0/306.8 requests/min (60,000 requests = 3.3 h at 32), peak VRAM 8.1 GiB. `compute.generate_batch_size`
+is already 32 in `configs/env_ada.yaml`; if a job runs out of GPU memory, add `--batch-size 16` to the sweep. The generation cache is the record.
 
 **Pilot (500 requests, plan 6.1):**
 ```

@@ -25,7 +25,7 @@ Cover the answer, say yours out loud, then compare. Answers are short on purpose
 10. **What is backfill and why report it?** Whether the final 5 include passages beyond rank 20; a defense that works
     only by pulling in lower-ranked passages trades quality for safety.
 11. **What results do you have?** Retrieval quality, poison reach, exact masking, detector calibration and sanity
-    checks, smoke test. The ASR comparisons need the sweeps, which have not run yet. (File 14.)
+    checks, smoke test. A7 (3B throughput) and a local dry run of the whole pipeline are done; the ASR comparisons need the Ada sweeps, which have not run yet. (File 14.)
 
 ## B. Data (file 03)
 12. **Which dataset and why?** BEIR NQ (2.68M Wikipedia passages, gold relevance) + nq_open (short answers);
@@ -148,7 +148,7 @@ Cover the answer, say yours out loud, then compare. Answers are short on purpose
 84. **Explain the generation cache key.** sha1(qid | id1 | ... | id5); order matters; within a namespace that hashes
     model, revision, template, format, truncation, decoding.
 85. **Is batched generation deterministic?** 20/20 identical locally, but logits shift up to 0.086 vs a 0.078 smallest
-    gap, so a flip is possible; the cache is the record; batch size decided with A7.
+    gap, so a flip is possible; the cache is the record; A7 (3B, 2080 Ti) gave 19/20 batch independence (the one difference was the last generated token) and batch 32 at 306.8 req/min was chosen.
 86. **Why left padding?** Decoder-only generation continues from the last position; right padding would put pads
     between the prompt and the answer.
 87. **Why is EM so low (0.06)?** The model answers in sentences; we use `acc` (gold contained).
@@ -187,7 +187,7 @@ Cover the answer, say yours out loud, then compare. Answers are short on purpose
 
 ## J. Engineering and reproducibility (file 11)
 108. **How do you make results reproducible?** Seed 13 with string-keyed RNGs, doc_id tie-breaks, pinned versions and
-     model revisions, content fingerprints, frozen inputs, exact search, atomic writes, 433 tests.
+     model revisions, content fingerprints, frozen inputs, exact search, atomic writes, 435 tests.
 109. **Why string-keyed RNGs?** A draw depends only on its key (e.g. seed:target:qid), not on processing order.
 110. **How did you work without Ada access?** Local profile with small stand-ins; Ada jobs as one-command scripts with
      JSON reports, run by teammates and checked by rules.
@@ -216,9 +216,9 @@ Cover the answer, say yours out loud, then compare. Answers are short on purpose
      instructions); out of scope -- claims are for this model.
 121. **Why GPT-2 small for perplexity, not the generator?** Cheap, standard in the cited work, independent of the
      generator; the plan specifies it.
-122. **Why is the 'heldout' sweep population 105 questions?** It counts every question with held-out poison (100
-     hijack + 5 fact). Proposed fix: score the 100 hijack questions only (plan defines the test as hijack phrasings);
-     pending team agreement because the decision rule is frozen.
+122. **How many questions does the 'heldout' attack score?** 100. It first counted every question with held-out poison (100
+     hijack + 5 fact = 105); the plan defines the test as hijack phrasings, so on 2026-11-10 all three agreed to score the
+     100 hijack questions only (the frozen rule says "~100", so it was not edited). The 5 fact passages are examples.
 123. **What does 'training-free' buy you?** No poisoned training data, no leakage from attack design into detector
      training, cheap to run on every query.
 124. **Is ASR on clean questions defined?** No (null): nothing to succeed at; clean questions measure collateral and

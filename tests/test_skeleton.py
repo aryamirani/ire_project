@@ -34,7 +34,14 @@ def test_bad_env_name_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_data_dir_outside_repo() -> None:
     data_dir = get_data_dir()
-    assert data_dir != REPO_ROOT and REPO_ROOT not in data_dir.parents
+    assert data_dir != REPO_ROOT
+    # outside the repo, or inside only at the git-ignored <repo>/ire_data_dir
+    assert REPO_ROOT not in data_dir.parents or (REPO_ROOT / "ire_data_dir") in (data_dir, *data_dir.parents)
+
+
+def test_data_dir_repo_ire_data_dir_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("IRE_DATA_DIR", str(REPO_ROOT / "ire_data_dir"))
+    assert get_data_dir() == REPO_ROOT / "ire_data_dir"
 
 
 def test_data_dir_inside_repo_rejected(monkeypatch: pytest.MonkeyPatch) -> None:

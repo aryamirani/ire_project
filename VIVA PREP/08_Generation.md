@@ -55,7 +55,7 @@ explicitly to 1.0 = deterministic greedy as the plan says ("temperature 0").
   slightly. Locally (1.5B, 20 prompts): answers identical one-by-one vs batches of 8 (mixed, shuffled, reversed,
   sorted) -- 20/20 in every configuration -- **but** first-token logits moved by up to **0.086** under batching while
   the smallest top-1/top-2 logit gap among those prompts was **0.078**. So a flip is *possible* on some prompt.
-  Decision (open, to be made with A7's real numbers): generate in batches for the sweeps and treat the **generation
+  **Decided 2026-11-10 with A7's real numbers: batch size 32**; generate in batches for the sweeps and treat the **generation
   cache as the record** (every answer is computed once and reused, so one sweep is internally consistent); batch
   size 1 only if answers must be regenerated bit-identically from an empty cache. Cost of batch 1 locally: 59.8 vs
   133.1 requests/min at batch 8.
@@ -95,7 +95,7 @@ twice; batch independence as above; throughput 59.8 / 110.3 / 133.1 requests/min
 requests in 7.5 h at batch 8 on the laptop); VRAM 2.88 GiB weights, peak 3.54 GiB at batch 8; smoke EM 0.06 / F1 0.26
 on 50 clean questions (the model answers in full sentences, so EM understates correctness -- hence the `acc` metric,
 "a gold answer appears in the answer"). On Ada, A9 ran the 3B model through this harness: ~0.2 s per answer after
-loading. **A7 (the real 3B throughput benchmark) has not been run yet** -- say so if asked.
+loading. **A7 (Ada, RTX 2080 Ti, Qwen2.5-3B fp16, 2026-11-10, PASS): batch 1 / 8 / 16 / 32 = 46.7 / 202.8 / 250.0 / 306.8 requests/min (60,000 requests = 3.3 h at batch 32), peak VRAM 8.1 GiB at 32, greedy determinism 20/20, batch independence 19/20** (the one difference is the last of 32 generated tokens, "standardize a" vs "standardize on"; smoke EM 0.0 / F1 0.14 -- sentence answers, so EM understates and `acc` is the quality measure). Batch 32 is already `compute.generate_batch_size` on Ada; fall back to `--batch-size 16` if a job runs out of GPU memory.
 
 ## 9. Likely viva questions
 - *Why cache on (qid, ordered top-5) and not on the prompt text?* It is the plan's key and it is cheap; the namespace

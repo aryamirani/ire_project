@@ -69,8 +69,8 @@ the data contracts (schemas reject them).
 
 ## 8. Team split and timeline
 - Plan dates: sweeps 19-22 Oct, report 26 Oct - 1 Nov, submission before 6 Nov. Actual: the submission deadline
-  moved to **20 Nov 2026**. Status 2026-11-08: retrieval, attacks, detectors, smoke test done and passed on Ada;
-  evaluation harness written and unit-tested; A7 (LLM benchmark), pilot, sweeps, human labels, analysis, report
+  moved to **20 Nov 2026**. Status 2026-11-10: retrieval, attacks, detectors, smoke test and A7 (LLM benchmark) done and passed on
+  Ada; evaluation harness written, tested and dry-run locally; the Ada pilot, sweeps, human labels, analysis and report
   remain (see `TEAM_STATUS.md`).
 - Work split: file 00, "Who did what".
 

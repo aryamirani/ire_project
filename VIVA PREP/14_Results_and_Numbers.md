@@ -1,6 +1,6 @@
-# 14 -- All measured numbers (as of 2026-11-08)
+# 14 -- All measured numbers (as of 2026-11-10)
 
-**There are no final experiment results yet** (A7, pilot and sweeps not run). If asked "what did you find?", say what
+**There are no final experiment results yet** (the Ada pilot and sweeps have not run; A7 and a local dry run have). If asked "what did you find?", say what
 is measured below (retrieval quality, poison reach, masking exactness, detector sanity checks, smoke test) and that
 the ASR comparisons come from the sweeps. Source in brackets.
 
@@ -66,8 +66,20 @@ All checks pass; 143.7 s. Filter ms per question (bm25/dense/splade/rrf): query-
 ## Generation (local step 9, Qwen2.5-1.5B, env=local)
 59.8 / 110.3 / 133.1 requests/min at batch 1/4/8; peak VRAM 3.54 GiB at batch 8; greedy determinism 20/20; batch
 independence 20/20 but logit shift up to 0.086 vs smallest gap 0.078; 18.4% of passages truncated at 180 tokens;
-smoke EM 0.06 / F1 0.26. Ada A9: ~0.2 s per answer (3B) after loading. **A7 not run.**
+smoke EM 0.06 / F1 0.26. Ada A9: ~0.2 s per answer (3B) after loading. **A7 below.**
 
 ## Sweep plan
 384 settings (headline 68, rates 128, sweeps 88, adaptive 80, optional 20); ~60,000 LLM requests upper bound before
-caching. Tests: 433 passing (2026-11-08).
+caching. Tests: 435 passing (2026-11-10).
+
+## Generation, Ada (A7, 2026-11-10, job 67804, RTX 2080 Ti, Qwen2.5-3B-Instruct fp16)
+Throughput batch 1 / 8 / 16 / 32 = 46.7 / 202.8 / 250.0 / 306.8 requests/min; peak VRAM 5.9 / 6.5 / 7.3 / 8.1 GiB (weights 5.75 GiB);
+60,000 requests = 3.3 h at batch 32 (30,000 = 1.6 h); model load 68.8 s; greedy determinism 20/20; batch independence 19/20 (one prompt
+differs at the last of 32 generated tokens); smoke EM 0.0 / F1 0.14 on 50 clean questions (sentence answers); 17.0% of passages exceed
+the 180-token limit (mean 113.6, median 96); text store 2,686,473 docs. **Decision: batch size 32, the generation cache is the record.**
+
+## Local dry run (env=local, 2026-11-08..10; correctness only, NOT results)
+5,000-passage corpus, e5-small, Qwen2.5-1.5B on CPU. Pilot (10 target + 10 clean questions, fact only, headline tier): 36 settings, 720
+records, 0 failures, 197 generations + 523 cache hits (72.6% hit rate), 26 min. Records checked by hand: no-poison accuracy 0.6-0.7;
+no filter (rate 3) ASR 0.8 with ~3 poison passages in the top 5; oracle ASR 0; the random control matches its detector's number of
+dropped passages and leaves ASR at ~0.8. `analyze.py` and `make_plots.py` ran on it; the agreement script was tested on fabricated labels.

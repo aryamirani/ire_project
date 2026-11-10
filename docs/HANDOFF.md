@@ -227,7 +227,7 @@ re-run use its section "How jobs run on Ada" (pinned node gnode056 through `ada/
   SPLADE 3,261 s (6.0 GiB).
 - Poison reach (A6, own target's top-10, BM25 / dense / SPLADE): fact 0.92 / 0.75 / 0.87, hijack 0.61 / 0.24 /
   0.28, url 0.08 / 0.31 / 0.16, diverse 0.56 / 0.43 / 0.12, repeat 0.00 / 0.28 / 0.74, stealth 0.00 / 0.00 / 0.01.
-- Generation throughput: real 3B model not benchmarked yet (A7). In A9 the 3B model on a 2080 Ti answered 20 new
+- Generation throughput (A7, 2026-11-10, RTX 2080 Ti, Qwen2.5-3B fp16): 46.7 / 202.8 / 250.0 / 306.8 requests/min at batch 1 / 8 / 16 / 32 (peak 8.1 GiB at 32). In A9 the 3B model on a 2080 Ti answered 20 new
   prompts in ~4 s per retriever (~0.2 s per answer, after loading). Local 1.5B stand-in: 59.8 / 110.3 / 133.1
   requests per minute at batch 1 / 4 / 8 (env=local).
 - Perplexity score cache (A8): 39,128 passages scored, 15 MB; calibration 11.1 s.
@@ -1018,14 +1018,19 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
   A5 and P2. Until then the Ada caches (A5) do not contain the held-out shard, and Vansh's sweeps must wait.
 - The step 0 commit (a49ead8) still carries a Co-Authored-By trailer from before the no-attribution rule; removing
   it would rewrite pushed history (force push over Arya's commits), so it is left as is unless the team agrees.
-- **Decision needed (Samarth / Vansh): generation batch size vs exact batch independence.** Locally (1.5B, fp16)
+- **DECIDED 2026-11-10 (Vansh, from A7): batch size 32, the generation cache is the record.** A7 on the 2080 Ti: batch
+  1 / 8 / 16 / 32 = 46.7 / 202.8 / 250.0 / 306.8 requests/min (60,000 requests: 3.3 h at batch 32), peak VRAM 8.1 GiB at 32,
+  greedy determinism 20/20, batch independence 19/20 (the one difference is the last of 32 generated tokens, not the
+  answer). `compute.generate_batch_size` is already 32 in `configs/env_ada.yaml`; if a job runs out of GPU memory, use
+  `--batch-size 16`. The original question and local numbers follow.
+- (Resolved) **generation batch size vs exact batch independence.** Locally (1.5B, fp16)
   batched answers equalled one-by-one answers for 20/20 prompts, but batching moves the first-token logits by up
   to 0.08594 while the closest top-1/top-2 decision among those prompts has a gap of only
   0.0781: a flip is possible on some prompt (an exploratory run with Qwen's default 1.1 repetition
   penalty had 1 different answer in 12). Cost of batch size 1 locally: 59.8 vs 133.1 requests/min at batch 8.
   Recommendation: generate in batches for the sweeps and treat the generation cache as the record (every answer
   is computed once and reused, so one sweep is internally consistent); use batch size 1 only if answers must be
-  regenerated bit-identically from an empty cache. Decide with the real 3B numbers from A7.
+  regenerated bit-identically from an empty cache. (Decided 2026-11-10 with the real 3B numbers from A7: batch 32; see above.)
 - The 1.5B stand-in answers in full sentences despite "Be brief" (smoke EM 0.06 vs F1 0.26 locally): EM will
   understate correctness; ASR as planned (target string contained in the answer) is not affected.
 - **A5 order matters**: the caches must be built after A2-A4, after A6 (poison ingested into every index) and
@@ -1053,15 +1058,11 @@ recall numbers only show that the code works; they say nothing about BM25 qualit
   say so in the report (or analyse ASR with and without them).
 - Resolved 2026-11-08: `scripts/calibrate_query_phrase.py` no longer overwrites the tracked Ada cutoffs off Ada,
   and local runs no longer use the Ada (e5-base-v2) cutoffs with e5-small-v2 vectors ("Interface changes").
-- **Open, team decision (frozen decision rule): the `heldout` attack mixes two attacks.** Its target questions
-  are "the questions that have poison of that attack" (`ire.eval.sweep.load_targets`): the 100 adaptive
-  questions with the 10 held-out hijack phrasings (target = the codeword) AND the 5 questions of the held-out
-  fact passages (target = a false answer, n = 1 only). The plan (sections 1 and 4.1) defines the held-out test as
-  "held-out hijack phrasings against the phrase list"; the phrase list has no bearing on fact passages. So the
-  held-out ASR / detection rows blend ~5% fact questions into a hijack measurement. Proposed fix: score the
-  `heldout` attack on the 100 hijack questions only and show the 5 fact passages as examples (5 questions at
-  n = 1 cannot give a rate). Needs Arya's and Vansh's agreement because `docs/DECISION_RULE.md` is frozen
-  (it says "~100 questions", which matches the fix).
+- **Resolved 2026-11-10 (Samarth proposed; Arya and Vansh agreed): the `heldout` attack is scored on the
+  hijack questions only.** The shard holds 500 hijack passages (codeword) on the 100 adaptive questions and 5 held-out
+  fact passages on 5 other questions (n = 1). `ire.eval.sweep.collect_targets` now keeps a `heldout` record only if its
+  target is the frozen codeword, so the held-out rows are exactly the 100 hijack questions (`docs/DECISION_RULE.md` says
+  "~100", unchanged). The 5 fact passages stay in the indexes and are shown as examples in the report.
 - **Model choices to confirm** (config values, easy to change before the Ada jobs run): Ada dense model
   `intfloat/e5-base-v2` (job A3) and Ada LLM `Qwen/Qwen2.5-3B-Instruct` (job A7; same family as the local stand-in).
 - Resolved: Arya filled in the SLURM settings in `ada/common.sh` and the Ada facts are in docs/ADA_RUNBOOK.md.

@@ -2,7 +2,9 @@
 
 Code: `src/ire/eval/sweep.py`, `scripts/run_sweep.py`, `configs/sweep.yaml`, `src/ire/eval/analysis.py`,
 `scripts/analyze.py`, `scripts/make_plots.py`, `scripts/calibration_sample.py`, `scripts/calibration_agreement.py`,
-`docs/DECISION_RULE.md`. Status 2026-11-08: written and unit-tested (41 tests); **not yet run on real data**.
+`docs/DECISION_RULE.md`. Status 2026-11-10: written and tested (all tests pass); **dry-run locally** (tiny corpus, 1.5B stand-in LLM: pilot of 36 settings /
+720 records with no failures, `analyze.py`, `make_plots.py`, calibration sheets; agreement script only on fabricated labels);
+**not yet run on Ada**. `heldout` is scored on the 100 hijack questions only.
 
 ## 1. Settings and the grid (`configs/sweep.yaml`)
 A **setting** = (retriever, attack, rate, filter, filter parameter, [`of` for random]). Its id (`sid`), e.g.
@@ -31,7 +33,8 @@ survivors -> `retrieval_part` (all retrieval and detection metrics) -> batched `
 - Heavy objects (caches, text store, vectors, filters, LLM) load lazily, once.
 - A failing setting is logged and skipped; the list of failures goes into `SWEEP_<name>.json`.
 - **Pilot** (`--pilot`, plan 6.1): ~500 requests (10 target + 10 clean questions, fact only) to measure throughput,
-  cache hit rate and failure modes before the sweeps.
+  cache hit rate and failure modes before the sweeps. Local pilot (correctness only, 1.5B stand-in): 720 records, 72.6%
+  generation-cache hit rate, 0 failures; records looked coherent (no-filter ASR 0.8, oracle ASR 0, random control equals no filter).
 
 ## 3. The run record (plan section 8, extended; every key always present)
 ```

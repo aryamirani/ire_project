@@ -48,7 +48,7 @@ logs can never be confused. `run_info.git_commit()` records the commit (and dirt
 | P2 | `ada/run_query_phrase.sh` | query-phrase cutoffs | done (re-run 2026-10-30) |
 | A8 | `ada/run_ppl.sh` | perplexity thresholds + score cache | PASSED |
 | A9 | `ada/run_smoke.sh` | end-to-end smoke test | PASSED |
-| A7 | `ada/run_generate_benchmark.sh` | 3B throughput, cache and determinism checks | **not run yet** |
+| A7 | `ada/run_generate_benchmark.sh` | 3B throughput, cache and determinism checks | **PASSED** (run by Arya, 2026-11-10) |
 | sweep | `ada/run_sweep.sh [--pilot] [--tier ...]` | run records | not run yet |
 Every job prints a one-line summary and writes `$IRE_DATA_DIR/reports/<job>.json` (env, git commit, timestamps,
 checks, numbers, the exact rerun command). Order constraint: **A2-A4 -> A6 -> A5** (A6 makes every cache stale).
@@ -81,7 +81,7 @@ rate within tolerance of alpha. Rules A0-A7 by Samarth, A8-A9 by Arya. 29 tests 
 | exact search | Flat dense index, unpruned SPLADE, BM25 full scoring |
 | atomic writes | `.building` folders swapped in; `.tmp` files renamed; SQLite transactions per batch |
 | batch independence | queries encoded one at a time; one query per FAISS call; clean/poison never share an encoding batch |
-| tests | 433 pytest tests (local, 2026-11-08) |
+| tests | 435 pytest tests (433 on 2026-11-08 + 2 added 2026-11-10; all pass) |
 Local and Ada `questions.jsonl` are byte-identical (sha256 0365180a...) -- a direct check that the pipeline reproduces.
 
 ## 6. Repository hygiene

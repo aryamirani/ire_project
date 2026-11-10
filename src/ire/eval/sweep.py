@@ -116,15 +116,39 @@ def expand(sweep: dict[str, Any], tiers: Sequence[str], retrievers: Sequence[str
     return out
 
 
-def load_targets(cfg: Any) -> tuple[dict[tuple[str, str], list[str]], dict[str, set[str]]]:
-    """({(qid, attack): [target strings]}, {attack: {qids that have poison of that attack}}) from the poison shards."""
+def collect_targets(records: Iterable[PoisonRecord], codeword: str
+                    ) -> tuple[dict[tuple[str, str], list[str]], dict[str, set[str]]]:
+    """({(qid, attack): [target strings]}, {attack: {qids that have poison of that attack}}).
+
+    The `heldout` shard mixes two attacks: 500 hijack passages (target = the codeword) on the 100 adaptive questions and
+    5 held-out fact passages (target = a false answer, one passage on each of 5 other questions). The plan defines the
+    held-out test as hijack phrasings against the phrase list, so only the codeword records count as `heldout`
+    targets (team decision 2026-11-10; docs/DECISION_RULE.md says "~100 questions"). The fact passages stay in the
+    indexes as examples; they only rank for their own questions, which no setting scores.
+    """
     targets: dict[tuple[str, str], set[str]] = {}
     qids: dict[str, set[str]] = {}
-    for shard in sorted(Path(cfg.path("poison_dir")).glob("poison_*.jsonl")):
-        for rec in iter_jsonl(shard, PoisonRecord):
-            targets.setdefault((rec.qid, rec.attack), set()).add(rec.target_answer)
-            qids.setdefault(rec.attack, set()).add(rec.qid)
+    for rec in records:
+        if rec.attack == "heldout" and rec.target_answer != codeword:
+            continue
+        targets.setdefault((rec.qid, rec.attack), set()).add(rec.target_answer)
+        qids.setdefault(rec.attack, set()).add(rec.qid)
     return {k: sorted(v) for k, v in targets.items()}, qids
+
+
+def load_targets(cfg: Any, codeword: str | None = None
+                 ) -> tuple[dict[tuple[str, str], list[str]], dict[str, set[str]]]:
+    """`collect_targets` over every poison shard; the codeword comes from configs/frozen/poison_targets.json."""
+    if codeword is None:
+        from ire.config import CONFIG_DIR
+
+        codeword = json.loads((CONFIG_DIR / "frozen" / "poison_targets.json").read_text(encoding="utf-8"))["codeword"]
+
+    def records() -> Iterable[PoisonRecord]:
+        for shard in sorted(Path(cfg.path("poison_dir")).glob("poison_*.jsonl")):
+            yield from iter_jsonl(shard, PoisonRecord)
+
+    return collect_targets(records(), codeword)
 
 
 # ---------------------------------------------------------------- pure record builders (unit tested)

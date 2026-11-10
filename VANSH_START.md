@@ -4,9 +4,11 @@ Your lane (plan section 9): **`candidate_pool` masking; metrics including detect
 controls; cross-fitting and statistics; judge calibration; sweep runner; plots.** Plus the Ada run A7 (A8 is done).
 The order across the team is in `TEAM_STATUS.md`; this file is only what you need to start.
 
-**Status 2026-11-08:** the code for the whole lane is written (sections 3 and 5 below say where). The pure parts
-(masking, metrics, stats, controls, grid expansion, analysis) have unit tests that pass (41 tests). The runner, the
-calibration scripts and the plots have NOT been run on real data yet; A7, the pilot and the sweeps have not been run.
+**Status 2026-11-10:** the code for the whole lane is written (sections 3 and 5 below say where) and the whole test suite
+passes. A LOCAL dry run (tiny corpus, 1.5B stand-in LLM) has run end to end: indexes, poison, caches, the pilot (36 settings,
+720 records, no failures, records checked by hand), `analyze.py`, `make_plots.py` and the calibration sheets and agreement
+script (agreement tested on fabricated labels only). A7 PASSED on Ada (batch size 32 decided, see `docs/HANDOFF.md`).
+NOT done yet: the Ada pilot, the sweeps, the real human labels. `heldout` is scored on the 100 hijack questions only.
 The commands, in order, are in `docs/VANSH_RUNBOOK.md`; the decision rule is agreed and frozen: `docs/DECISION_RULE.md` (do not edit).
 Deadline: 20 Nov.
 

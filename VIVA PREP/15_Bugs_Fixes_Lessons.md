@@ -77,9 +77,12 @@ symptom -> cause -> fix -> lesson.
 
 ## Open issues to mention honestly
 - BM25 masking is approximate (numbers in file 05).
-- Batch-size decision pending A7 (file 08 section 4).
-- `heldout` attack mixes 100 hijack and 5 fact questions in the sweep; proposed: score the 100 only (team decision,
-  frozen rule).
+- Batch size: decided 2026-11-10 from A7 (batch 32; file 08 section 4). Residual risk: a rare last-token difference between
+  batch compositions (19/20 independent); the cache is the record.
+- `heldout` attack mixed 100 hijack and 5 fact questions in the sweep; fixed 2026-11-10 (score the 100 hijack questions only;
+  agreed by all three, decision rule needed no edit).
+- Lesson 2026-11-10: when a safety rule is relaxed (`IRE_DATA_DIR` may be `<repo>/ire_data_dir`), grep for every test that asserts it;
+  one test in `test_skeleton.py` was missed and failed on the first full run.
 - Some false targets are semantically odd (coarse `other` type).
 - Perplexity PD clean flag rate 3.96% vs alpha 2.5% (within tolerance, noisy).
 - Poison passages have no title, so they look different in the prompt ("[i] text" vs "[i] Title: text").

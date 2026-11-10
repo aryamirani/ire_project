@@ -40,5 +40,5 @@ OpenMP runtimes). Full-corpus jobs run on the Ada cluster: see `docs/ADA_RUNBOOK
 ## Status
 Who has done what and what is left: `TEAM_STATUS.md`. Retrieval, attacks, detectors and the smoke test are done and
 passed on Ada. The evaluation harness (masking, metrics, controls, sweep runner, statistics, plots, calibration
-tools) is written and its pure parts are unit-tested; it has not yet been run on real data, and the pilot and sweeps
-are still to run (`VANSH_START.md`, `docs/VANSH_RUNBOOK.md`, decision rule `docs/DECISION_RULE.md`). Deadline 20 Nov.
+tools) is written and tested, and has run end to end on the local tiny corpus (pilot, analysis, plots, calibration
+sheets); A7 passed on Ada (batch size 32). The Ada pilot and the sweeps are still to run (`VANSH_START.md`, `docs/VANSH_RUNBOOK.md`, decision rule `docs/DECISION_RULE.md`). Deadline 20 Nov.
