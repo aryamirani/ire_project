@@ -1,0 +1,31 @@
+{
+  "job": "SWEEP_pilot",
+  "env": "ada",
+  "git_commit": "0365eb1694984505348f941b4608d708504e889a",
+  "timestamp_utc": "2026-11-10T09:21:24+00:00",
+  "ok": true,
+  "tiers": [
+    "headline"
+  ],
+  "retrievers": null,
+  "attacks": [
+    "fact"
+  ],
+  "questions": 20,
+  "settings_planned": 36,
+  "settings_files_present": 36,
+  "stats": {
+    "settings_run": 36,
+    "settings_skipped": 12,
+    "records": 720,
+    "generated": 187,
+    "cache_hits": 533
+  },
+  "generation_requests": 720,
+  "generation_cache_hit_rate": 0.7403,
+  "llm": "Qwen/Qwen2.5-3B-Instruct",
+  "batch_size": 32,
+  "failed": [],
+  "runtime_s": 234.7,
+  "rerun": "python scripts/run_sweep.py --pilot"
+}

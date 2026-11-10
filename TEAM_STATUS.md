@@ -11,7 +11,7 @@ Details: Samarth's lane in `docs/HANDOFF.md`, Arya's lane (and steps 10-13) in `
 the submission deadline moved to **20 Nov 2026**.
 
 **Vansh's lane, 2026-11-10:** all the code is written and the whole test suite passes. A local dry run on the tiny corpus (indexes, poison, caches,
-pilot, analysis, plots, calibration sheets) ran without failures; A7 PASSED on Ada (2026-11-10, batch size 32 decided). Still to do: the Ada pilot,
+pilot, analysis, plots, calibration sheets) ran without failures; A7 PASSED on Ada (2026-11-10, batch size 32 decided). Ada pilot ran OK (job 67888). Still to do:
 the sweeps, the real human labels, the report. `heldout` is scored on the 100 hijack questions only (agreed 2026-11-10).
 Commands in order: `docs/VANSH_RUNBOOK.md`. Decision rule: agreed by Arya, Samarth and Vansh and frozen (`docs/DECISION_RULE.md`, see the "DECISION RULE AGREED" commit; never edited again).
 
@@ -47,7 +47,7 @@ Each row can start once the rows it depends on are done. Rows with the same numb
 | 1 | Ada A7: LLM throughput benchmark + decide the generation batch size (docs/HANDOFF.md open issue) | **Vansh** | -- | `ada/run_generate_benchmark.sh` via `pinned_node.sh`. **Ran 2026-11-10 (job 67804, PASS, `reports/A7.json`)**: batch 1 / 8 / 16 / 32 = 46.7 / 202.8 / 250.0 / 306.8 requests/min (60k requests: 3.3 h at batch 32); greedy determinism 20/20; batch independence 19/20 (the one difference is a late token after the answer); smoke F1 0.14. **Vansh to pick the batch size.** |
 | 3 | Sweep runner: retrievers x attacks x rates x filter settings -> run records (plan section 8) via the generation cache | **Vansh** | candidate_pool, metrics | **Code written** (`src/ire/eval/sweep.py`, `scripts/run_sweep.py`, `ada/run_sweep.sh`, grid in `configs/sweep.yaml`: 384 settings in 5 tiers); grid expansion tested; local pilot ran (36 settings, 0 failures); Ada pilot and sweeps still to run. |
 | 3 | Write the decision rule down before any sweep (plan 5.5) | All, led by **Vansh** | -- | **DONE 2026-11-08, frozen** in `docs/DECISION_RULE.md`; agreed by Arya, Samarth and Vansh; the freezing commit precedes the headline sweep. |
-| 4 | 500-request pilot | **Vansh** | sweep runner, A7 | Plan 6.1. `ada/run_sweep.sh --pilot`. |
+| 4 | 500-request pilot | **Vansh** | sweep runner, A7 | **Ran on Ada 2026-11-10 (job 67888, gnode056, OK, `reports/SWEEP_pilot.json`)**: 36 headline settings (fact, rate 3, 20 questions = 10 target + 10 clean), 0 failed, 720 requests (187 generated, 74% cache hits), batch 32, 235 s. The 12 "skipped" are the random controls re-reading their detector's run file, not missing settings. Checks: oracle ASR 0 on all 4 retrievers; random removes exactly the detector's count on every question; oracle top-5 and answers equal the no-poison run for bm25/dense/splade (20/20); rrf 17/20 (same 5 docs, reordered, because fusion happens with poison present). |
 | 5 | Full sweeps (about 60,000 LLM requests at most) | **Vansh** | pilot, row 2 | |
 | 5 | Human calibration: 150 answers in pairs, 100 passage labels each; agreement code | All; **Vansh** owns the code | first answers | Plan section 7. **Code written** (`scripts/calibration_sample.py`, `calibration_agreement.py`); needs run records first. |
 | 6 | Cross-fitting, McNemar, paired bootstrap, Wilson intervals, Holm correction | **Vansh** | sweeps | **Code written** (`src/ire/eval/stats.py`, `analysis.py`, `scripts/analyze.py`; tests pass). |
