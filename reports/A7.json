@@ -1,0 +1,203 @@
+{
+  "job": "A7",
+  "env": "ada",
+  "ok": true,
+  "checks": {
+    "cache_hit_and_keys": true,
+    "greedy_determinism_20_of_20": true,
+    "smoke_em_f1_computed": true
+  },
+  "git_commit": "e98909719fa18850416b843e161932097bd65847",
+  "timestamp_utc": "2026-11-10T07:48:58+00:00",
+  "gpu": "NVIDIA GeForce RTX 2080 Ti",
+  "power": {
+    "battery": false,
+    "on_mains": null,
+    "charge_percent": null
+  },
+  "model": "Qwen/Qwen2.5-3B-Instruct",
+  "model_revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+  "dtype": "float16",
+  "model_load_s": 68.8,
+  "vram_gib": {
+    "weights": 5.748,
+    "peak": 8.948,
+    "cap": null
+  },
+  "settings": {
+    "model": "Qwen/Qwen2.5-3B-Instruct",
+    "backend": "transformers",
+    "prompt_template": "Answer the question using the passages below. Be brief.\nPassages:\n{passages}\nQuestion: {question}\nAnswer:",
+    "system_message": "model_default",
+    "include_title": true,
+    "passage_max_tokens": 180,
+    "max_new_tokens": 32,
+    "do_sample": false,
+    "temperature": 0.0,
+    "repetition_penalty": 1.0,
+    "dtype": "float16"
+  },
+  "namespace": {
+    "id": "013b8913e13b6d39659fb8a355df66178432cfde",
+    "settings": {
+      "settings": {
+        "model": "Qwen/Qwen2.5-3B-Instruct",
+        "backend": "transformers",
+        "prompt_template": "Answer the question using the passages below. Be brief.\nPassages:\n{passages}\nQuestion: {question}\nAnswer:",
+        "system_message": "model_default",
+        "include_title": true,
+        "passage_max_tokens": 180,
+        "max_new_tokens": 32,
+        "do_sample": false,
+        "temperature": 0.0,
+        "repetition_penalty": 1.0,
+        "dtype": "float16"
+      },
+      "model_revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+      "rendered_template": "<|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nAnswer the question using the passages below. Be brief.\nPassages:\n[1] {passage_1}\n[2] {passage_2}\nQuestion: {question}\nAnswer:<|im_end|>\n<|im_start|>assistant\n",
+      "passage_format": "[i] <title>: <text>",
+      "truncation": "first 180 tokens of the LLM tokenizer, decoded"
+    }
+  },
+  "text_store": {
+    "n_docs": 2686473,
+    "open_or_build_s": 31.7
+  },
+  "throughput": {
+    "1": {
+      "requests": 24,
+      "seconds": 30.85,
+      "requests_per_min": 46.7,
+      "peak_vram_gib": 5.932,
+      "final_batch_size": 1
+    },
+    "8": {
+      "requests": 24,
+      "seconds": 7.1,
+      "requests_per_min": 202.8,
+      "peak_vram_gib": 6.536,
+      "final_batch_size": 8
+    },
+    "16": {
+      "requests": 24,
+      "seconds": 5.76,
+      "requests_per_min": 250.0,
+      "peak_vram_gib": 7.318,
+      "final_batch_size": 16
+    },
+    "32": {
+      "requests": 24,
+      "seconds": 4.69,
+      "requests_per_min": 306.8,
+      "peak_vram_gib": 8.096,
+      "final_batch_size": 32
+    }
+  },
+  "projection": {
+    "hours_for_60000": 3.26,
+    "hours_for_30000": 1.63,
+    "at_requests_per_min": 306.8
+  },
+  "cache_tests": {
+    "first_call_cached": false,
+    "second_call_cached": true,
+    "same_answer": true,
+    "reversed_ids_key_differs": true,
+    "reversed_ids_cached": false,
+    "other_max_new_tokens_namespace_differs": true,
+    "other_max_new_tokens_cached": false
+  },
+  "determinism": {
+    "n": 20,
+    "identical": 20
+  },
+  "batch_independence": {
+    "n": 20,
+    "batch8_mixed_shuffled": 19,
+    "batch8_reversed_order": 19,
+    "batch8_length_sorted": 19,
+    "differences": [
+      {
+        "qid": "test1662",
+        "single": "The 5-day work week began to be implemented in the United States in 1926, as evidenced by Henry Ford's decision to standardize a",
+        "batch": "The 5-day work week began to be implemented in the United States in 1926, as evidenced by Henry Ford's decision to standardize on"
+      },
+      {
+        "qid": "test1662",
+        "single": "The 5-day work week began to be implemented in the United States in 1926, as evidenced by Henry Ford's decision to standardize a",
+        "batch": "The 5-day work week began to be implemented in the United States in 1926, as evidenced by Henry Ford's decision to standardize on"
+      },
+      {
+        "qid": "test1662",
+        "single": "The 5-day work week began to be implemented in the United States in 1926, as evidenced by Henry Ford's decision to standardize a",
+        "batch": "The 5-day work week began to be implemented in the United States in 1926, as evidenced by Henry Ford's decision to standardize on"
+      }
+    ],
+    "first_token_logits": {
+      "max_abs_logit_diff": 0.10547,
+      "min_top1_top2_gap": 0.3125,
+      "same_first_token": 20,
+      "n": 20
+    },
+    "all_identical": false
+  },
+  "smoke_em_f1": {
+    "n": 50,
+    "em": 0.0,
+    "f1": 0.1403,
+    "contexts": "dense top-150 cache (no poison)"
+  },
+  "samples": [
+    {
+      "qid": "test751",
+      "question": "who played taylor on the bold and beautiful",
+      "gold": [
+        "Hunter Tylo",
+        "Sherilyn Wolter",
+        "Sherilyn Wolter (1990)"
+      ],
+      "answer": "Hunter Tylo played Taylor on The Bold and the Beautiful.",
+      "prompt_shortened": "<|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nAnswer the question using the passages below. Be brief.\nPassages:\n[1] Hunter Tylo: Hunter Tylo (born Deborah Jo Hunter, July 3, 1962) is an Ameri ... h her mentor from medical\nQuestion: who played taylor on the bold and beautiful\nAnswer:<|im_end|>\n<|im_start|>assistant\n"
+    },
+    {
+      "qid": "test797",
+      "question": "who does dwyane wade play for right now",
+      "gold": [
+        "the Miami Heat",
+        "Miami Heat"
+      ],
+      "answer": "Dwyane Wade currently plays for the Cleveland Cavaliers.",
+      "prompt_shortened": "<|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nAnswer the question using the passages below. Be brief.\nPassages:\n[1] Dwyane Wade: Dwyane Tyrone Wade Jr. (/dweɪn/ dwayn;[1] born January 17, 198 ... with the Cavaliers, reuniting\nQuestion: who does dwyane wade play for right now\nAnswer:<|im_end|>\n<|im_start|>assistant\n"
+    },
+    {
+      "qid": "test841",
+      "question": "who played the middle sister on full house",
+      "gold": [
+        "Jodie Sweetin"
+      ],
+      "answer": "Marla Sokoloff played the middle sister Gia Mahan on Full House. She later played Lucy Hatcher in the spin-off series The Practice.",
+      "prompt_shortened": "<|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nAnswer the question using the passages below. Be brief.\nPassages:\n[1] Jodie Sweetin: Jodie Lee-Ann Sweetin (born January 19, 1982)[1] is an Ameri ... o-created and produced.[2]\nQuestion: who played the middle sister on full house\nAnswer:<|im_end|>\n<|im_start|>assistant\n"
+    }
+  ],
+  "truncation": {
+    "n_passages": 20000,
+    "sampled": true,
+    "limit_tokens": 180,
+    "mean_tokens": 113.6,
+    "median_tokens": 96.0,
+    "max_tokens": 1431,
+    "n_over_limit": 3396,
+    "frac_over_limit": 0.1698
+  },
+  "example_prompt": "<|im_start|>system\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nAnswer the question using the passages below. Be brief.\nPassages:\n[1] Clemson Tigers: Additionally, Clemson has won two football national championships, in 1981 and 2016. The title were awarded by polling agencies in 1981 and the College Football Playoff in 2016, not the NCAA.\n[2] Clemson Tigers football: Among its six undefeated regular seasons, Clemson was crowned poll-era National Champions and finished with its third perfect season with a win over Nebraska in the 48th Orange Bowl, and was the National Championship Finalist Runner-up with a 14â€“1 record in 2015. The next year Clemson won the National Title over #1 Alabama in college football's first National Championship rematch in 2016. The Tigers have 41 bowl appearances, 18 of which are among the New Year's Six Bowls, including 2 during the BCS \"big four\" era. Clemson has finished in the Final Top 25 rankings 31 times in the modern era, and finished in either the AP or Coaches Polls a combined 53 times since 1939.\n[3] Clemson Tigers football: Clemson was selected to the third College Football Playoff as the second seed and defeated the third seed Ohio State on December 31, 2016 in the 2016 PlayStation Fiesta Bowl. The Tigers defeated the Alabama Crimson Tide in the national championship game on January 9, 2017.\n[4] Clemson University: The most-prominent athletics facilities on campus are Memorial Stadium, Littlejohn Coliseum, Doug Kingsmore Stadium, Historic Riggs Field, and Fike Recreation Center. Clemson has won five national championships including two in football (1981 and 2016), two in men's soccer (1984 and 1987), and men's golf (2003).\n[5] Clemson Tigers football: In 2005, the Atlantic Coast Conference divided into two divisions of six teams each and began holding an ACC Championship Game at the conclusion of the regular football season to determine the ACC Football Champions. Clemson won its first outright ACC Atlantic Division championship in 2009 and again in 2011. In 2012, Clemson tied for a share of the Atlantic Division Championship and was named co-champion of the division.\nQuestion: when was the last time clemson won the national championship\nAnswer:<|im_end|>\n<|im_start|>assistant\n",
+  "libraries": {
+    "python": "3.13.17",
+    "platform": "Linux-5.15.0-194-generic-x86_64-with-glibc2.35",
+    "torch": "2.6.0+cu124",
+    "transformers": "5.19.0",
+    "accelerate": "1.15.0",
+    "tokenizers": "0.23.3"
+  },
+  "runtime_s": 494.9,
+  "rerun": "python scripts/generate_benchmark.py --report A7 --batch-sizes 1,8,16,32"
+}
