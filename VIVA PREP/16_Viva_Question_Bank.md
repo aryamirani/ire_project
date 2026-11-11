@@ -25,7 +25,8 @@ Cover the answer, say yours out loud, then compare. Answers are short on purpose
 10. **What is backfill and why report it?** Whether the final 5 include passages beyond rank 20; a defense that works
     only by pulling in lower-ranked passages trades quality for safety.
 11. **What results do you have?** Retrieval quality, poison reach, exact masking, detector calibration and sanity
-    checks, smoke test. A7 (3B throughput) and a local dry run of the whole pipeline are done; the ASR comparisons need the Ada sweeps, which have not run yet. (File 14.)
+    checks, smoke test. And the full sweep (384 settings, 0 failures): cluster helps in 8/8 headline cells, perplexity in 6/8,
+    query-and-phrase in 0/8 (biggest ASR drop, but it drops gold passages and costs 0.11-0.22 clean nDCG@5). (File 14; section M.)
 
 ## B. Data (file 03)
 12. **Which dataset and why?** BEIR NQ (2.68M Wikipedia passages, gold relevance) + nq_open (short answers);
@@ -225,3 +226,63 @@ Cover the answer, say yours out loud, then compare. Answers are short on purpose
      quality.
 125. **What is the difference between TPR and ASR reduction?** TPR is about passages flagged; ASR about answers. A
      detector can flag poison yet ASR barely moves if remaining poison suffices.
+
+## M. The findings (file 14, "Sweep results")
+126. **What did you find, in one sentence?** At rate 3, the cluster filter is the only detector that significantly
+     lowers ASR on every retriever and attack without hurting clean retrieval (8/8 cells); perplexity helps in 6/8
+     with small gains; query-and-phrase removes the most poison but fails the quality bound everywhere.
+127. **Query-and-phrase drops ASR the most (e.g. bm25 hijack 0.895 -> 0.310). Why does the rule say it does not
+     help?** The rule requires clean nDCG@5 to fall by at most 0.02; it falls by 0.11-0.22 (CIs far below -0.02),
+     because it drops a gold passage on ~31% of clean questions. Clean accuracy falls too (dense 0.565 -> 0.465).
+     The rule was frozen before the sweep, so we cannot relax it after the fact.
+128. **Why does query-and-phrase drop gold passages?** Its query anchor flags passages that are unusually similar to
+     the question (the cut is calibrated so ~2.5% of clean pool passages exceed it). Poison is written to look like
+     the question, but so is the gold passage: the most question-like clean passage is often the one that answers
+     it. The signal cannot separate "relevant" from "imitating relevance".
+129. **Why does the cluster filter get better as the attack gets bigger?** It flags groups of near-duplicates. At
+     rate 1 there is one poison passage and nothing to group (ASR unchanged: dense fact 0.22 -> 0.19); at rate 5 the
+     poison forms a tight group (dense fact 0.78 -> 0.15, hijack 0.70 -> 0.14), and it beats query-phrase on all
+     four retrievers. An attacker who wants to beat it should use one passage or vary the wording (diverse).
+130. **Perplexity has the best AUC (0.93-0.98) but the smallest ASR drop. How?** AUC measures ranking over all
+     thresholds; ASR depends on the one threshold used. At alpha 0.025 the cut is conservative (TPR ~0.12, FPR
+     ~0.02), so most poison passes. Looser alpha helps a lot: alpha 0.1 gives dense ASR 0.20 / 0.26 at nDCG
+     0.454 (-0.04). Cross-fitting picks such values and makes perplexity much stronger, but the headline uses the
+     frozen anchor.
+131. **Two perplexity cells fail (splade fact, rrf hijack). Is perplexity useless there?** No: ASR still drops
+     (0.04-0.05), but with 200 questions and Holm over 24 tests the McNemar p (adjusted 0.077) misses 0.05. It
+     is an effect too small to detect at this sample size, not evidence of no effect.
+132. **What is Holm and why use it?** A step-down correction for 24 tests: sort the p-values, compare the k-th smallest
+     with 0.05/(24-k+1), stop at the first failure. It controls the family-wise error rate (chance of any false "helps")
+     and is uniformly more powerful than Bonferroni.
+133. **Why compare against random removal?** To check that the detector's choice matters, not just the act of
+     removing passages. Random drops the same number per question and leaves ASR near the no-filter level
+     (dense fact 0.555 -> ~0.53), so the detectors' gains come from what they pick. Beats-random is unadjusted and
+     reported as exploratory.
+134. **What does the mechanism table show?** ASR depends on how many poison passages reach the LLM (hijack: 0 ->
+     0.00, 1 -> ~0.4, 2 -> ~0.9), and given that count ASR is the same with or without a filter. Detectors work only
+     by removing poison; a single surviving hijack passage succeeds ~40% of the time, so passage TPR overstates safety.
+135. **Why is stealth ASR ~0 even with no defense?** Stealth poison is capped in similarity to stay unflagged, and as a
+     result it almost never ranks (top-10 reach 0.000-0.006). It shows the trade-off for the attacker: evade the
+     detector and you also fail to be retrieved. Do not count it as a detector success.
+136. **What did the held-out phrasings show?** Phrasings written blind to the phrase list evade it more: query-phrase
+     TPR 0.45-0.51 vs 0.76-0.78 on the phrase-list hijack, bm25 ASR 0.87 -> 0.51 vs 0.90 -> 0.31. Part of
+     query-and-phrase's hijack success is its phrase list matching our own templates: overfitting to known attacks.
+137. **Which detector is best against which attack?** Query-phrase: instructions and URLs (url TPR 0.85). Cluster:
+     repeat (the one attack where it beats query-phrase) and high rates. Perplexity: no attack at its anchor. They
+     are complementary; the combined filter was in the optional cut tier.
+138. **Why is the rrf oracle top-5 not identical to the no-poison run (363/400, 332/400)?** RRF fuses the component
+     lists with the poison in them, and filters act on the fused pool. Poison occupies rank slots, which shifts clean
+     ranks differently in bm25 and dense, so the fused order of clean passages can change (same documents, new
+     order). That is what a real deployment does, so it is correct, and oracle-closeness for rrf uses the oracle run.
+139. **Cluster tau_c 0.70, 0.75 and 0.80 give identical results. Bug?** No. A group is flagged only if mean cosine >=
+     tau_c AND mean ROUGE-L >= a fixed minimum; e5 cosines of related passages are almost always above 0.8, so below
+     0.8 the ROUGE-L gate decides. The sweep is flat there by design.
+140. **Which retriever is most vulnerable?** bm25: highest no-defense ASR (fact 0.70, hijack 0.895) because the
+     poison copies the question's words, which is exactly what bm25 rewards. Dense is the least vulnerable (0.555 /
+     0.655) and has the best clean nDCG@5 (0.492). RRF inherits bm25's weakness (0.63 / 0.84).
+141. **How big was the experiment and how did you make it fit?** 384 settings, 145,600 records, but only ~24,500 new
+     LLM generations: the generation cache keys on (question, exact top-5 ids, settings), and many settings give the
+     same top 5 (oracle = clean run, random often keeps the same passages). It ran in about 2.5 hours at batch 32.
+142. **Is the cluster result robust? Its nDCG CI reaches -0.034.** The rule uses the point estimate (-0.005 to
+     -0.015), which is within the bound; the CI lower ends of -0.015 to -0.036 mean we cannot rule out a loss slightly
+     above 0.02. Report it as "within the bound on the point estimate", with the CI.

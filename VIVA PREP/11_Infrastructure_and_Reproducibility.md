@@ -49,7 +49,7 @@ logs can never be confused. `run_info.git_commit()` records the commit (and dirt
 | A8 | `ada/run_ppl.sh` | perplexity thresholds + score cache | PASSED |
 | A9 | `ada/run_smoke.sh` | end-to-end smoke test | PASSED |
 | A7 | `ada/run_generate_benchmark.sh` | 3B throughput, cache and determinism checks | **PASSED** (run by Arya, 2026-11-10) |
-| sweep | `ada/run_sweep.sh [--pilot] [--tier ...]` | run records | not run yet |
+| sweep | `ada/run_sweep.sh [--pilot] [--tier ...]` | run records | **DONE**: pilot 2026-11-10; 384/384 settings 2026-11-11 on gnode082 (run by Arya) |
 Every job prints a one-line summary and writes `$IRE_DATA_DIR/reports/<job>.json` (env, git commit, timestamps,
 checks, numbers, the exact rerun command). Order constraint: **A2-A4 -> A6 -> A5** (A6 makes every cache stale).
 
@@ -66,6 +66,11 @@ rate within tolerance of alpha. Rules A0-A7 by Samarth, A8-A9 by Arya. 29 tests 
 - `/share1` is not visible on compute nodes; home is 50 GB. So all indexes (~19 GB) live on **one node's local
   /scratch (gnode056)**, and every index/cache job is submitted to that node through **`ada/pinned_node.sh`**, which
   syncs the code, stages data in, runs the job and copies reports/logs/caches back to home.
+- When gnode056 was full (2026-11-11, queue estimate 1.5 days), the sweeps ran on **gnode082** (same RTX 2080 Ti):
+  a 1-CPU job on gnode056 copied what the sweep reads (the 12 GB dense index for document vectors, the bm25 / splade
+  `manifest.json` files whose fingerprints the cache loader checks, and the text store) to home, and
+  `IRE_STAGE_INDEXES=1 bash ada/pinned_node.sh ...` copied them onto gnode082's /scratch. The sweep reads the top-150
+  caches, not the bm25 / splade indexes themselves. The home copy was deleted afterwards (home back to 69%).
 - With torch 2.6 + transformers 5.19, `import transformers` fails on a node without a GPU, so every job that loads a
   model must be a GPU job (BM25 and data preparation do not import it).
 

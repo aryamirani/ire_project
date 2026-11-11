@@ -6,8 +6,9 @@ test yourself and jump back to the file that answers a question you could not an
 Every number here comes from a committed report (`reports/*.json`), `docs/HANDOFF.md`, `docs/HANDOFF_ARYA.md` or
 `TEAM_STATUS.md`. Numbers marked **env=local** come from Samarth's laptop (5,000-passage corpus, small models) and
 are for correctness only; everything else is from the Ada cluster on the full 2.68M-passage corpus. The sweeps
-(the final experiment) have **not** run yet at the time of writing (2026-11-10; A7 passed and a local dry run of the whole pipeline ran, but the Ada pilot and sweeps have not), so there are no final ASR results:
-never quote a result that is not in these files.
+(the final experiment) **have run** (pilot 2026-11-10, all 384 settings 2026-11-11, 0 failures); the results and the
+decision-rule verdicts are in file 14 ("Sweep results") and the findings questions are section M of file 16. Never
+quote a result that is not in these files.
 
 | # | File | What it covers | Read when |
 |---|---|---|---|
@@ -26,7 +27,7 @@ never quote a result that is not in these files.
 | 13 | `13_Decisions_and_Tradeoffs.md` | every design decision with the alternative and the trade-off | before the viva |
 | 14 | `14_Results_and_Numbers.md` | all measured numbers in one place | night before |
 | 15 | `15_Bugs_Fixes_Lessons.md` | bugs found and fixed, and what they teach | likely viva material |
-| 16 | `16_Viva_Question_Bank.md` | 125 deep questions with model answers | repeatedly |
+| 16 | `16_Viva_Question_Bank.md` | 142 deep questions with model answers (M = the findings) | repeatedly |
 | 17 | `17_Concepts_Refresher.md` | the theory: BM25, E5, SPLADE, RRF, FAISS, k-means, ROUGE-L, perplexity, statistics | if a concept is shaky |
 
 ## The project in five sentences

@@ -4,7 +4,8 @@ Code: `src/ire/eval/sweep.py`, `scripts/run_sweep.py`, `configs/sweep.yaml`, `sr
 `scripts/analyze.py`, `scripts/make_plots.py`, `scripts/calibration_sample.py`, `scripts/calibration_agreement.py`,
 `docs/DECISION_RULE.md`. Status 2026-11-10: written and tested (all tests pass); **dry-run locally** (tiny corpus, 1.5B stand-in LLM: pilot of 36 settings /
 720 records with no failures, `analyze.py`, `make_plots.py`, calibration sheets; agreement script only on fabricated labels);
-**not yet run on Ada**. `heldout` is scored on the 100 hijack questions only.
+**run on Ada**: pilot 2026-11-10 (job 67888), all 384 settings 2026-11-11 (jobs 69674 + 69752, 145,600 records, 0 failed;
+`reports/SWEEP_main.json`, records in `reports/runs_main.tar.gz`). Results and verdicts: file 14. `heldout` is scored on the 100 hijack questions only.
 
 ## 1. Settings and the grid (`configs/sweep.yaml`)
 A **setting** = (retriever, attack, rate, filter, filter parameter, [`of` for random]). Its id (`sid`), e.g.
