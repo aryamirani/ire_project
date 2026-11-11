@@ -233,7 +233,7 @@ Cover the answer, say yours out loud, then compare. Answers are short on purpose
      with small gains; query-and-phrase removes the most poison but fails the quality bound everywhere.
 127. **Query-and-phrase drops ASR the most (e.g. bm25 hijack 0.895 -> 0.310). Why does the rule say it does not
      help?** The rule requires clean nDCG@5 to fall by at most 0.02; it falls by 0.11-0.22 (CIs far below -0.02),
-     because it drops a gold passage on ~31% of clean questions. Clean accuracy falls too (dense 0.565 -> 0.465).
+     because it drops a gold passage on ~30% of clean questions (60 of 200 on dense). Clean accuracy falls too (dense 0.565 -> 0.465).
      The rule was frozen before the sweep, so we cannot relax it after the fact.
 128. **Why does query-and-phrase drop gold passages?** Its query anchor flags passages that are unusually similar to
      the question (the cut is calibrated so ~2.5% of clean pool passages exceed it). Poison is written to look like
@@ -272,8 +272,8 @@ Cover the answer, say yours out loud, then compare. Answers are short on purpose
      are complementary; the combined filter was in the optional cut tier.
 138. **Why is the rrf oracle top-5 not identical to the no-poison run (363/400, 332/400)?** RRF fuses the component
      lists with the poison in them, and filters act on the fused pool. Poison occupies rank slots, which shifts clean
-     ranks differently in bm25 and dense, so the fused order of clean passages can change (same documents, new
-     order). That is what a real deployment does, so it is correct, and oracle-closeness for rrf uses the oracle run.
+     ranks differently in bm25 and dense, so the fused order of clean passages can change: mostly a reordering
+     (same set on 388/400 and 377/400), occasionally one passage swaps in or out at the top-5 boundary. That is what a real deployment does, so it is correct, and oracle-closeness for rrf uses the oracle run.
 139. **Cluster tau_c 0.70, 0.75 and 0.80 give identical results. Bug?** No. A group is flagged only if mean cosine >=
      tau_c AND mean ROUGE-L >= a fixed minimum; e5 cosines of related passages are almost always above 0.8, so below
      0.8 the ROUGE-L gate decides. The sweep is flat there by design.

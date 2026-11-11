@@ -107,8 +107,9 @@ settings re-reading their detector's run file, not missing settings.
 ### RRF and the oracle (why rrf is not 400/400)
 RRF fuses the bm25 and dense lists **with the active poison still in them**; filters (oracle included) remove passages
 from the fused pool afterwards. The poison took rank slots in each component list, which shifts the clean passages'
-ranks by different amounts in the two lists, so the fused order of clean passages can differ from the no-poison run
-(same documents, different order). This is correct: a real defense filters the pool it receives. Consequence: for rrf,
+ranks by different amounts in the two lists, so the fused order of clean passages can differ from the no-poison run.
+Mostly it is a reordering: the top-5 is the same SET on 388/400 (fact) and 377/400 (hijack); on the other 12 and 23
+questions one passage differs (a clean passage just inside the top 5 in one fusion is just outside it in the other). This is correct: a real defense filters the pool it receives. Consequence: for rrf,
 "closeness to the oracle" is measured against the oracle run, not the no-poison run.
 
 ## Sweep results: the headline decision table (rate 3, 200 target + 200 clean; decision rule in file 10)
@@ -128,7 +129,8 @@ ranks by different amounts in the two lists, so the fused order of clean passage
 **Verdicts: cluster helps in 8/8 cells, perplexity in 6/8, query-and-phrase in 0/8.**
 - Query-and-phrase gives the largest ASR drops (0.30-0.59) and every p_Holm is ~0, but it fails the quality bound in
   every cell: clean nDCG@5 falls by 0.11-0.22 (95% CI, e.g. dense [-0.280, -0.167]). Reason: it drops a **gold**
-  passage on ~31-32% of clean questions (cluster 0.5-3.5%, perplexity 0.5-1.5%). Its query-anchor cut flags passages
+  passage on ~30% of clean questions (60-62 of 200; on average 0.32 gold passages per clean question, against
+0.005-0.035 for cluster and 0.005-0.015 for perplexity). Its query-anchor cut flags passages
   that are very similar to the question, and gold passages are exactly that. Clean accuracy drops too (dense 0.565 -> 0.465).
 - Cluster: ASR -0.19 to -0.37, clean nDCG within 0.005-0.015. Caveat for the viva: the rule uses the **point** estimate;
   some cluster CIs reach below -0.02 (dense [-0.034, +0.005]).
@@ -147,7 +149,8 @@ ranks by different amounts in the two lists, so the fused order of clean passage
 | perplexity | 0.11-0.14 | 0.013-0.024 | 0.33-0.64 | **0.93-0.98** | 0.005-0.015 |
 Perplexity has the best ranking of poison vs clean (AUC up to 0.98) but its alpha 0.025 cut is very conservative, so
 TPR is only ~0.12: the score separates well, the threshold flags little. That is why alpha 0.1 does much better in the
-sweep (below). Backfill (final top-5 using passages beyond rank 20): <= 2% everywhere. Collateral poisoning on clean
+sweep (below). Backfill (final top-5 using passages beyond rank 20): <= 2% at the anchors (up to 10.5% at aggressive
+sweep settings, e.g. dense fact query-phrase tail 0.10). Collateral poisoning on clean
 questions with no filter: 0-1.5%.
 
 ## Rates (ASR at rate 1 / 3 / 5; columns bm25, dense, splade, rrf)
@@ -167,7 +170,7 @@ retrievers and both attacks. Query-phrase and perplexity get worse as the rate g
 
 ## Threshold sweeps (rate 3; ASR fact / hijack, clean nDCG@5; dense no filter 0.555 / 0.655, 0.492)
 - Query-phrase tail 0.01 / 0.025 / 0.05 / 0.1: ASR .34/.29, .23/.23, .18/.17, .10/.12; nDCG .379, .269, .230, .180.
-  Even the loosest cut costs 0.11 nDCG. bm25: nDCG .163 -> .043.
+  Even the loosest cut costs 0.11 nDCG on dense (0.066 on bm25). bm25: nDCG .163 -> .043.
 - Cluster tau_c 0.70 / 0.75 / 0.80 / 0.85 / 0.90 / 0.95: ASR .33/.32 (0.70-0.80), .34/.34, .42/.45, .46/.54; nDCG
   .479 up to 0.85, .492 above. tau_c 0.70, 0.75 and 0.80 flag **identical** passages: a group needs mean cosine >= tau_c
   AND mean ROUGE-L >= a fixed minimum, and below 0.8 the ROUGE-L gate binds (e5 cosines of related passages are
@@ -197,8 +200,9 @@ retrievers and both attacks. Query-phrase and perplexity get worse as the rate g
 - Complementarity: each detector is strongest on a different attack (query-phrase on instructions / URLs, cluster on
   repeats and at high rate, perplexity weak everywhere at its anchor).
 
-## Mechanism (ASR by number of poison passages left in the final top-5, all filters pooled)
+## Mechanism (ASR by number of poison passages left in the final top-5; ranges are across filters, mechanism.csv)
 fact: 0 -> ~0.00-0.01, 1 -> 0.08-0.30, 2 -> 0.35-0.51, 3+ -> ~0.65. hijack: 0 -> 0.00, 1 -> 0.26-0.51, 2 -> 0.85-0.94,
-3+ -> ~0.94-0.95. ASR depends on how many poison passages reach the LLM; **given that count, ASR is the same with or
-without a filter**. Detectors help only by removing poison, and one surviving hijack passage already succeeds ~40% of
+3+ -> ~0.94-0.95. ASR depends mainly on how many poison passages reach the LLM. With 3+ (and roughly with 2) the ASR is
+the same with or without a filter; with exactly one surviving passage the filters differ (0.08-0.30 for fact), partly
+because the count is measured after filtering, so the questions in each group differ by filter. Detectors help only by removing poison, and one surviving hijack passage already succeeds ~40% of
 the time, which is why passage-level TPR overstates the safety gain.
