@@ -2,28 +2,32 @@
   "job": "SWEEP_main",
   "env": "ada",
   "git_commit": "b75944a4d1b43e3c868a39324c31f6e552478d09",
-  "timestamp_utc": "2026-11-11T10:39:49+00:00",
+  "timestamp_utc": "2026-11-11T12:39:46+00:00",
   "ok": true,
   "tiers": [
-    "headline"
+    "headline",
+    "rates",
+    "sweeps",
+    "adaptive",
+    "optional"
   ],
   "retrievers": null,
   "attacks": null,
   "questions": 400,
-  "settings_planned": 68,
-  "settings_files_present": 68,
+  "settings_planned": 384,
+  "settings_files_present": 384,
   "stats": {
-    "settings_run": 68,
-    "settings_skipped": 24,
-    "records": 27200,
-    "generated": 6131,
-    "cache_hits": 21069
+    "settings_run": 316,
+    "settings_skipped": 116,
+    "records": 118400,
+    "generated": 18227,
+    "cache_hits": 100173
   },
-  "generation_requests": 27200,
-  "generation_cache_hit_rate": 0.7746,
+  "generation_requests": 118400,
+  "generation_cache_hit_rate": 0.8461,
   "llm": "Qwen/Qwen2.5-3B-Instruct",
   "batch_size": 32,
   "failed": [],
-  "runtime_s": 2230.3,
-  "rerun": "python scripts/run_sweep.py --tier headline"
+  "runtime_s": 6542.9,
+  "rerun": "python scripts/run_sweep.py --tier headline rates sweeps adaptive optional"
 }
