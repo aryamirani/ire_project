@@ -35,6 +35,13 @@ chmod 600 "$NODE_REPO/.env"
 for d in data hf_cache caches; do
   [[ -d "$HOME_DATA/$d" ]] && rsync -a "$HOME_DATA/$d/" "$NODE_DATA/$d/"
 done
+# IRE_STAGE_INDEXES=1: also copy $HOME_DATA/indexes to the node. Used to run the sweep on another node when gnode056
+# is full: home holds a copy of the dense index (vectors for the cluster filter) and the bm25 / splade manifests (the
+# cache loader checks their fingerprints); the sweep reads the top-150 caches, not the bm25 / splade indexes.
+if [[ "${IRE_STAGE_INDEXES:-0}" == 1 && -d "$HOME_DATA/indexes" ]]; then
+  echo "== pinned_node: staging indexes from $HOME_DATA/indexes"
+  rsync -a "$HOME_DATA/indexes/" "$NODE_DATA/indexes/"
+fi
 
 cd "$NODE_REPO"
 bash "$@"
