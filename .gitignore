@@ -71,3 +71,6 @@ envs/
 # The patterns data/ and vectors/ above are for big-data folders; keep the source packages tracked
 !src/ire/data/
 !src/ire/vectors/
+
+# human-calibration answer key: never commit (sent privately to Vansh)
+reports/calibration/key.json
