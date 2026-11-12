@@ -84,6 +84,7 @@ python scripts/make_plots.py                   # analysis/main/fig_*.png
 `reports/runs/` and `reports/analysis/` are copied back to `~/ire_data_dir/reports/` by `pinned_node.sh`; `scp` them to the laptop.
 
 ## 5. Human calibration (plan 7), in parallel with the sweeps once the headline records exist
+**Done 2026-11-12.** What was actually run: Arya ran `calibration_sample.py` on Ada (needs the full-corpus text) and pushed the sheets; Vansh got `key.json` privately and kept it in `$IRE_DATA_DIR/reports/calibration/` (git-ignored) with the filled sheets; labelling used `python scripts/label_sheet.py --file <sheet.csv>` (one row at a time, saves after each label, `--all` to start from row 1). The commands below are the generic form.
 ```
 python scripts/calibration_sample.py           # needs run records + text store (run it on the node, or locally on pilot data to test)
 # send each person ONLY their own answers_<name>.csv and passages_<name>.csv; keep key.json private
@@ -93,6 +94,7 @@ python scripts/calibration_agreement.py        # kappa per pair, judge accuracy 
 ```
 
 ## 6. Report numbers come from
+(copied into the repo as `reports/analysis_main/`; the originals are under `$IRE_DATA_DIR/reports/analysis/main/`. Extract `reports/runs_main.tar.gz` into `$IRE_DATA_DIR/reports/runs/main/` before running `analyze.py`.)
 `analysis/main/headline.csv` (Holm-adjusted, `helps`, `beats_random`, `oracle_captured`), `complementarity.csv` (RQ3),
 `summary.csv` (rates, sweeps, TPR/FPR/AUC, backfill, filter ms, collateral), `crossfit.csv`, `mechanism.csv`,
 `agreement.json`, the figures, and `SWEEP_main.json` (requests, cache hit rate, runtime).

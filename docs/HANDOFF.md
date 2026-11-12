@@ -1,6 +1,6 @@
 # HANDOFF -- Samarth's lane (indexes, retrievers, cache, generation, cluster + perplexity filters)
 
-Last updated: 2026-11-08 (bug fixes after the steps 9-13 scan)
+Last updated: 2026-11-12 (sweeps, analysis and human calibration done; see the log entry below)
 
 ## Status board
 | Step | Title | Status | Date | Suggested message |
@@ -408,6 +408,13 @@ Layout notes (not contract changes):
 
 ## Step log
 (Newest first. Per step: what was built, files, how to run, verify results with actual numbers, open issues.)
+
+### 2026-11-12 -- Sweeps, analysis and human calibration finished (Vansh's lane)
+- Ada: pilot (job 67888), then all 384 settings (jobs 69674 + 69752, gnode082; 145,600 records, 0 failed). Run records in `reports/runs_main.tar.gz`.
+- `analyze.py` and `make_plots.py` ran on them; tables and figures copied to `reports/analysis_main/`. Decision rule (24 headline tests): cluster helps 8/8, perplexity 6/8, query-and-phrase 0/8 (beats random everywhere, fails the clean nDCG@5 >= -0.02 condition).
+- Human calibration: judge accuracy vs consensus 0.993 (dev 0.987, test 1.000); test kappa AS 0.839, VA 1.000, SV 0.760 (SV misses the 0.80 target; reported as is); 7 disagreements adjudicated; passages 148/150 poison called poison. `key.json` is git-ignored and held by Vansh.
+- New helper: `scripts/label_sheet.py --file <sheet.csv>` (terminal labelling, saves per label). `requirements.txt` pins matplotlib 3.11.2.
+- No interface changes. Left: the report.
 
 ### 2026-11-08 -- Bug fixes after the steps 9-13 scan
 - Threshold tables (both filters): off Ada, calibrations are written to `$IRE_DATA_DIR/reports/<key>_<env>.json`

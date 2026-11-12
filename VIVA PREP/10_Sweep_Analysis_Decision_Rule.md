@@ -94,6 +94,7 @@ the negative-result wording in advance makes the claims honest; cross-fitting do
 - **Targets**: Cohen's kappa >= 0.80 between humans; automatic judge accuracy >= 90% against the human consensus.
   Rules are fixed on dev and measured on test; if targets are missed, the judge rules are revised **once** and
   re-checked on the test half. Disagreements are adjudicated in `disagreements.csv`.
+- **Result (2026-11-12)**: automatic judge vs human consensus 0.993 (dev 0.987, test 1.000, n=75 each) -> target met. Kappa on test: AS 0.839, VA 1.000, SV 0.760 -> met for AS and VA, missed by SV (small sample, 75 items; kappa is computed on raw labels before adjudication and is reported as is). 7 disagreements adjudicated (final = 1 for all seven). Passages: 148/150 poison passages labelled poison; 128/150 clean labelled clean (11 ambiguous, 11 poison). Process: Arya made the sheets on Ada (needs full-corpus text), `key.json` went to Vansh only, labelling was blind, `scripts/label_sheet.py` is a terminal helper. Files: `reports/analysis_main/agreement.json`, `disagreements.csv`.
 - Why: "attack succeeded" must mean what we say it means (plan 5.6). String match can be fooled (a refusal that quotes
   the false answer).
 

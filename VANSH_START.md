@@ -8,7 +8,7 @@ The order across the team is in `TEAM_STATUS.md`; this file is only what you nee
 passes. A LOCAL dry run (tiny corpus, 1.5B stand-in LLM) has run end to end: indexes, poison, caches, the pilot (36 settings,
 720 records, no failures, records checked by hand), `analyze.py`, `make_plots.py` and the calibration sheets and agreement
 script (agreement tested on fabricated labels only). A7 PASSED on Ada (batch size 32 decided, see `docs/HANDOFF.md`).
-NOT done yet: the Ada pilot, the sweeps, the real human labels. `heldout` is scored on the 100 hijack questions only.
+**Update 2026-11-12:** the Ada pilot and all sweeps are done (384 settings, 145,600 records), analysis and plots ran on them (`reports/analysis_main/`), and the human calibration is done (judge accuracy vs the human consensus 0.993 (dev 0.987, test 1.000; target >= 0.90 met); Cohen's kappa on test AS 0.839, VA 1.000, SV 0.760 (target >= 0.80 met for AS and VA, missed by SV; reported as is); 7 disagreements adjudicated; passages: raters called 148/150 poison passages poison, 128/150 clean passages clean (11 ambiguous, 11 poison)). Only the report is left. `heldout` is scored on the 100 hijack questions only.
 The commands, in order, are in `docs/VANSH_RUNBOOK.md`; the decision rule is agreed and frozen: `docs/DECISION_RULE.md` (do not edit).
 Deadline: 20 Nov.
 
