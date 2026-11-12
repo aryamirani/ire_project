@@ -31,3 +31,6 @@ certifi==2026.7.22       # CA bundle for the BEIR download (Windows' default sto
 
 # tests
 pytest==9.1.1
+
+# plots (scripts/make_plots.py)
+matplotlib==3.11.2

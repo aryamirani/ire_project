@@ -1,0 +1,22 @@
+{
+  "timestamp_utc": "2026-11-11T13:47:38+00:00",
+  "git_commit": "d948dc93a7c21ca235c6fcca67dd8e281381519c-dirty",
+  "run_name": "main",
+  "settings": 384,
+  "bound": 0.02,
+  "auc_boot": 200,
+  "anchors": {
+    "query_phrase_tail": 0.025,
+    "cluster_tau_c": 0.85,
+    "perplexity_alpha": 0.025
+  },
+  "attacks": [
+    "diverse",
+    "fact",
+    "heldout",
+    "hijack",
+    "repeat",
+    "stealth",
+    "url"
+  ]
+}

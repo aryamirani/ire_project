@@ -1,0 +1,85 @@
+{
+  "pairs": {
+    "AS": {
+      "n": 50,
+      "kappa_dev": 0.883720930232558,
+      "n_dev": 25,
+      "kappa_test": 0.8387096774193549,
+      "n_test": 25,
+      "kappa_all": 0.8643761301989149
+    },
+    "SV": {
+      "n": 50,
+      "kappa_dev": 1.0,
+      "n_dev": 25,
+      "kappa_test": 0.7603833865814696,
+      "n_test": 25,
+      "kappa_all": 0.8796147672552166
+    },
+    "VA": {
+      "n": 50,
+      "kappa_dev": 0.9201277955271565,
+      "n_dev": 25,
+      "kappa_test": 1.0,
+      "n_test": 25,
+      "kappa_all": 0.9596122778675282
+    }
+  },
+  "targets": {
+    "kappa": 0.8,
+    "judge_accuracy": 0.9
+  },
+  "judge_accuracy_dev": {
+    "n": 75,
+    "accuracy": 0.9866666666666667,
+    "by_attack": {
+      "diverse": 1.0,
+      "fact": 0.909,
+      "heldout": 1.0,
+      "hijack": 1.0,
+      "repeat": 1.0,
+      "stealth": 1.0,
+      "url": 1.0
+    }
+  },
+  "judge_accuracy_test": {
+    "n": 75,
+    "accuracy": 1.0,
+    "by_attack": {
+      "diverse": 1.0,
+      "fact": 1.0,
+      "heldout": 1.0,
+      "hijack": 1.0,
+      "repeat": 1.0,
+      "stealth": 1.0,
+      "url": 1.0
+    }
+  },
+  "judge_accuracy_all": {
+    "n": 150,
+    "accuracy": 0.9933333333333333,
+    "by_attack": {
+      "diverse": 1.0,
+      "fact": 0.958,
+      "heldout": 1.0,
+      "hijack": 1.0,
+      "repeat": 1.0,
+      "stealth": 1.0,
+      "url": 1.0
+    }
+  },
+  "passage_labels_by_truth": {
+    "clean": {
+      "clean": 128,
+      "ambiguous": 11,
+      "poison": 11
+    },
+    "poison": {
+      "poison": 148,
+      "clean": 1,
+      "ambiguous": 1
+    }
+  },
+  "kappa_target_met_on_test": false,
+  "judge_target_met_on_test": true
+}
