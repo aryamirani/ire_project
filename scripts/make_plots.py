@@ -108,6 +108,7 @@ def main() -> int:
             ax.set_xticks(range(len(RETRIEVERS)), RETRIEVERS)
             ax.set_title(f"{a}, rate 3")
         axes[0].set_ylabel("ASR")
+        axes[0].set_ylim(0, 1.05)   # headroom for the legend
         axes[1].legend(frameon=False, fontsize=8)
         fig.tight_layout()
         fig.savefig(d / "fig_headline.png", dpi=160)
@@ -169,6 +170,7 @@ def main() -> int:
             ax.bar([j + (i - 2) * w for j in range(len(attacks))], ys, w, label=name, color=COLORS[name])
         ax.set_xticks(range(len(attacks)), attacks)
         ax.set_ylabel("ASR (mean over retrievers)")
+        ax.set_ylim(0, 1.0)   # headroom so the legend does not cover the tallest bars
         ax.legend(frameon=False, fontsize=8, ncol=5)
         fig.tight_layout()
         fig.savefig(d / "fig_adaptive.png", dpi=160)
