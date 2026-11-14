@@ -309,4 +309,4 @@ Cover the answer, say yours out loud, then compare. Answers are short on purpose
      the attack target. It validates the judge on our attacks and questions; it does not show the judge would work on a
      different model or a different judge's notion of success.
 149. **What is in the final report?** Design, protocol, results with six figures (rates, headline, sweeps, adaptive,
-     mechanism, AUC), the calibration, cost, limitations, a related-work section and 26 references; 8 pages.
+     mechanism, AUC), the calibration, cost, limitations, a related-work section and 26 references; 9 pages.
