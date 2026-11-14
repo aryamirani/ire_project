@@ -1,7 +1,7 @@
 # Pinned direct dependencies (Python 3.13). Verified on Samarth's machine on 2026-10-15.
 # torch is NOT installed from this file: install the CUDA build first, e.g.
 #   pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
-# (ada/setup_env.sh does this). Full transitive lock: requirements-lock.txt.
+# (ada/setup_env.sh does this).
 torch==2.6.0
 
 numpy==2.5.4

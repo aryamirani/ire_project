@@ -79,7 +79,7 @@ rate within tolerance of alpha. Rules A0-A7 by Samarth, A8-A9 by Arya. 29 tests 
 |---|---|
 | one global seed (13), **string-keyed RNGs** | `random.Random(f"{seed}:target:{qid}")` -- a question's draw never depends on other questions or on processing order |
 | deterministic tie-breaking | every ranking: score desc, then doc_id |
-| pinned versions | `requirements.txt` (torch 2.6.0, transformers 5.19.0, faiss-cpu 1.15.1, bm25s 0.3.13, numpy 2.5.4, scikit-learn 1.9.1, ...) and `requirements-lock.txt` |
+| pinned versions | `requirements.txt` (torch 2.6.0, transformers 5.19.0, faiss-cpu 1.15.1, bm25s 0.3.13, numpy 2.5.4, scikit-learn 1.9.1, ...) |
 | pinned model revisions | resolved from the local HF snapshot; recorded in index manifests; loading with another revision fails |
 | content fingerprints | indexes (corpus + shard sha256 + settings + revision), caches (+ questions sha256), text store, generation namespace, perplexity namespace |
 | frozen inputs | `configs/frozen/*` never edited; LF line endings forced by `.gitattributes` so hashes match on Windows and Linux |

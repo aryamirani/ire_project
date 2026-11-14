@@ -15,9 +15,9 @@ compared against random and oracle removal. Design: `docs/IRE_Final_Project_Plan
 | `ada/` | cluster job wrappers; each is one command, resumable, and writes a JSON report |
 | `configs/` | paths, environment profiles, experiment settings; `frozen/` holds the question set, phrase list and attack targets (never edited) |
 | `reports/` | JSON reports from the Ada runs (checked with `scripts/check_ada_report.py <job>`) |
-| `heldout/` | the blind held-out phrasings and the instructions given to their writer |
+| `heldout/` | the held-out hijack and fact phrasings, written blind to the phrase list (read by `src/ire/poison/heldout.py`) |
 | `tests/` | pytest suite |
-| `docs/` | project plan, mid report, final report (`docs/report/`), presentation and speaker script (`docs/presentation/`), frozen decision rule |
+| `docs/` | project plan, mid report, final report (`docs/report/`), presentation with speaker notes (`docs/presentation/presentation.pptx`), frozen decision rule, who did what (`TEAM_STATUS.md`), the held-out writer's instructions |
 
 Large files (corpus, indexes, caches, models) live under `$IRE_DATA_DIR`, never in git.
 
@@ -41,7 +41,7 @@ OpenMP runtimes). Full-corpus jobs ran on the Ada GPU cluster through the script
 **Finished.** All 384 sweep settings ran on Ada (145,600 records, 0 failed); analysis tables and figures are in
 `reports/analysis_main/`; the human calibration is done (judge accuracy 0.993 against the human consensus). Final report:
 `docs/report/report.pdf`. Presentation: `docs/presentation/`. Decision rule: `docs/DECISION_RULE.md`. Who did what:
-`TEAM_STATUS.md`.
+`docs/TEAM_STATUS.md`.
 
 The working notes used while building the project (`docs/HANDOFF.md`, `docs/HANDOFF_ARYA.md`,
 `docs/IMPLEMENTATION_PLAN.md`, `docs/ADA_RUNBOOK.md`, `docs/VANSH_RUNBOOK.md`, `VANSH_START.md`, `CLAUDE.md`) were
