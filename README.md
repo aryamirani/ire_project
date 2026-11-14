@@ -17,7 +17,7 @@ compared against random and oracle removal. Design: `docs/IRE_Final_Project_Plan
 | `reports/` | JSON reports from the Ada runs (checked with `scripts/check_ada_report.py <job>`) |
 | `heldout/` | the blind held-out phrasings and the instructions given to their writer |
 | `tests/` | pytest suite |
-| `docs/` | plan, mid report, step log (`HANDOFF.md`, `HANDOFF_ARYA.md`), original step plan, Ada runbook |
+| `docs/` | project plan, mid report, final report (`docs/report/`), presentation and speaker script (`docs/presentation/`), frozen decision rule |
 
 Large files (corpus, indexes, caches, models) live under `$IRE_DATA_DIR`, never in git.
 
@@ -35,10 +35,15 @@ python scripts/build_cache.py --retriever all
 pytest -q
 ```
 On macOS prefix commands with `OMP_NUM_THREADS=1 KMP_DUPLICATE_LIB_OK=TRUE` (faiss and torch ship different
-OpenMP runtimes). Full-corpus jobs run on the Ada cluster: see `docs/ADA_RUNBOOK.md`.
+OpenMP runtimes). Full-corpus jobs ran on the Ada GPU cluster through the scripts in `ada/`.
 
 ## Status
-Who has done what and what is left: `TEAM_STATUS.md`. Retrieval, attacks, detectors and the smoke test are done and
-passed on Ada. The evaluation harness (masking, metrics, controls, sweep runner, statistics, plots, calibration
-tools) is written and tested, and has run end to end on the local tiny corpus (pilot, analysis, plots, calibration
-sheets); A7 passed on Ada (batch size 32). The Ada pilot and all 384 sweep settings have run (145,600 records, 0 failed); the analysis tables and figures are in `reports/analysis_main/`; the human calibration is done (judge accuracy 0.993 against the human consensus). Only the report is left (`TEAM_STATUS.md`, decision rule `docs/DECISION_RULE.md`). Deadline 20 Nov.
+**Finished.** All 384 sweep settings ran on Ada (145,600 records, 0 failed); analysis tables and figures are in
+`reports/analysis_main/`; the human calibration is done (judge accuracy 0.993 against the human consensus). Final report:
+`docs/report/report.pdf`. Presentation: `docs/presentation/`. Decision rule: `docs/DECISION_RULE.md`. Who did what:
+`TEAM_STATUS.md`.
+
+The working notes used while building the project (`docs/HANDOFF.md`, `docs/HANDOFF_ARYA.md`,
+`docs/IMPLEMENTATION_PLAN.md`, `docs/ADA_RUNBOOK.md`, `docs/VANSH_RUNBOOK.md`, `VANSH_START.md`, `CLAUDE.md`) were
+removed after the project finished. Some code comments still refer to them; they are in git history at commit `ac0e241`
+(`git show ac0e241:docs/HANDOFF.md`).

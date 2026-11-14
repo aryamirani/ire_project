@@ -3,7 +3,7 @@
 A revision series for the viva. Read it in order the first time; afterwards use the question bank (file 16) to
 test yourself and jump back to the file that answers a question you could not answer.
 
-Every number here comes from a committed report (`reports/*.json`), `docs/HANDOFF.md`, `docs/HANDOFF_ARYA.md` or
+Every number here comes from a committed report (`reports/*.json`), `docs/HANDOFF.md`, `docs/HANDOFF_ARYA.md` (both removed after the project; in git history at ac0e241) or
 `TEAM_STATUS.md`. Numbers marked **env=local** come from Samarth's laptop (5,000-passage corpus, small models) and
 are for correctness only; everything else is from the Ada cluster on the full 2.68M-passage corpus. The sweeps
 (the final experiment) **have run** (pilot 2026-11-10, all 384 settings 2026-11-11, 0 failures); the results and the

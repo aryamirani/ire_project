@@ -1,5 +1,7 @@
 # TEAM_STATUS -- who has done what, what is left, and in what order (updated 2026-11-08)
 
+> **Note (2026-11-14):** the working notes this file points to (`docs/HANDOFF.md`, `docs/HANDOFF_ARYA.md`, `docs/ADA_RUNBOOK.md`, `docs/VANSH_RUNBOOK.md`, `VANSH_START.md`) were removed after the project finished; they are in git history at commit `ac0e241`.
+
 **Reassignment (2026-10-26, agreed with Samarth by phone):** Arya took over Samarth's remaining steps 10
 (cluster filter), 11 (perplexity filter + A8), the step 12 *tooling* (template + validator) and 13 (smoke test +
 A9). The held-out phrasings themselves (step 12) stay open: they must be written by someone who has not seen the
