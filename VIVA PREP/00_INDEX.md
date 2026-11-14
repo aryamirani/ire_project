@@ -27,7 +27,7 @@ quote a result that is not in these files.
 | 13 | `13_Decisions_and_Tradeoffs.md` | every design decision with the alternative and the trade-off | before the viva |
 | 14 | `14_Results_and_Numbers.md` | all measured numbers in one place | night before |
 | 15 | `15_Bugs_Fixes_Lessons.md` | bugs found and fixed, and what they teach | likely viva material |
-| 16 | `16_Viva_Question_Bank.md` | 142 deep questions with model answers (M = the findings) | repeatedly |
+| 16 | `16_Viva_Question_Bank.md` | 149 deep questions with model answers (M = the findings and the calibration) | repeatedly |
 | 17 | `17_Concepts_Refresher.md` | the theory: BM25, E5, SPLADE, RRF, FAISS, k-means, ROUGE-L, perplexity, statistics | if a concept is shaky |
 
 ## The project in five sentences

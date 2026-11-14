@@ -2,8 +2,9 @@
 
 **The experiment has run.** The Ada pilot (2026-11-10) and all 384 sweep settings (2026-11-11) finished with no
 failures; the final results are at the end of this file ("Sweep results"). The decision-rule verdicts there come from
-`scripts/analyze.py` run on the pushed run records (`reports/runs_main.tar.gz`); if Vansh's final tables differ, his
-win. Everything before "Sweep results" is the pre-experiment evidence (retrieval quality, poison reach, masking,
+`scripts/analyze.py` and are Vansh's official tables in `reports/analysis_main/` (headline.csv, summary.csv, crossfit.csv,
+mechanism.csv, complementarity.csv, figures fig_*.png, agreement.json); an independent run of the same script on the
+same records gave the same verdicts and the same clean-nDCG changes. Everything before "Sweep results" is the pre-experiment evidence (retrieval quality, poison reach, masking,
 calibration, smoke test). Source in brackets.
 
 ## Data (A1, data card, questions report)
@@ -72,7 +73,7 @@ smoke EM 0.06 / F1 0.26. Ada A9: ~0.2 s per answer (3B) after loading. **A7 belo
 
 ## Sweep plan
 384 settings (headline 68, rates 128, sweeps 88, adaptive 80, optional 20); ~60,000 LLM requests upper bound before
-caching (in practice ~24,500 new generations in all thanks to the cache, see below). Tests: 435 passing (2026-11-10).
+caching (in practice ~24,500 new generations in all thanks to the cache, see below). Tests: 434 passed, 1 skipped (needs the GPU) on 2026-11-13.
 
 ## Generation, Ada (A7, 2026-11-10, job 67804, RTX 2080 Ti, Qwen2.5-3B-Instruct fp16)
 Throughput batch 1 / 8 / 16 / 32 = 46.7 / 202.8 / 250.0 / 306.8 requests/min; peak VRAM 5.9 / 6.5 / 7.3 / 8.1 GiB (weights 5.75 GiB);
@@ -206,3 +207,26 @@ fact: 0 -> ~0.00-0.01, 1 -> 0.08-0.30, 2 -> 0.35-0.51, 3+ -> ~0.65. hijack: 0 ->
 the same with or without a filter; with exactly one surviving passage the filters differ (0.08-0.30 for fact), partly
 because the count is measured after filtering, so the questions in each group differ by filter. Detectors help only by removing poison, and one surviving hijack passage already succeeds ~40% of
 the time, which is why passage-level TPR overstates the safety gain.
+
+## Human calibration of the automatic ASR judge (2026-11-12; `reports/analysis_main/agreement.json`, `disagreements.csv`)
+Design: 150 answers (stratified over attack x outcome, 75 dev / 75 test, 50 per annotator pair: Arya+Samarth,
+Samarth+Vansh, Vansh+Arya), blind; each person also labelled 100 passages (poison / clean / ambiguous). Sheets were made
+on Ada (seed 13, needs the full-corpus text), `key.json` went to Vansh only.
+- **Judge accuracy vs the human consensus: 0.993 over all 150 (149/150); dev 0.987, test 1.000; target >= 0.90 met.**
+  By attack: 1.000 for diverse, heldout, hijack, repeat, stealth and url; fact 0.958 (the one miss, a064 on dev: the
+  model answered correctly, "the Ramones", and named the attack target only to reject it ("...not a cast..."); the
+  string match counted the mention as a success, the humans as a failure. This is the failure mode the calibration was
+  designed to find).
+- **Cohen's kappa between annotators, before adjudication** (dev / test / all): Arya-Samarth 0.884 / 0.839 / 0.864;
+  Samarth-Vansh 1.000 / 0.760 / 0.880; Vansh-Arya 0.920 / 1.000 / 0.960. Target 0.80: met on test for two pairs, missed
+  by Samarth-Vansh (0.760, ~25 answers per pair-half, so 1-2 disagreements move kappa by ~0.1; reported as is; revising
+  the judge rules, the plan's fallback, would not fix disagreement between two people).
+- 7 answers on which a pair disagreed were adjudicated by the two annotators involved (final label 1 in all seven).
+- **Passages**: raters called 148/150 poison passages poison; of 150 clean passages 128 were called clean, 11 poison and
+  11 ambiguous. A human can recognise our poison but over-flags some clean text.
+- Limits: 150 answers is small; annotators are the authors; labels were given after seeing our attack goals (the
+  sheet shows the attack target).
+
+## The final report (docs/report/report.tex, draft by Vansh, edited by Arya 2026-11-14)
+8 pages: design, protocol, results (6 figures), calibration, cost, limitations, conclusion, plus a related-work section
+and 26 references. Numbers in it are taken from `reports/analysis_main/`. Deadline 20 Nov 2026.

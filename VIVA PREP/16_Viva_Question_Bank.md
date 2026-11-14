@@ -184,7 +184,8 @@ Cover the answer, say yours out loud, then compare. Answers are short on purpose
      context without ASR falling or vice versa.
 106. **What if the detectors don't help?** We say so per cell with intervals; negative results are reported.
 107. **Human calibration design?** 150 answers, 75 dev/75 test, 50 per pair, blind; 100 passages each; kappa >= 0.8,
-     judge accuracy >= 90%; revise rules once on dev.
+     judge accuracy >= 90%; revise rules once on dev. Result: judge accuracy 0.993 (target met); kappa on test 0.839 /
+     1.000 / 0.760 (met for two pairs, missed by Samarth-Vansh).
 
 ## J. Engineering and reproducibility (file 11)
 108. **How do you make results reproducible?** Seed 13 with string-keyed RNGs, doc_id tie-breaks, pinned versions and
@@ -286,3 +287,26 @@ Cover the answer, say yours out loud, then compare. Answers are short on purpose
 142. **Is the cluster result robust? Its nDCG CI reaches -0.034.** The rule uses the point estimate (-0.005 to
      -0.015), which is within the bound; the CI lower ends of -0.015 to -0.036 mean we cannot rule out a loss slightly
      above 0.02. Report it as "within the bound on the point estimate", with the CI.
+143. **How well does your automatic ASR judge agree with humans?** 0.993 over 150 answers (149/150): dev 0.987, test
+     1.000, against a target of 0.90. It is perfect on every attack except fact (0.958): the one miss is an answer
+     that gave the correct answer and mentioned the attack target only to reject it ("the Ramones, not a cast..."); the
+     string match scored it a success, the humans a failure.
+144. **Your annotators missed their kappa target for one pair. Does that undermine the calibration?** The target
+     (0.80) was met on the test half for two of three pairs (0.839, 1.000) and missed by Samarth-Vansh (0.760). With ~25
+     answers per half, one or two disagreements move kappa by ~0.1, and the mean over the three pairs is 0.866. We report
+     it as is. Revising the judge's rules (the plan's fallback) would change the automatic judge, not the humans, so it
+     would not help.
+145. **What was the human calibration for?** To show that "ASR = 1" means what we say it means. String matching can be
+     fooled (a refusal that quotes the false answer). If the judge disagreed with people, every ASR figure in the report
+     would be suspect; it agrees at 0.993.
+146. **How were the 150 answers chosen and why blind?** Stratified over attack x outcome (so rare successes and
+     failures are both covered), split 75 dev / 75 test, 50 per annotator pair. The automatic verdict, setting and split
+     were hidden so labels could not be influenced by the judge. Rules are fixed on dev and checked on test.
+147. **What did the passage labelling show?** Raters labelled 148/150 poison passages poison and 128/150 clean passages
+     clean (11 ambiguous, 11 poison): humans can recognise our poison, which says our attacks are not stealthy to a
+     reader, and over-flag some clean text, which is the same trade-off the detectors face.
+148. **What are the limits of the calibration?** 150 answers is small, the annotators are the authors, and the sheet shows
+     the attack target. It validates the judge on our attacks and questions; it does not show the judge would work on a
+     different model or a different judge's notion of success.
+149. **What is in the final report?** Design, protocol, results with six figures (rates, headline, sweeps, adaptive,
+     mechanism, AUC), the calibration, cost, limitations, a related-work section and 26 references; 8 pages.
