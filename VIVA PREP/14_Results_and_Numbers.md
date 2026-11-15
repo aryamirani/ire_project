@@ -228,5 +228,5 @@ on Ada (seed 13, needs the full-corpus text), `key.json` went to Vansh only.
   sheet shows the attack target).
 
 ## The final report (docs/report/report.tex, draft by Vansh, edited by Arya 2026-11-14)
-9 pages: problem statement, system design, protocol, results (6 figures), calibration, cost, limitations, related work, conclusion
-and 26 references. Numbers in it are taken from `reports/analysis_main/`. Deadline 20 Nov 2026.
+2 pages (two-column; the limit is 2): problem statement, system design, evaluation protocol, results (one headline table),
+human calibration, limitations, related work, conclusion and 15 references. The longer 9-page draft is in git history (commit e4855cb). Numbers in it are taken from `reports/analysis_main/`. Deadline 20 Nov 2026.

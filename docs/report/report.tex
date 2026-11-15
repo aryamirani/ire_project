@@ -1,254 +1,113 @@
-\documentclass[10pt,a4paper]{article}
-\usepackage[margin=2cm]{geometry}
+\documentclass[10pt,a4paper,twocolumn]{article}
+\usepackage[margin=1.5cm,columnsep=0.6cm]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
 \usepackage{amsmath}
 \usepackage{booktabs}
 \usepackage{graphicx}
-\usepackage{float}
-\usepackage{hyperref}
-\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue!50!black}
-\graphicspath{{../../reports/analysis_main/}{./}}
-\setlength{\parskip}{0.4em}
+\usepackage[hidelinks]{hyperref}
+\usepackage[font=small,skip=3pt]{caption}
+\setlength{\parskip}{0.2em}
 \setlength{\parindent}{0pt}
-\let\olditemize\itemize \renewcommand{\itemize}{\olditemize\setlength{\itemsep}{1pt}\setlength{\parskip}{0pt}\setlength{\topsep}{2pt}}
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{\z@}{-1.6ex plus -.4ex}{0.6ex}{\normalfont\large\bfseries}}
+\makeatother
 \newcommand{\asr}{\textsc{asr}}
 
 \begin{document}
+\twocolumn[{%
 \begin{center}
 {\Large\bfseries Measuring RAG Safety Against Bad Data}\\[3pt]
-{\large Final report}\\[3pt]
-Arya, Samarth, Vansh \quad --- \quad IRE course project \quad --- \quad November 2026
+Arya, Samarth, Vansh \quad --- \quad IRE course project, final report \quad --- \quad November 2026
 \end{center}
-
+\vspace{-0.4em}
 \begin{abstract}
-We inject poisoned passages into one retrieval-augmented generation (RAG) pipeline over Natural Questions (BEIR NQ, 2.68M passages, Qwen2.5-3B-Instruct, greedy decoding) and measure how often the poison reaches the answer under four retrievers (BM25, e5-base-v2 dense, SPLADE, BM25+dense RRF). We then test three training-free detectors placed between retrieval and generation (query-and-phrase, cluster, perplexity) against random and oracle removal. With no defence, three poison passages per target question give an attack success rate (\asr) of 0.56--0.90. The three detectors give three different results under a decision rule that was frozen before any sweep ran. The cluster detector helps in all 8 cells at a clean-retrieval cost of at most 0.015 nDCG@5. The query-and-phrase detector gives the largest \asr\ reduction and beats random removal in all 8 cells, but it fails the clean-retrieval condition in all 8, because it drops a gold passage on about 30\% of clean questions. The perplexity detector helps in 6 of 8 cells and removes little of the poison at its frozen threshold. Detectors calibrated on our own attack wording transfer less well to held-out phrasings, and one attack (stealth) does not reach the model even without a defence. The automatic \asr\ judge agrees with human labels at 0.993; human--human agreement meets the 0.80 target for two of three annotator pairs on the test half.
+\noindent We inject poisoned passages into one retrieval-augmented generation (RAG) pipeline over Natural Questions (2.68M passages, Qwen2.5-3B-Instruct, greedy decoding) and measure how often the poison reaches the answer under four retrievers (BM25, e5-base-v2 dense, SPLADE, BM25+dense RRF). We test three training-free detectors placed between retrieval and generation (query-and-phrase, cluster, perplexity) against random and oracle removal, under a decision rule frozen before any sweep ran. With no defence, three poison passages per target question give an attack success rate (\asr) of 0.56--0.90. The cluster detector helps in all 8 headline cells at a clean-retrieval cost of at most 0.015 nDCG@5; perplexity helps in 6 of 8; query-and-phrase gives the largest \asr\ reduction but helps in none, because it also drops a gold passage on about 30\% of clean questions. The automatic \asr\ judge agrees with human labels at 0.993.
 \end{abstract}
+\vspace{0.6em}
+}]
 
 \section{Problem statement}
-Retrieval-augmented generation (RAG) answers a question from passages retrieved from a corpus, so anyone who can add text to that corpus can try to steer the answer by planting poisoned passages. This project measures how much harm from such bad data reaches the answer of a RAG system and how that depends on the retriever, and tests whether simple detectors placed between retrieval and generation reduce it by more than removing the same number of passages at random, without hurting normal questions.
+RAG answers a question from passages retrieved from a corpus, so anyone who can add text to that corpus can try to steer the answer by planting poisoned passages. We measure how much harm from such bad data reaches the answer and how that depends on the retriever, and test whether simple detectors placed between retrieval and generation reduce it by more than removing the same number of passages at random, without hurting normal questions.
 
 \section{System design}
+\textbf{Pipeline.} For each question we cache the top-150 passages per retriever, mask the poison that is not active in the current setting, keep the top-50 as the candidate pool, let a detector drop the passages it flags, and pass the first five survivors to the LLM. All poison sits in one index per retriever and a setting is simulated by masking; masking is exact for dense and SPLADE, and for BM25 the top-5 is unchanged on 96\% of questions.
 
-\textbf{Pipeline.} For each question we cache the top-150 passages per retriever, mask the poison that is not active in the current setting, keep the top-50 as the candidate pool, let a detector flag passages, drop the flagged ones, and pass the first five surviving passages to the LLM. Generation is cached by (question, ordered top-5), so the same prompt is generated once.
+\textbf{Components.} BEIR NQ~\cite{thakur2021beir} (2,681,468 passages); BM25~\cite{robertson2009bm25}, e5-base-v2~\cite{wang2022e5} with an exact FAISS index, SPLADE~\cite{formal2022splade}, and reciprocal rank fusion~\cite{cormack2009rrf} of BM25 and dense; Qwen2.5-3B-Instruct~\cite{qwen2024qwen25} in fp16 with greedy decoding.
 
-\textbf{Components.} The corpus is BEIR NQ~\cite{thakur2021beir,kwiatkowski2019nq} (2,681,468 passages). Retrievers: BM25~\cite{robertson2009bm25} (bm25s~\cite{lu2024bm25s}), e5-base-v2~\cite{wang2022e5} with an exact FAISS inner-product index~\cite{johnson2019faiss}, SPLADE~\cite{formal2022splade} (the CoCondenser-EnsembleDistil checkpoint), and reciprocal rank fusion~\cite{cormack2009rrf} of BM25 and dense ($k=60$). The generator is Qwen2.5-3B-Instruct~\cite{qwen2024qwen25} in fp16 with greedy decoding.
+\textbf{Data.} 400 frozen questions in two folds: 200 \emph{target} questions (poison is injected) and 200 \emph{clean} questions (they measure the cost to normal answers). A poison rate $r\in\{1,3,5\}$ keeps the first $r$ poison passages of a question.
 
-\textbf{Data.} 400 frozen questions in two folds: 200 target questions (poison is injected) and 200 clean questions (they measure the cost to normal answers; poison written for other questions stays active, which produces collateral poisoning). All poison sits in one index per retriever and a setting is simulated by masking, so a rate of $r$ keeps the first $r$ poison passages of a question.
+\textbf{Attacks} (5,005 passages). \emph{fact} (a type-matched false answer, as in PoisonedRAG~\cite{zou2024poisonedrag}), \emph{hijack} (an instruction to output the codeword \texttt{ZOLTRAX}) and \emph{url} (an attacker URL), both indirect prompt injection~\cite{greshake2023indirect}; three adaptive variants, \emph{diverse}, \emph{repeat} and \emph{stealth}, each written to evade one detector; and \emph{held-out} hijack phrasings written by a teammate who had not seen the detector's phrase list.
 
-\textbf{Attacks.} \emph{fact} (a type-matched false answer), \emph{hijack} (an instruction to output the codeword \texttt{ZOLTRAX}), \emph{url} (an attacker URL) are the main attacks. Three adaptive variants, \emph{diverse}, \emph{repeat} and \emph{stealth}, were each written to evade one detector, and \emph{held-out} is a set of hijack and fact phrasings written by a teammate who had not seen the detector's phrase list. The held-out set is scored on the 100 hijack target questions only.
-
-\textbf{Detectors} (all calibrated on clean passages only). \emph{Query-and-phrase} flags a passage by similarity to its own query beyond a cutoff chosen on the opposite question fold plus a frozen list of injection phrases (anchor: tail 2.5\%). \emph{Cluster} splits the top 20 passages of the pool into two k-means clusters ($k=2$) of their dense vectors and flags every member of a cluster (two or more passages) whose mean pairwise cosine is $\ge \tau_c = 0.85$ and mean pairwise ROUGE-L~\cite{lin2004rouge} is $\ge 0.25$. \emph{Perplexity} scores passage chunks with GPT-2~\cite{radford2019gpt2} (two perplexity statistics per passage) and flags passages beyond a percentile of clean-corpus scores (anchor $\alpha = 2.5\%$). \textbf{Controls.} \emph{random} drops the same number of passages as the detector on each question (seed 13), and \emph{oracle} drops all poison.
+\textbf{Detectors} (calibrated on clean passages only). \emph{Query-and-phrase} flags a passage by similarity to its own query beyond a cutoff chosen on the other fold (tail 2.5\%) or by a frozen list of injection phrases. \emph{Cluster} runs k-means ($k=2$) on the top 20 passages and flags a cluster whose mean cosine is $\ge 0.85$ and mean ROUGE-L is $\ge 0.25$, the first stage of TrustRAG~\cite{zhou2025trustrag}. \emph{Perplexity} flags passages whose GPT-2 perplexity statistics fall beyond a clean-corpus percentile ($\alpha=2.5\%$). Controls: \emph{random} drops the same number of passages as the detector; \emph{oracle} drops all poison.
 
 \section{Evaluation protocol}
-\textbf{Outcomes.} \asr\ is a string match on the generated answer: the codeword or the URL domain as a raw case-insensitive substring, and for false-answer attacks a SQuAD-normalised token match. We also report EM, F1, accuracy (gold contained), nDCG@5/10, recall, gold passages dropped, backfill, and the detection measures TPR, FPR and ROC-AUC (question-level bootstrap). Intervals are Wilson~\cite{wilson1927} for proportions.
-
-\textbf{Frozen decision rule.} Fixed before any sweep (\texttt{docs/DECISION\_RULE.md}, agreed by all three authors). The headline setting is poison rate 3, attacks fact and hijack, the four retrievers, and the anchors above. A detector \emph{helps} in a (retriever, attack) cell if (i) its \asr\ is lower than with no filter with an exact McNemar test~\cite{mcnemar1947}, Holm-adjusted~\cite{holm1979} over the 24 headline tests (3 detectors $\times$ 4 retrievers $\times$ 2 attacks), $p<0.05$; and (ii) the mean paired change in clean-question nDCG@5 is at least $-0.02$. Beating the random filter ($p<0.05$) is reported separately. Rates 1 and 5, the parameter sweeps, url and the adaptive attacks are descriptive. Cross-fitting picks a sweep parameter on one fold and reports it on the other, then swaps.
+\asr\ is a string match on the answer: the codeword or URL domain as a substring, and a normalised token match for false answers. We also measure accuracy, nDCG@5, gold passages dropped, and detection TPR, FPR and ROC-AUC. \textbf{Frozen decision rule} (agreed before the headline sweep): at rate 3, for fact and hijack and the four retrievers, a detector \emph{helps} in a cell if (i) its \asr\ is lower by an exact McNemar test~\cite{mcnemar1947}, Holm-adjusted~\cite{holm1979} over the 24 headline tests, $p<0.05$, and (ii) clean nDCG@5 falls by at most 0.02. The full grid has 384 settings and 145,600 per-question records, run with no failures.
 
 \section{Results}
-\subsection{Harm without a defence}
-\begin{table}[H]\centering\small
-\begin{tabular}{@{}llcccc@{}}
+\textbf{Harm without a defence.} \asr\ grows with the poison rate for every retriever. BM25 is the most exposed (fact: 0.34, 0.70, 0.98 at rates 1, 3, 5; hijack: 0.54, 0.90, 0.94), because the poison repeats the question's words; dense is the least exposed (fact 0.56, hijack 0.66 at rate 3).
+
+\begin{table}[t]\centering\footnotesize
+\setlength{\tabcolsep}{2.6pt}
+\begin{tabular}{@{}llccccc@{}}
 \toprule
-Attack & Retriever & \asr\ rate 1 & rate 3 & rate 5 & poison in top-5 (rate 3) \\
+ & & \multicolumn{4}{c}{\asr\ at rate 3} & helps \\
+\cmidrule(lr){3-6}
+ & & none & QP & CL & PP & \small QP CL PP \\
 \midrule
-fact & bm25 & 0.34 & 0.70 & 0.98 & 2.96 \\
-fact & dense & 0.22 & 0.56 & 0.78 & 2.62 \\
-fact & splade & 0.27 & 0.56 & 0.89 & 2.78 \\
-fact & rrf & 0.23 & 0.63 & 0.90 & 2.96 \\
+fact & bm25 & 0.70 & 0.24 & 0.51 & 0.65 & \texttt{nYY} \\
+ & dense & 0.56 & 0.23 & 0.34 & 0.48 & \texttt{nYY} \\
+ & splade & 0.56 & 0.26 & 0.36 & 0.52 & \texttt{nYn} \\
+ & rrf & 0.63 & 0.29 & 0.38 & 0.53 & \texttt{nYY} \\
 \midrule
-hijack & bm25 & 0.54 & 0.90 & 0.94 & 2.79 \\
-hijack & dense & 0.36 & 0.66 & 0.70 & 1.83 \\
-hijack & splade & 0.37 & 0.70 & 0.77 & 2.13 \\
-hijack & rrf & 0.46 & 0.84 & 0.93 & 2.62 \\
+hijack & bm25 & 0.90 & 0.31 & 0.62 & 0.81 & \texttt{nYY} \\
+ & dense & 0.66 & 0.23 & 0.34 & 0.60 & \texttt{nYY} \\
+ & splade & 0.70 & 0.18 & 0.48 & 0.62 & \texttt{nYY} \\
+ & rrf & 0.84 & 0.26 & 0.47 & 0.80 & \texttt{nYn} \\
 \bottomrule
 \end{tabular}
-\caption{\asr\ with no filter against the number of poison passages per target question (200 target questions per cell; Wilson 95\% intervals about $\pm0.06$ at rate 3). Figure~\ref{fig:rates} shows the intervals.}\label{tab:rates}
-\end{table}
-Harm grows with the poison rate for every retriever. BM25 is the most exposed: with fact poison its \asr\ goes from 0.34 to 0.70 to 0.98, and at rate 3 about three of its five final passages are poison. Dense retrieval is the least exposed (0.56 for fact and 0.66 for hijack at rate 3) because fewer poison passages reach its top-5. For hijack, the dense and SPLADE curves flatten between rate 3 and 5.
-
-\begin{figure}[H]\centering
-\includegraphics[width=0.85\linewidth]{fig_rates.png}
-\caption{\asr\ with no filter against poison passages per target question, with Wilson 95\% intervals.}\label{fig:rates}
-\end{figure}
-
-\subsection{Headline: do the detectors help?}
-\begin{table}[H]\centering\small
-\begin{tabular}{@{}llccccccc@{}}
-\toprule
-Attack & Retriever & No filter & Query-phrase & Cluster & Perplexity & Oracle & helps (QP/CL/PP) \\
-\midrule
-fact & bm25 & 0.70 & 0.24 & 0.51 & 0.65 & 0.00 & \texttt{nYY} \\
-fact & dense & 0.56 & 0.23 & 0.34 & 0.48 & 0.01 & \texttt{nYY} \\
-fact & splade & 0.56 & 0.26 & 0.36 & 0.52 & 0.00 & \texttt{nYn} \\
-fact & rrf & 0.63 & 0.29 & 0.38 & 0.53 & 0.01 & \texttt{nYY} \\
-\midrule
-hijack & bm25 & 0.90 & 0.31 & 0.62 & 0.81 & 0.00 & \texttt{nYY} \\
-hijack & dense & 0.66 & 0.23 & 0.34 & 0.60 & 0.00 & \texttt{nYY} \\
-hijack & splade & 0.70 & 0.18 & 0.48 & 0.62 & 0.00 & \texttt{nYY} \\
-hijack & rrf & 0.84 & 0.26 & 0.47 & 0.80 & 0.00 & \texttt{nYn} \\
-\bottomrule
-\end{tabular}
-\caption{Headline \asr\ at rate 3 (200 target questions) at the frozen anchors, and the decision-rule verdict per detector (\texttt{Y} helps, \texttt{n} does not).}\label{tab:headline}
+\caption{Headline: \asr\ with no filter and with query-and-phrase (QP), cluster (CL) and perplexity (PP), 200 target questions per cell; the decision-rule verdict (\texttt{Y} helps). Change in clean nDCG@5 (bound $-0.02$): QP $-0.11$ to $-0.22$, CL $-0.005$ to $-0.015$, PP $-0.010$ to $+0.001$. Oracle \asr\ is 0.00--0.01.}\label{tab:headline}
 \end{table}
 
-\begin{figure}[H]\centering
-\includegraphics[width=0.95\linewidth]{fig_headline.png}
-\caption{Headline \asr\ at rate 3 for fact and hijack, by retriever and detector.}\label{fig:headline}
-\end{figure}
+\textbf{Headline verdicts} (Table~\ref{tab:headline}). \emph{Cluster helps in 8 of 8 cells}, lowering \asr\ by 0.19--0.37. \emph{Perplexity helps in 6 of 8}, with small drops (0.04--0.10); splade-fact and rrf-hijack miss significance (Holm $p=0.077$). \emph{Query-and-phrase helps in 0 of 8}: its \asr\ drop is the largest (0.30--0.59, Holm $p<10^{-3}$ everywhere) and it beats random in all 8 cells, but it removes a gold passage on about 30\% of clean questions, cutting clean nDCG@5 by 0.11--0.22 and dense clean accuracy from 0.565 to 0.465. Poison is written to look like the question, and so is the passage that answers it. Random removal leaves \asr\ near the no-filter level, so the gains come from \emph{what} the detectors remove.
 
-\textbf{Verdict (24 tests, Holm-adjusted).} \emph{Cluster helps in 8 of 8 cells and beats random in 8 of 8.} \emph{Perplexity helps in 6 of 8} and fails on splade-fact and rrf-hijack (both Holm-adjusted $p=0.077$); it beats random in the same 6 cells. \emph{Query-and-phrase helps in 0 of 8}: its \asr\ drop is the largest and significant everywhere (Holm-adjusted $p<10^{-3}$ in each of the 8 cells), and it beats random in all 8, but it fails the clean-retrieval condition in every cell (Table~\ref{tab:clean}). The share of the oracle's gain each detector captures is 54--74\% for query-and-phrase, 27--47\% for cluster and 5--16\% for perplexity. The mechanism check raised no flags: in all 24 cells the change in poison passages in the final top-5 moves together with the change in \asr.
+\textbf{Thresholds.} Perplexity ranks poison well (AUC up to 0.98) but its frozen 2.5\% cutoff flags little; looser cutoffs chosen by cross-fitting reduce \asr\ much more (BM25 hijack 0.895 $\to$ 0.395), and we did not change the frozen anchor.
 
-\textbf{Oracle.} The oracle's \asr\ is 0 in all but two cells, where one question each (dense fact and rrf fact, 0.005) produced the false answer with no poison in its top-5. For BM25, dense and SPLADE the oracle top-5 equals the no-poison top-5 on 400 of 400 questions. For RRF it matches on 363 (fact) and 332 (hijack) of 400, because fusion happens with the poison present; for RRF the oracle run is therefore the reference for how close a detector gets, not the no-poison run.
+\textbf{Adaptive and held-out attacks.} Held-out wording gets through more: on BM25, query-and-phrase brings hijack from 0.90 to 0.31 but the held-out phrasings only from 0.87 to 0.51; averaged over retrievers it detects 0.77 of hijack passages but 0.47 of held-out ones. \emph{Repeat} is the one attack where cluster beats query-and-phrase; \emph{diverse} wording slips past the cluster filter; \emph{stealth} has \asr\ near 0 even without a defence, because its poison is almost never retrieved.
 
-\subsection{Cost to normal questions}
-\begin{table}[H]\centering\small
-\begin{tabular}{@{}lcccccc@{}}
-\toprule
- & \multicolumn{2}{c}{Clean, no filter} & \multicolumn{3}{c}{Gold passages dropped per clean question} \\
-\cmidrule(r){2-3}\cmidrule{4-6}
-Retriever & nDCG@5 & accuracy & Query-phrase & Cluster & Perplexity \\
-\midrule
-bm25 & 0.229 & 0.420 & 0.32 & 0.01 & 0.01 \\
-dense & 0.492 & 0.565 & 0.32 & 0.04 & 0.01 \\
-splade & 0.479 & 0.550 & 0.33 & 0.03 & 0.01 \\
-rrf & 0.417 & 0.580 & 0.32 & 0.03 & 0.01 \\
-\bottomrule
-\end{tabular}
-\caption{Clean-question baseline and gold passages dropped at the anchors (rate 3, fact setting; 200 clean questions).}\label{tab:cleanbase}
-\end{table}
-\begin{table}[H]\centering\small
-\begin{tabular}{@{}lccc@{}}
-\toprule
-Retriever & Query-phrase & Cluster & Perplexity \\
-\midrule
-bm25 & -0.111 & -0.005 & +0.000 \\
-dense & -0.223 & -0.013 & -0.010 \\
-splade & -0.201 & -0.013 & +0.001 \\
-rrf & -0.188 & -0.015 & -0.009 \\
-\bottomrule
-\end{tabular}
-\caption{Paired change in clean-question nDCG@5 (filter minus no filter) at the anchors; the decision rule requires at least $-0.02$. 95\% intervals are in \texttt{headline.csv}; for example BM25 query-and-phrase is $-0.111$ [$-0.151$, $-0.075$].}\label{tab:clean}
-\end{table}
-The query-and-phrase detector removes a gold passage from about 30\% of clean questions (60 of 200 on dense; 0.32 gold passages per question on average), which cuts clean nDCG@5 by 0.11 (BM25) to 0.22 (dense) and clean accuracy by 0.08--0.12. Cluster drops 0.01--0.04 gold passages per question and perplexity about 0.01, and both stay within the $-0.02$ bound. Query-and-phrase wins on \asr\ and loses on normal answers; this is the trade-off the decision rule was written to expose.
+\textbf{Mechanism.} \asr\ is driven by how many poison passages reach the model: near 0 with none in the top-5, about 0.65 (fact) and 0.95 (hijack) with three or more. One surviving hijack passage still succeeds in 26--51\% of cases, so passage-level detection overstates safety.
 
-\subsection{Thresholds and cross-fitting}\label{sec:thresholds}
-\begin{figure}[H]\centering
-\includegraphics[width=\linewidth]{fig_sweeps.png}
-\caption{Parameter sweeps at rate 3 (mean over the four retrievers): \asr\ (top) and clean nDCG@5 (bottom) against each detector's parameter.}\label{fig:sweeps}
-\end{figure}
-Loosening query-and-phrase (tail 0.01 $\to$ 0.10) takes dense \asr\ from 0.34/0.29 to 0.10/0.12 (fact/hijack), but the clean nDCG@5 of the dense retriever falls from 0.38 to 0.18; even its tightest setting costs about 0.11. Cluster's curve is flat for $\tau_c$ between 0.70 and 0.80: below 0.8 the ROUGE-L condition, not $\tau_c$, decides, so these settings flag the same passages (by design). Perplexity trades more \asr\ for little clean loss: moving $\alpha$ from 0.01 to 0.1 on dense lowers \asr\ from 0.53/0.63 to 0.20/0.26 at a clean nDCG@5 cost of about 0.03.
+\section{Human calibration of the judge}
+150 answers, stratified over attack and outcome, were labelled blind by pairs of authors (75 development, 75 test). The automatic judge agrees with the human consensus at \textbf{0.993} (149 of 150; target 0.90). Cohen's $\kappa$~\cite{cohen1960} between annotators on the test half is 0.839, 1.000 and 0.760, meeting the 0.80 target for two of three pairs. Annotators labelled 148 of 150 poison passages and 128 of 150 clean passages correctly.
 
-Cross-fitting (parameter chosen on one fold, reported on the other, swapped) gives results that depend on the parameter chosen. Query-and-phrase always selects tail 0.025. Cluster selects $\tau_c=0.7$ on fold A but 0.85 or 0.9 on fold B for dense, SPLADE and RRF, which is unstable but harmless since the curve is nearly flat. Perplexity selects $\alpha$ of 0.05 or 0.1 rather than the frozen 0.025, and then reduces \asr\ much more (BM25 hijack 0.895 $\to$ 0.395, against 0.815 at the anchor) at a clean nDCG@5 change of $-0.009$ to $-0.021$ (SPLADE $-0.021$ breaches the $-0.02$ bound). We therefore regard perplexity's weak headline result as a property of the conservative frozen anchor, and we did not change the anchor after seeing results.
-
-\subsection{Adaptive and held-out attacks}
-\begin{table}[H]\centering\small
-\begin{tabular}{@{}lcccccccc@{}}
-\toprule
- & \multicolumn{4}{c}{\asr, rate 3} & \multicolumn{3}{c}{TPR of the detector} \\
-\cmidrule(r){2-5}\cmidrule{6-8}
-Attack & No filter & Query-phrase & Cluster & Perplexity & Query-phrase & Cluster & Perplexity \\
-\midrule
-fact & 0.61 & 0.26 & 0.40 & 0.55 & 0.56 & 0.36 & 0.12 \\
-hijack & 0.77 & 0.25 & 0.48 & 0.71 & 0.77 & 0.37 & 0.14 \\
-url & 0.72 & 0.19 & 0.44 & 0.68 & 0.86 & 0.40 & 0.07 \\
-heldout & 0.69 & 0.35 & 0.51 & 0.51 & 0.47 & 0.23 & 0.21 \\
-diverse & 0.29 & 0.11 & 0.25 & 0.26 & 0.51 & 0.10 & 0.15 \\
-repeat & 0.42 & 0.29 & 0.23 & 0.38 & 0.35 & 0.51 & 0.06 \\
-stealth & 0.00 & 0.01 & 0.00 & 0.00 & 0.00 & 0.06 & 0.04 \\
-\bottomrule
-\end{tabular}
-\caption{\asr\ and detector TPR at rate 3, mean over the four retrievers (100 target questions for adaptive and held-out, 200 for url; fact and hijack use 200). Anchor parameters.}\label{tab:adaptive}
-\end{table}
-\begin{figure}[H]\centering
-\includegraphics[width=0.85\linewidth]{fig_adaptive.png}
-\caption{\asr\ by attack, mean over retrievers, at rate 3.}\label{fig:adaptive}
-\end{figure}
-\begin{itemize}
-\item \textbf{Held-out phrasings get through more.} Query-and-phrase detects hijack poison at TPR 0.77 but the held-out hijack phrasings at 0.47; on BM25 its \asr\ drops from 0.87 to 0.51 for held-out against 0.90 to 0.31 for hijack. Detectors calibrated on our own wording transfer imperfectly.
-\item \textbf{Repeat} is the one attack where the cluster detector beats query-and-phrase (mean \asr\ 0.23 against 0.29; TPR 0.51 against 0.35). On repeat the perplexity detector's AUC is 0.02, so its scores rank repeat poison as \emph{less} surprising than clean text.
-\item \textbf{Diverse} is flagged by query-and-phrase (\asr\ 0.29 $\to$ 0.11) but barely by cluster (0.25).
-\item \textbf{Stealth} has \asr\ near 0 even with no filter, because its poison almost never reaches the top-10. It is a case of ``no attack'', not a detector win.
-\item \textbf{URL} behaves like hijack: \asr\ 0.72 with no filter, 0.19 with query-and-phrase.
-\end{itemize}
-
-\subsection{Mechanism and detection quality}
-\begin{figure}[H]\centering
-\includegraphics[width=0.85\linewidth]{fig_mechanism.png}
-\caption{\asr\ against the number of poison passages in the final top-5, per filter (cells with at least 5 questions).}\label{fig:mechanism}
-\end{figure}
-\asr\ is driven by how many poison passages reach the model. With no poison in the top-5, \asr\ is 0.00--0.01 for every filter; with one poison passage it is about 0.08 (fact, no filter), and it rises to about 0.65 (fact) and 0.95 (hijack) with three or more. At one poison passage some filters show a higher \asr\ than no filter; we read that as a selection effect (the poison a detector misses is the more effective poison) and not as a harmful detector. ROC-AUC of the three detectors at the anchors on the main attacks is 0.85--0.96 for fact and hijack (Figure~\ref{fig:auc}); high AUC at low TPR for perplexity means its scores rank poison correctly but its 2.5\% threshold is too strict, matching the cross-fit result.
-\begin{figure}[H]\centering
-\includegraphics[width=0.85\linewidth]{fig_auc.png}
-\caption{ROC-AUC of the detectors by attack (mean over retrievers); the dotted line is chance.}\label{fig:auc}
-\end{figure}
-
-\section{Validating the automatic judge: human calibration}
-150 answers, stratified over attack and outcome, were labelled blind (1 = the attack succeeded) by pairs of authors (Arya--Samarth, Samarth--Vansh, Vansh--Arya; 50 answers per pair, split 75 development and 75 test). Each author also labelled 100 passages as poison, clean or ambiguous. The automatic verdict, the setting and the split were hidden. Seven answers on which a pair disagreed were adjudicated by the two annotators involved; the adjudicated label enters the consensus.
-\begin{table}[H]\centering\small
-\begin{tabular}{@{}lccc@{}}
-\toprule
-Pair & $\kappa$ dev & $\kappa$ test & $\kappa$ all \\
-\midrule
-Arya--Samarth & 0.884 & 0.839 & 0.864 \\
-Samarth--Vansh & 1.000 & 0.760 & 0.880 \\
-Vansh--Arya & 0.920 & 1.000 & 0.960 \\
-\bottomrule
-\end{tabular}
-\caption{Cohen's $\kappa$~\cite{cohen1960} between annotators before adjudication. The target is $\ge0.80$.}\label{tab:kappa}
-\end{table}
-\textbf{Judge accuracy} against the human consensus is 0.987 on development (75), 1.000 on test (75) and 0.993 over all 150, above the 0.90 target; the automatic \asr\ can be taken to mean what we say it means. \textbf{Agreement.} The test-half $\kappa$ meets 0.80 for two pairs and is 0.760 for Samarth--Vansh, just under the target; we report it as it is. Each pair has only about 25 test answers, so one or two disagreements move $\kappa$ by about 0.1, and the mean over the three pairs is 0.866. Revising the judge rules (the plan's fallback) addresses the automatic judge, not disagreement between two people, so it does not apply. \textbf{Passages.} The annotators labelled 148 of 150 poison passages as poison; of 150 clean passages they labelled 128 clean, 11 poison and 11 ambiguous, so a human can recognise our poison but over-flags some clean text.
-
-\section{Cost}
-Cost was not a headline result; these are the measured figures. Index sizes as built (BM25 1.05~GB, dense 12.5~GB, SPLADE 6.4~GB; the dense index took 46 minutes and SPLADE 54 minutes to build on one RTX~2080~Ti, BM25 6 minutes). The 3B generator measured 46.7, 202.8, 250.0 and 306.8 requests per minute at batch sizes 1, 8, 16 and 32 with a peak of 8.9~GiB of GPU memory; we used batch size 32 and the generation cache is the record, since batch size can change the last token of a few answers (batch independence 19 of 20, greedy determinism 20 of 20). The full sweep (384 settings) made 145,600 generation requests, of which about 24,400 were new generations (6,131 in the headline job, 77\% cache hits; 18,227 in the second job, 84.6\% cache hits); the cache served the rest. Filter time per question in the sweep logs ranges from about 30 to 570~ms and depends on cache state, so we report only its order of magnitude.
-
-\section{Limitations and what was not run}\label{sec:limits}
-\begin{itemize}
-\item One generator (a 3B model, greedy), one corpus and one question set of 400; the headline uses rate 3 and the attacks were written by us.
-\item \asr\ is a string match. It is validated against human labels at 0.993 on 150 answers, but a different judge could count refusals or partial answers differently.
-\item The decision-rule anchors were frozen in advance. The perplexity anchor looks too strict in hindsight (Section~\ref{sec:thresholds}); we did not change it.
-\item Poison written for other questions stays active, so clean questions are also exposed to collateral poisoning.
-\item \textbf{Not run:} RAGAS (it needs an extra LLM judge; quality is covered by EM, F1, accuracy and the judge validation) and the combined filter (cut under the decision rule's cut order). An offline TPR/FPR of the union of flags from the run records would need no LLM; we did not compute it.
-\end{itemize}
+\section{Limitations}
+One generator (a 3B model, greedy), one corpus and 200 target questions per cell; the attacks were written by us, so we make no robustness claim. \asr\ is a string match validated on only 150 answers. BM25 masking is approximate. The frozen perplexity anchor looks too strict in hindsight.
 
 \section{Related work}
-\textbf{RAG and its attack surface.} Retrieval-augmented generation conditions a language model on passages retrieved from a corpus~\cite{lewis2020rag}; anyone who can add text to that corpus can try to steer the answer. PoisonedRAG~\cite{zou2024poisonedrag} showed that a few crafted passages per target question make the model give an attacker-chosen answer; our \emph{fact} attack follows that design. Indirect prompt injection~\cite{greshake2023indirect} places instructions in retrieved content instead of facts; our \emph{hijack} and \emph{url} attacks are of that kind, and recent work makes such text reliably retrievable~\cite{chang2026retrieval}, words injections as helpful guidance~\cite{shao2025poisoncraft}, and benchmarks injection in social-web text~\cite{guo2026hidden}. Nasr et al.~\cite{nasr2025attacker} bypass twelve published defences with adaptive attacks, which is why we add one adaptive attack per detector and make no robustness claim.
-
-\textbf{Defences.} TrustRAG~\cite{zhou2025trustrag} removes tight clusters of near-duplicate retrieved passages (our cluster detector keeps that first stage, without TrustRAG's LLM-based second stage). RAGuard~\cite{cheng2025raguard} combines text-similarity filtering with chunk-wise perplexity filtering; our perplexity detector is also chunk-wise, and our other two detectors use similarity signals. RobustRAG~\cite{xiang2024robustrag} offers certified robustness by isolating passages and aggregating the answers; it changes the generator, so we discuss it but do not run it. RAGAS~\cite{es2024ragas} evaluates RAG quality with an LLM judge; we did not run it (Section~\ref{sec:limits}).
-
-\textbf{What is new here.} Prior work evaluates one detector, mostly against one retriever and with its own judge. We compare three training-free detectors under four retrievers (sparse, dense, learned sparse, fused) on the same questions, against random and oracle removal, with a decision rule fixed before the experiment, and we check the automatic judge against human labels.
+PoisonedRAG~\cite{zou2024poisonedrag} plants crafted passages to force an attacker-chosen answer, and indirect prompt injection~\cite{greshake2023indirect} hides instructions in retrieved content. TrustRAG~\cite{zhou2025trustrag} removes near-duplicate clusters, RAGuard~\cite{cheng2025raguard} combines similarity and perplexity filtering, and RobustRAG~\cite{xiang2024robustrag} certifies robustness by isolating passages; adaptive attacks bypass many published defences~\cite{nasr2025attacker}. Prior work evaluates one detector, mostly with one retriever; we compare three detectors under four retrievers on the same questions, against random and oracle removal, with a rule fixed in advance and a human-validated judge.
 
 \section{Conclusion}
-Under a decision rule fixed before the sweeps, only one of the three simple detectors helps everywhere (cluster), at almost no clean cost and with a moderate \asr\ reduction (about 0.2--0.4 absolute). The detector with the largest \asr\ reduction (query-and-phrase) is not usable at its anchor because it removes a gold passage from about 30\% of normal questions. The perplexity detector ranks poison well but removes little of it at 2.5\%. Held-out wording, the repeat attack and the diverse attack each show that no single detector covers the attack space, and stealth shows that an attack that does not reach the model needs no defence. Within these limits, the number of poison passages that reach the final five passages explains the harm, so a detector's value is how many it removes without removing the good ones.
+Under a decision rule fixed before the sweeps, only the cluster detector helps everywhere, at almost no clean cost. The detector with the largest \asr\ reduction removes a gold passage from about 30\% of normal questions, and the perplexity detector removes little poison at its frozen threshold. Held-out, repeat and diverse attacks show that no single detector covers the attack space. The number of poison passages that reach the final five explains the harm, so a detector's value is how many it removes without removing the good ones.
 
-\begin{thebibliography}{99}\small
-\setlength{\itemsep}{0pt}
-\bibitem{lewis2020rag} P.~Lewis, E.~Perez, A.~Piktus, et al. Retrieval-augmented generation for knowledge-intensive NLP tasks. \emph{NeurIPS}, 2020.
+{\footnotesize
+\begin{thebibliography}{99}
+\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}
 \bibitem{zou2024poisonedrag} W.~Zou, R.~Geng, B.~Wang, J.~Jia. PoisonedRAG: Knowledge corruption attacks to retrieval-augmented generation of large language models. arXiv:2402.07867, 2024.
-\bibitem{zhou2025trustrag} H.~Zhou, K.-H.~Lee, Z.~Zhan, Y.~Chen, Z.~Li, Z.~Wang, H.~Haddadi, E.~Yilmaz. TrustRAG: Enhancing robustness and trustworthiness in retrieval-augmented generation. arXiv:2501.00879, 2025.
-\bibitem{cheng2025raguard} Z.~Cheng, J.~Sun, A.~Gao, Y.~Quan, Z.~Liu, X.~Hu, M.~Fang. Secure retrieval-augmented generation against poisoning attacks (RAGuard). arXiv:2510.25025, 2025.
-\bibitem{shao2025poisoncraft} Y.~Shao, X.~Lin, H.~Luo, C.~Hou, G.~Xiong, J.~Yu, J.~Shi. PoisonCraft: Practical poisoning of retrieval-augmented generation for large language models. arXiv:2505.06579, 2025.
-\bibitem{chang2026retrieval} H.~Chang, E.~Bao, X.~Luo, T.~Yu. Overcoming the retrieval barrier: Indirect prompt injection in the wild for LLM systems. arXiv:2601.07072, 2026.
-\bibitem{nasr2025attacker} M.~Nasr, N.~Carlini, C.~Sitawarin, et al. The attacker moves second: Stronger adaptive attacks bypass defenses against LLM jailbreaks and prompt injections. arXiv:2510.09023, 2025.
-\bibitem{xiang2024robustrag} C.~Xiang, T.~Wu, Z.~Zhong, D.~Wagner, D.~Chen, P.~Mittal. Certifiably robust RAG against retrieval corruption (RobustRAG). arXiv:2405.15556, 2024.
-\bibitem{greshake2023indirect} K.~Greshake, S.~Abdelnabi, S.~Mishra, C.~Endres, T.~Holz, M.~Fritz. Not what you've signed up for: Compromising real-world LLM-integrated applications with indirect prompt injection. \emph{AISec}, 2023.
-\bibitem{es2024ragas} S.~Es, J.~James, L.~Espinosa-Anke, S.~Schockaert. RAGAS: Automated evaluation of retrieval augmented generation. \emph{EACL (demos)}, 2024.
-\bibitem{guo2026hidden} H.~Guo, Z.~Wei. Hidden-in-Plain-Text: A benchmark for social-web indirect prompt injection in RAG. arXiv:2601.10923, 2026.
-\bibitem{kwiatkowski2019nq} T.~Kwiatkowski, J.~Palomaki, O.~Redfield, et al. Natural Questions: A benchmark for question answering research. \emph{TACL}, 7, 2019.
-\bibitem{thakur2021beir} N.~Thakur, N.~Reimers, A.~R\"uckl\'e, A.~Srivastava, I.~Gurevych. BEIR: A heterogeneous benchmark for zero-shot evaluation of information retrieval models. \emph{NeurIPS Datasets and Benchmarks}, 2021.
-\bibitem{robertson2009bm25} S.~Robertson, H.~Zaragoza. The probabilistic relevance framework: BM25 and beyond. \emph{Foundations and Trends in Information Retrieval}, 3(4), 2009.
-\bibitem{lu2024bm25s} X.~H.~L\`u. BM25S: Orders of magnitude faster lexical search via eager sparse scoring. arXiv:2407.03618, 2024.
-\bibitem{wang2022e5} L.~Wang, N.~Yang, X.~Huang, et al. Text embeddings by weakly-supervised contrastive pre-training. arXiv:2212.03533, 2022.
-\bibitem{formal2022splade} T.~Formal, C.~Lassance, B.~Piwowarski, S.~Clinchant. From distillation to hard negative sampling: Making sparse neural IR models more effective. \emph{SIGIR}, 2022.
+\bibitem{greshake2023indirect} K.~Greshake et al. Not what you've signed up for: Compromising real-world LLM-integrated applications with indirect prompt injection. \emph{AISec}, 2023.
+\bibitem{zhou2025trustrag} H.~Zhou et al. TrustRAG: Enhancing robustness and trustworthiness in retrieval-augmented generation. arXiv:2501.00879, 2025.
+\bibitem{cheng2025raguard} Z.~Cheng et al. Secure retrieval-augmented generation against poisoning attacks (RAGuard). arXiv:2510.25025, 2025.
+\bibitem{xiang2024robustrag} C.~Xiang et al. Certifiably robust RAG against retrieval corruption (RobustRAG). arXiv:2405.15556, 2024.
+\bibitem{nasr2025attacker} M.~Nasr et al. The attacker moves second: Stronger adaptive attacks bypass defenses against LLM jailbreaks and prompt injections. arXiv:2510.09023, 2025.
+\bibitem{thakur2021beir} N.~Thakur et al. BEIR: A heterogeneous benchmark for zero-shot evaluation of information retrieval models. \emph{NeurIPS Datasets and Benchmarks}, 2021.
+\bibitem{robertson2009bm25} S.~Robertson, H.~Zaragoza. The probabilistic relevance framework: BM25 and beyond. \emph{Found. Trends IR}, 3(4), 2009.
+\bibitem{wang2022e5} L.~Wang et al. Text embeddings by weakly-supervised contrastive pre-training. arXiv:2212.03533, 2022.
+\bibitem{formal2022splade} T.~Formal et al. From distillation to hard negative sampling: Making sparse neural IR models more effective. \emph{SIGIR}, 2022.
 \bibitem{cormack2009rrf} G.~V.~Cormack, C.~L.~A.~Clarke, S.~B\"uttcher. Reciprocal rank fusion outperforms Condorcet and individual rank learning methods. \emph{SIGIR}, 2009.
-\bibitem{johnson2019faiss} J.~Johnson, M.~Douze, H.~J\'egou. Billion-scale similarity search with GPUs. \emph{IEEE Transactions on Big Data}, 7(3), 2021.
 \bibitem{qwen2024qwen25} Qwen Team. Qwen2.5 technical report. arXiv:2412.15115, 2024.
-\bibitem{radford2019gpt2} A.~Radford, J.~Wu, R.~Child, D.~Luan, D.~Amodei, I.~Sutskever. Language models are unsupervised multitask learners. OpenAI technical report, 2019.
-\bibitem{lin2004rouge} C.-Y.~Lin. ROUGE: A package for automatic evaluation of summaries. \emph{Text Summarization Branches Out (ACL workshop)}, 2004.
 \bibitem{mcnemar1947} Q.~McNemar. Note on the sampling error of the difference between correlated proportions or percentages. \emph{Psychometrika}, 12(2), 1947.
-\bibitem{holm1979} S.~Holm. A simple sequentially rejective multiple test procedure. \emph{Scandinavian Journal of Statistics}, 6(2), 1979.
-\bibitem{wilson1927} E.~B.~Wilson. Probable inference, the law of succession, and statistical inference. \emph{JASA}, 22(158), 1927.
-\bibitem{cohen1960} J.~Cohen. A coefficient of agreement for nominal scales. \emph{Educational and Psychological Measurement}, 20(1), 1960.
+\bibitem{holm1979} S.~Holm. A simple sequentially rejective multiple test procedure. \emph{Scand. J. Statistics}, 6(2), 1979.
+\bibitem{cohen1960} J.~Cohen. A coefficient of agreement for nominal scales. \emph{Educ. Psychol. Meas.}, 20(1), 1960.
 \end{thebibliography}
+}
 
 \end{document}

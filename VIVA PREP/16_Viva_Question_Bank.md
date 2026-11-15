@@ -308,5 +308,6 @@ Cover the answer, say yours out loud, then compare. Answers are short on purpose
 148. **What are the limits of the calibration?** 150 answers is small, the annotators are the authors, and the sheet shows
      the attack target. It validates the judge on our attacks and questions; it does not show the judge would work on a
      different model or a different judge's notion of success.
-149. **What is in the final report?** Design, protocol, results with six figures (rates, headline, sweeps, adaptive,
-     mechanism, AUC), the calibration, cost, limitations, a related-work section and 26 references; 9 pages.
+149. **What is in the final report?** Two pages (the limit): problem statement, system design, the frozen decision rule,
+     the headline table (verdicts and clean cost), held-out and adaptive attacks, the mechanism, the human calibration,
+     limitations, related work and 15 references. The figures live in `reports/analysis_main/`.
