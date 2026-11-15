@@ -4,8 +4,16 @@ IRE course project (Arya, Samarth, Vansh). One RAG pipeline over BEIR Natural Qu
 four retrievers (BM25, e5-base-v2 dense, SPLADE, BM25+dense RRF) and Qwen2.5-3B-Instruct. We inject poisoned
 passages (fact, hijack, url, plus three adaptive attacks and a held-out set written blind) and measure how much
 harm reaches the answer, with and without three training-free detectors (query-and-phrase, cluster, perplexity)
-compared against random and oracle removal. Design: `docs/IRE_Final_Project_Plan.pdf`. Progress so far:
+compared against random and oracle removal. Design: `docs/IRE_Final_Project_Plan.pdf`; mid report:
 `docs/mid_report/mid_report.pdf`.
+
+## Submission
+- **Final report** (2 pages): `docs/report/report.pdf`
+- **Video presentation** (13 min): [Google Drive](https://drive.google.com/file/d/1_4m7NTVqP4vtCecKFx6Li3tRMx5q32Qj/view?usp=sharing),
+  also attached to the GitHub release [`final-submission`](https://github.com/aryamirani/ire_project/releases/tag/final-submission)
+- **Slides** (with speaker notes): `docs/presentation/presentation.pptx`
+- **Full run records** (145,600 per-question records, 49 MB): `reports/runs_main.tar.gz` in this repository (left out of the
+  submitted zip because of the upload size limit; every table and figure built from them is in `reports/analysis_main/`)
 
 ## Layout
 | Path | What |
